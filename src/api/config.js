@@ -1,0 +1,140 @@
+import { Platform } from 'react-native';
+
+const DEV_CONFIG = {
+  web: 'http://localhost:8000/api/v1',
+  ios: 'http://localhost:8000/api/v1',
+  android: 'http://192.168.5.6:8000/api/v1',
+  default: 'http://localhost:8000/api/v1',
+};
+
+const getBaseURL = () => {
+  if (__DEV__) {
+    const url = DEV_CONFIG[Platform.OS] || DEV_CONFIG.default;
+    console.log('🌐 Platform:', Platform.OS);
+    console.log('🌐 Using URL:', url);
+    return url;
+  }
+  return 'https://tu-dominio.com/api/v1';
+};
+
+export const API_CONFIG = {
+  BASE_URL: getBaseURL(),
+  TIMEOUT: 15000,
+  HEADERS: {
+    'Content-Type': 'application/json',
+  }
+};
+
+export const ENDPOINTS = {
+  // Agentes Virtuales
+  AGENTES: {
+    BASE: '/agentes',
+    BY_ID: (id) => `/agentes/${id}`,
+    ESTADISTICAS: '/agentes/estadisticas',
+    BUSCAR: '/agentes/buscar',
+    ESTADISTICAS_BY_ID: (id) => `/agentes/${id}/estadisticas`,
+  },
+
+  // Conversaciones
+  CONVERSACIONES: {
+    BASE: '/conversaciones',
+    BY_ID: (id) => `/conversaciones/${id}`,
+    ACTIVAS: '/conversaciones/activas',
+    ESTADISTICAS: '/conversaciones/estadisticas',
+    ESTADISTICAS_FECHA: (fecha) => `/conversaciones/estadisticas/fecha/${fecha}`,
+    BY_VISITANTE: (id) => `/conversaciones/visitante/${id}`,
+    BY_AGENTE: (id) => `/conversaciones/agente/${id}`,
+    BY_MONGODB: (id) => `/conversaciones/mongodb/${id}`,
+    FINALIZAR: (id) => `/conversaciones/${id}/finalizar`,
+    DERIVAR: (id, nuevoId) => `/conversaciones/${id}/derivar/${nuevoId}`,
+    MENSAJES: (id) => `/conversaciones/${id}/mensajes`,
+  },
+
+  // Departamentos
+  DEPARTAMENTOS: {
+    BASE: '/departamentos',
+    BY_ID: (id) => `/departamentos/${id}`,
+    ESTADISTICAS: '/departamentos/estadisticas',
+    BUSCAR: '/departamentos/buscar',
+    BY_CODIGO: (codigo) => `/departamentos/codigo/${codigo}`,
+    ESTADISTICAS_BY_ID: (id) => `/departamentos/${id}/estadisticas`,
+    ASIGNAR_JEFE: (id, idJefe) => `/departamentos/${id}/jefe/${idJefe}`,
+    REGENERAR_OLLAMA: (id) => `/departamentos/${id}/ollama/regenerar`,
+    CONSULTAR_OLLAMA: '/departamentos/ollama/consultar',
+  },
+
+  // Categorías
+  CATEGORIAS: {
+    BASE: '/categorias',
+    BY_ID: (id) => `/categorias/${id}`,
+    BY_AGENTE: (id) => `/categorias/agente/${id}`,
+  },
+
+  // Departamento-Agente
+  DEPARTAMENTO_AGENTE: {
+    BASE: '/departamento-agente',
+    BY_ID: (id) => `/departamento-agente/${id}`,
+    BY_DEPARTAMENTO: (id) => `/departamento-agente/departamento/${id}`,
+    BY_AGENTE: (id) => `/departamento-agente/agente/${id}`,
+  },
+
+  // Métricas Contenidos
+  METRICAS_CONTENIDOS: {
+    BASE: '/metricas/contenidos',
+    BY_ID: (id) => `/metricas/contenidos/${id}`,
+    TOP_MAS_USADOS: '/metricas/contenidos/top/mas-usados',
+  },
+
+  // Métricas Agentes
+  METRICAS_AGENTES: {
+    BASE: '/metricas/agentes',
+    BY_ID: (id) => `/metricas/agentes/${id}`,
+    RESUMEN: (id) => `/metricas/agentes/${id}/resumen`,
+  },
+
+  // Roles
+  ROLES: {
+    BASE: '/roles',
+    BY_ID: (id) => `/roles/${id}`,
+    ESTADISTICAS: '/roles/estadisticas',
+  },
+
+  // Contenidos
+  CONTENIDOS: {
+    BASE: '/contenidos',
+    BY_ID: (id) => `/contenidos/${id}`,
+    BY_AGENTE: (id) => `/contenidos/agente/${id}`,
+    PUBLICAR: (id) => `/contenidos/${id}/publicar`,
+  },
+
+  // Usuarios
+  USUARIOS: {
+    BASE: '/usuarios',
+    BY_ID: (id) => `/usuarios/${id}`,
+    ESTADISTICAS: '/usuarios/estadisticas',
+    LOGIN: '/usuarios/login',
+    CAMBIAR_PASSWORD: (id) => `/usuarios/${id}/cambiar-password`,
+    DESBLOQUEAR: (id) => `/usuarios/${id}/desbloquear`,
+  },
+
+  // Visitantes Anónimos
+  VISITANTES: {
+    BASE: '/visitantes',
+    BY_ID: (id) => `/visitantes/${id}`,
+    ESTADISTICAS: '/visitantes/estadisticas',
+    ACTIVOS: '/visitantes/activos',
+    BY_SESION: (identificadorSesion) => `/visitantes/sesion/${identificadorSesion}`,
+    ESTADISTICAS_BY_ID: (id) => `/visitantes/${id}/estadisticas`,
+    ACTIVIDAD: (id) => `/visitantes/${id}/actividad`,
+    NUEVA_CONVERSACION: (id) => `/visitantes/${id}/nueva-conversacion`,
+    MENSAJES: (id) => `/visitantes/${id}/mensajes`,
+  },
+
+  // Usuario-Agente
+  USUARIO_AGENTE: {
+    BASE: '/usuario-agente',
+    BY_ID: (id) => `/usuario-agente/${id}`,
+    BY_USUARIO: (idUsuario) => `/usuario-agente/usuario/${idUsuario}`,
+    BY_AGENTE: (idAgente) => `/usuario-agente/agente/${idAgente}`,
+  },
+};
