@@ -12,11 +12,15 @@ export default function LoginCard({
   setPassword,
   errorMsg,
   handleLogin,
+  isBlocked,
+  tiempoRestante,
+  intentosRestantes,
 }) {
   // Animaciones
   const floatAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const fadeIn = useRef(new Animated.Value(0)).current;
+  const shakeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     // Animación de flotación
@@ -59,6 +63,18 @@ export default function LoginCard({
     }).start();
   }, []);
 
+  // Animación de shake cuando hay error
+  useEffect(() => {
+    if (errorMsg) {
+      Animated.sequence([
+        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [errorMsg]);
+
   return (
     <View style={loginStyles.mainContainer}>
       {/* Sección del formulario con glassmorphism */}
@@ -68,41 +84,77 @@ export default function LoginCard({
           <View style={loginStyles.header}>
             <View style={loginStyles.logoContainer}>
               <LinearGradient
-                colors={['#667eea', '#764ba2', '#f093fb']}
+                colors={isBlocked ? ['#ff4757', '#ff6348'] : ['#667eea', '#764ba2', '#f093fb']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={loginStyles.logoGradient}
               >
-                <Ionicons name="shield-checkmark" size={36} color="#fff" />
+                <Ionicons 
+                  name={isBlocked ? "lock-closed" : "shield-checkmark"} 
+                  size={36} 
+                  color="#fff" 
+                />
               </LinearGradient>
             </View>
             <Text style={loginStyles.logo}>TEC-AI</Text>
           </View>
 
-          <Text style={loginStyles.subtitle}>Bienvenido de nuevo</Text>
-          <Text style={loginStyles.description}>Inicia sesión para continuar</Text>
+          <Text style={loginStyles.subtitle}>
+            {isBlocked ? "Cuenta bloqueada temporalmente" : "Bienvenido de nuevo"}
+          </Text>
+          <Text style={loginStyles.description}>
+            {isBlocked 
+              ? `Tiempo restante: ${tiempoRestante}` 
+              : "Inicia sesión para continuar"
+            }
+          </Text>
 
           <View style={loginStyles.formContent}>
+            {/* Mensaje de error con animación */}
             {errorMsg ? (
-              <View style={loginStyles.errorContainer}>
+              <Animated.View 
+                style={[
+                  loginStyles.errorContainer,
+                  { transform: [{ translateX: shakeAnim }] }
+                ]}
+              >
                 <Ionicons name="alert-circle" size={20} color="#ff4757" />
                 <Text style={loginStyles.error}>{errorMsg}</Text>
+              </Animated.View>
+            ) : null}
+
+            {/* Indicador de intentos restantes */}
+            {!isBlocked && intentosRestantes < 5 && intentosRestantes > 0 ? (
+              <View style={loginStyles.warningContainer}>
+                <Ionicons name="warning-outline" size={18} color="#ffa502" />
+                <Text style={loginStyles.warningText}>
+                  {intentosRestantes} intento{intentosRestantes !== 1 ? 's' : ''} restante{intentosRestantes !== 1 ? 's' : ''}
+                </Text>
               </View>
             ) : null}
 
             {/* Input de correo con ícono */}
             <View style={loginStyles.inputGroup}>
-              <Text style={loginStyles.label}>Correo</Text>
-              <View style={loginStyles.inputContainer}>
-                <Ionicons name="mail-outline" size={20} color="#a29bfe" style={loginStyles.inputIcon} />
+              <Text style={loginStyles.label}>Usuario</Text>
+              <View style={[
+                loginStyles.inputContainer,
+                isBlocked && loginStyles.inputDisabled
+              ]}>
+                <Ionicons 
+                  name="person-outline" 
+                  size={20} 
+                  color={isBlocked ? "#ccc" : "#a29bfe"} 
+                  style={loginStyles.inputIcon} 
+                />
                 <TextInput
-                  placeholder="tu@email.com"
+                  placeholder="usuario123"
                   placeholderTextColor="#bbb"
                   style={loginStyles.input}
                   value={username}
                   onChangeText={setUsername}
-                  keyboardType="email-address"
                   autoCapitalize="none"
+                  editable={!isBlocked}
+                  maxLength={50}
                 />
               </View>
             </View>
@@ -110,8 +162,16 @@ export default function LoginCard({
             {/* Input de contraseña con ícono */}
             <View style={loginStyles.inputGroup}>
               <Text style={loginStyles.label}>Contraseña</Text>
-              <View style={loginStyles.inputContainer}>
-                <Ionicons name="lock-closed-outline" size={20} color="#a29bfe" style={loginStyles.inputIcon} />
+              <View style={[
+                loginStyles.inputContainer,
+                isBlocked && loginStyles.inputDisabled
+              ]}>
+                <Ionicons 
+                  name="lock-closed-outline" 
+                  size={20} 
+                  color={isBlocked ? "#ccc" : "#a29bfe"} 
+                  style={loginStyles.inputIcon} 
+                />
                 <TextInput
                   placeholder="••••••••"
                   placeholderTextColor="#bbb"
@@ -119,22 +179,48 @@ export default function LoginCard({
                   style={loginStyles.input}
                   value={password}
                   onChangeText={setPassword}
+                  editable={!isBlocked}
+                  maxLength={100}
                 />
               </View>
             </View>
 
             {/* Botón principal con gradiente */}
-            <TouchableOpacity onPress={handleLogin} activeOpacity={0.8}>
+            <TouchableOpacity 
+              onPress={handleLogin} 
+              activeOpacity={0.8}
+              disabled={isBlocked}
+            >
               <LinearGradient
-                colors={['#667eea', '#764ba2']}
+                colors={isBlocked ? ['#ccc', '#999'] : ['#667eea', '#764ba2']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={loginStyles.button}
+                style={[
+                  loginStyles.button,
+                  isBlocked && loginStyles.buttonDisabled
+                ]}
               >
-                <Text style={loginStyles.buttonText}>Iniciar Sesión</Text>
-                <Ionicons name="arrow-forward" size={20} color="#fff" style={{ marginLeft: 8 }} />
+                <Text style={loginStyles.buttonText}>
+                  {isBlocked ? "Bloqueado" : "Iniciar Sesión"}
+                </Text>
+                <Ionicons 
+                  name={isBlocked ? "lock-closed" : "arrow-forward"} 
+                  size={20} 
+                  color="#fff" 
+                  style={{ marginLeft: 8 }} 
+                />
               </LinearGradient>
             </TouchableOpacity>
+
+            {/* Información de seguridad */}
+            {!isBlocked && (
+              <View style={loginStyles.securityInfo}>
+                <Ionicons name="shield-checkmark-outline" size={16} color="#a29bfe" />
+                <Text style={loginStyles.securityText}>
+                  Conexión segura y encriptada
+                </Text>
+              </View>
+            )}
 
             {/* Divisor elegante */}
             <View style={loginStyles.divider}>
@@ -144,11 +230,23 @@ export default function LoginCard({
             </View>
 
             {/* Botón de Google mejorado */}
-            <TouchableOpacity style={loginStyles.googleButton} activeOpacity={0.7}>
+            <TouchableOpacity 
+              style={[
+                loginStyles.googleButton,
+                isBlocked && loginStyles.buttonDisabled
+              ]} 
+              activeOpacity={0.7}
+              disabled={isBlocked}
+            >
               <View style={loginStyles.googleIconContainer}>
-                <Ionicons name="logo-google" size={22} color="#DB4437" />
+                <Ionicons name="logo-google" size={22} color={isBlocked ? "#ccc" : "#DB4437"} />
               </View>
-              <Text style={loginStyles.googleButtonText}>Continuar con Google</Text>
+              <Text style={[
+                loginStyles.googleButtonText,
+                isBlocked && { color: '#ccc' }
+              ]}>
+                Continuar con Google
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -194,8 +292,15 @@ export default function LoginCard({
         </Animated.View>
 
         {/* Texto decorativo */}
-        <Text style={loginStyles.illustrationText}>Seguridad y confianza</Text>
-        <Text style={loginStyles.illustrationSubtext}>Tu información está protegida</Text>
+        <Text style={loginStyles.illustrationText}>
+          {isBlocked ? "Seguridad activada" : "Seguridad y confianza"}
+        </Text>
+        <Text style={loginStyles.illustrationSubtext}>
+          {isBlocked 
+            ? "Protegiendo tu cuenta de accesos no autorizados" 
+            : "Tu información está protegida"
+          }
+        </Text>
       </View>
     </View>
   );

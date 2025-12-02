@@ -66,6 +66,13 @@ class ApiClient {
     return this.token;
   }
 
+  // NUEVO: Método removeToken para compatibilidad
+  async removeToken() {
+    console.log('🧹 [Client] Removiendo token...');
+    await this.setToken(null);
+    this.token = null;
+  }
+
   async buildHeaders(customHeaders = {}) {
     const headers = { ...this.headers, ...customHeaders };
     const token = await this.getToken();
@@ -82,24 +89,41 @@ class ApiClient {
     
     console.log(`🌐 [Client] ${options.method || 'GET'} ${url}`);
     
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+    // 👇 Solo usamos timeout en WEB
+    const useTimeout = Platform.OS === 'web' && this.timeout && this.timeout > 0;
+
+    let controller = null;
+    let timeoutId = null;
 
     try {
       const headers = await this.buildHeaders(options.headers);
-      
-      const response = await fetch(url, {
+      const fetchOptions = {
         ...options,
         headers,
-        signal: controller.signal
-      });
+      };
 
-      clearTimeout(timeoutId);
+      if (useTimeout) {
+        controller = new AbortController();
+        timeoutId = setTimeout(() => controller.abort(), this.timeout);
+        fetchOptions.signal = controller.signal;
+      }
+
+      const response = await fetch(url, fetchOptions);
+
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
 
       console.log(`✅ [Client] Response status: ${response.status}`);
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        let errorData = {};
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          errorData = {};
+        }
+
         console.error('❌ [Client] Error response:', errorData);
         throw {
           status: response.status,
@@ -112,13 +136,21 @@ class ApiClient {
         return null;
       }
 
-      const data = await response.json();
-      console.log('✅ [Client] Data received, length:', data?.length || 'N/A');
+      let data = null;
+      try {
+        data = await response.json();
+      } catch (e) {
+        data = null;
+      }
+
+      console.log('✅ [Client] Data received, length:', Array.isArray(data) ? data.length : 'N/A');
       return data;
     } catch (error) {
-      clearTimeout(timeoutId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       
-      if (error.name === 'AbortError') {
+      if (useTimeout && error.name === 'AbortError') {
         console.error('❌ [Client] Timeout');
         throw { 
           status: 408, 
@@ -157,9 +189,9 @@ class ApiClient {
   }
 
   async clearSession() {
+    console.log('🧹 [Client] Limpiando sesión...');
     try {
-      await this.setToken(null);
-      this.token = null;
+      await this.removeToken();
     } catch (error) {
       console.error('Error limpiando sesión:', error);
     }

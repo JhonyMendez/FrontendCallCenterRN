@@ -383,4 +383,40 @@ export const loginStyles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.6)",
     textAlign: "center",
   },
+  
+  warningContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: 'rgba(255, 165, 2, 0.1)',
+  padding: 12,
+  borderRadius: 8,
+  marginBottom: 15,
+  borderLeftWidth: 3,
+  borderLeftColor: '#ffa502',
+},
+warningText: {
+  color: '#ffa502',
+  fontSize: 14,
+  marginLeft: 8,
+  fontWeight: '500',
+},
+inputDisabled: {
+  backgroundColor: '#f5f5f5',
+  opacity: 0.6,
+},
+buttonDisabled: {
+  opacity: 0.6,
+},
+securityInfo: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginTop: 12,
+  gap: 6,
+},
+securityText: {
+  color: '#a29bfe',
+  fontSize: 12,
+  fontWeight: '500',
+},
 });

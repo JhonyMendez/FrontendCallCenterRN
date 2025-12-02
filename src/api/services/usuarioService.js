@@ -73,5 +73,46 @@ export const usuarioService = {
   // Desbloquear usuario
   desbloquear: async (id) => {
     return await apiClient.post(ENDPOINTS.USUARIOS.DESBLOQUEAR(id));
+  }, // 👈 ESTA COMA FALTABA
+
+  // Asignar rol
+  asignarRol: async (id_usuario, id_rol) => {
+    try {
+      console.log(`📤 Asignando rol ${id_rol} a usuario ${id_usuario}`);
+      const response = await apiClient.post(
+        `/usuario-roles/usuario/${id_usuario}/asignar-rol`,
+        { id_rol }
+      );
+      console.log('✅ Rol asignado:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Error asignando rol:', error);
+      throw new Error(
+        error.data?.detail || 
+        error.message || 
+        'Error al asignar rol'
+      );
+    }
+  },
+
+  /**
+   * REMOVER ROL de un usuario
+   */
+  removerRol: async (id_usuario, id_rol) => {
+    try {
+      console.log(`📤 Removiendo rol ${id_rol} de usuario ${id_usuario}`);
+      const response = await apiClient.delete(
+        `/usuario-roles/usuario/${id_usuario}/revocar-rol/${id_rol}`
+      );
+      console.log('✅ Rol removido:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Error removiendo rol:', error);
+      throw new Error(
+        error.data?.detail || 
+        error.message || 
+        'Error al remover rol'
+      );
+    }
   }
 };

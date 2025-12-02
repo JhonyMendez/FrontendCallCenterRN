@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 const DEV_CONFIG = {
   web: 'http://localhost:8000/api/v1',
   ios: 'http://localhost:8000/api/v1',
-  android: 'http://192.168.5.6:8000/api/v1',
+  android: 'http://192.168.54.17:8000/api/v1',
   default: 'http://localhost:8000/api/v1',
 };
 
@@ -136,5 +136,28 @@ export const ENDPOINTS = {
     BY_ID: (id) => `/usuario-agente/${id}`,
     BY_USUARIO: (idUsuario) => `/usuario-agente/usuario/${idUsuario}`,
     BY_AGENTE: (idAgente) => `/usuario-agente/agente/${idAgente}`,
+  },
+
+  // Usuario-Roles
+  USUARIO_ROLES: {
+    BASE: '/usuario-roles',
+    BY_ID: (id) => `/usuario-roles/${id}`,
+    ESTADISTICAS: '/usuario-roles/estadisticas',
+    
+    // Endpoints de usuario
+    ROLES_USUARIO: (id_usuario) => `/usuario-roles/usuario/${id_usuario}/roles`,
+    ESTADISTICAS_USUARIO: (id_usuario) => `/usuario-roles/usuario/${id_usuario}/estadisticas`,
+    ASIGNAR_ROL_USUARIO: (id_usuario) => `/usuario-roles/usuario/${id_usuario}/asignar-rol`,
+    ASIGNAR_MULTIPLES_ROLES: (id_usuario) => `/usuario-roles/usuario/${id_usuario}/asignar-multiples-roles`,
+    REVOCAR_ROL: (id_usuario, id_rol) => `/usuario-roles/usuario/${id_usuario}/revocar-rol/${id_rol}`,
+    REVOCAR_TODOS_ROLES: (id_usuario) => `/usuario-roles/usuario/${id_usuario}/revocar-todos-roles`,
+    
+    // Endpoints de rol
+    USUARIOS_CON_ROL: (id_rol) => `/usuario-roles/rol/${id_rol}/usuarios`,
+    ESTADISTICAS_ROL: (id_rol) => `/usuario-roles/rol/${id_rol}/estadisticas`,
+    
+    // Verificación y mantenimiento
+    VERIFICAR_ROL: (id_usuario, id_rol) => `/usuario-roles/verificar/usuario/${id_usuario}/tiene-rol/${id_rol}`,
+    PROCESAR_EXPIRACIONES: '/usuario-roles/procesar-expiraciones',
   },
 };

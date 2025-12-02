@@ -1,0 +1,243 @@
+// ==================================================================================
+// sidebarSuperAdmin.js
+// Componente Sidebar para Super Admin - React Native (Navegación Fixed)
+// ==================================================================================
+
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import {
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { apiClient } from '../../api/client';
+import authService from '../../api/services/authService';
+import { sidebarStyles } from './SidebarSuperAdminStyles';
+
+export default function SuperAdminSidebar({ isOpen }) {
+  const [expandedMenus, setExpandedMenus] = useState({});
+  const router = useRouter();
+
+  // Si el sidebar está cerrado, no renderizar nada (width: 0)
+  if (!isOpen) {
+    return <View style={sidebarStyles.containerCollapsed} />;
+  }
+
+  // Configuración del menú (rutas unificadas al grupo (superadmin))
+  const menuItems = [
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: 'grid-outline',
+      route: '/(superadmin)/dashboard',
+    },
+    {
+      id: 'usuarios',
+      label: 'Gestión de Usuarios',
+      icon: 'people-outline',
+      submenu: [
+        { label: 'Todos los Usuarios', route: '/superadmin/usuarios' },
+        { label: 'Usuarios Activos', route: '/superadmin/usuarios/activos' },
+        { label: 'Usuarios Inactivos', route: '/superadmin/usuarios/inactivos' },
+        { label: 'Gestión de Usuarios', route: '/superadmin/usuarios' },
+      ]
+    },
+    {
+      id: 'departamentos',
+      label: 'Departamentos',
+      icon: 'business-outline',
+      submenu: [
+        { label: 'Todos los Departamentos', route: '/(superadmin)/departamentos' },
+        { label: 'Crear Departamento', route: '/(superadmin)/departamentos/crear' },
+        { label: 'Asignar Usuarios', route: '/(superadmin)/departamentos/asignar' },
+      ]
+    },
+    {
+      id: 'roles',
+      label: 'Gestión de Roles',
+      icon: 'shield-checkmark-outline',
+      submenu: [
+        { label: 'Todos los Roles', route: '/(superadmin)/roles' },
+        { label: 'Permisos por Rol', route: '/(superadmin)/roles/permisos' },
+        { label: 'Asignar Roles', route: '/(superadmin)/roles/asignar' },
+      ]
+    },
+    {
+      id: 'metricas',
+      label: 'Métricas Globales',
+      icon: 'bar-chart-outline',
+      submenu: [
+        { label: 'Dashboard de Métricas', route: '/(superadmin)/metricas' },
+        { label: 'Reportes por Departamento', route: '/(superadmin)/metricas/departamentos' },
+        { label: 'Reportes por Usuario', route: '/(superadmin)/metricas/usuarios' },
+        { label: 'Análisis de Rendimiento', route: '/(superadmin)/metricas/rendimiento' },
+      ]
+    },
+    {
+      id: 'exportar',
+      label: 'Exportar Datos',
+      icon: 'download-outline',
+      submenu: [
+        { label: 'Exportar Usuarios', route: '/(superadmin)/exportar/usuarios' },
+        { label: 'Exportar Departamentos', route: '/(superadmin)/exportar/departamentos' },
+        { label: 'Exportar Métricas', route: '/(superadmin)/exportar/metricas' },
+        { label: 'Exportación Personalizada', route: '/(superadmin)/exportar/personalizada' },
+      ]
+    },
+    {
+      id: 'configuracion',
+      label: 'Configuración Sistema',
+      icon: 'settings-outline',
+      submenu: [
+        { label: 'General', route: '/(superadmin)/configuracion/general' },
+        { label: 'Seguridad', route: '/(superadmin)/configuracion/seguridad' },
+        { label: 'Notificaciones', route: '/(superadmin)/configuracion/notificaciones' },
+        { label: 'Integraciones', route: '/(superadmin)/configuracion/integraciones' },
+      ]
+    },
+    {
+      id: 'api-keys',
+      label: 'API Keys',
+      icon: 'key-outline',
+      submenu: [
+        { label: 'Todas las Keys', route: '/(superadmin)/api-keys' },
+        { label: 'Crear Nueva Key', route: '/(superadmin)/api-keys/crear' },
+        { label: 'Logs de Uso', route: '/(superadmin)/api-keys/logs' },
+      ]
+    },
+  ];
+
+  const toggleMenu = (menuId) => {
+    setExpandedMenus(prev => ({
+      ...prev,
+      [menuId]: !prev[menuId]
+    }));
+  };
+
+  const handleNavigation = (route) => {
+    console.log('Navegando a:', route);
+    try {
+      router.push(route);
+    } catch (error) {
+      console.error('Error al navegar:', error);
+    }
+  };
+
+  // 🔐 Logout real desde el sidebar
+  const handleLogout = async () => {
+    try {
+      console.log('Cerrando sesión desde sidebar...');
+
+      // 1. Quitar token
+      await apiClient.removeToken();
+
+      // 2. Limpiar datos de sesión (usuario, rol, etc.)
+      await authService.limpiarSesion();
+
+      // 3. Redirigir a login
+      router.replace('/login');
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+    }
+  };
+
+  return (
+    <View style={sidebarStyles.container}>
+      {/* Header */}
+      <View style={sidebarStyles.header}>
+        <View style={sidebarStyles.iconWrapperGradient}>
+          <Ionicons name="shield-checkmark" size={24} color="#ffffff" />
+        </View>
+        <View style={sidebarStyles.headerTitle}>
+          <Text style={sidebarStyles.title}>Super Admin</Text>
+          <Text style={sidebarStyles.subtitle}>Control Total</Text>
+        </View>
+      </View>
+
+      {/* Scroll Content */}
+      <ScrollView 
+        style={sidebarStyles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={sidebarStyles.menuContainer}>
+          {menuItems.map((item) => {
+            const hasSubmenu = item.submenu && item.submenu.length > 0;
+            const isExpanded = expandedMenus[item.id];
+
+            return (
+              <View key={item.id} style={sidebarStyles.menuItem}>
+                {/* Botón principal del menú */}
+                <TouchableOpacity
+                  style={sidebarStyles.menuButton}
+                  onPress={() => {
+                    if (hasSubmenu) {
+                      toggleMenu(item.id);
+                    } else {
+                      handleNavigation(item.route);
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={sidebarStyles.menuButtonContent}>
+                    <View style={sidebarStyles.menuIcon}>
+                      <Ionicons name={item.icon} size={20} color="#ffffff" />
+                    </View>
+                    <Text style={sidebarStyles.menuLabel}>{item.label}</Text>
+                  </View>
+                  {hasSubmenu && (
+                    <Ionicons 
+                      name={isExpanded ? 'chevron-up' : 'chevron-down'} 
+                      size={20} 
+                      color="#c7d2fe" 
+                    />
+                  )}
+                </TouchableOpacity>
+
+                {/* Submenu */}
+                {hasSubmenu && isExpanded && (
+                  <View style={sidebarStyles.submenu}>
+                    {item.submenu.map((subitem, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={sidebarStyles.submenuItem}
+                        onPress={() => handleNavigation(subitem.route)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={sidebarStyles.submenuIcon}>
+                          <Ionicons 
+                            name="chevron-forward" 
+                            size={12} 
+                            color="#c7d2fe" 
+                          />
+                        </View>
+                        <Text style={sidebarStyles.submenuLabel}>
+                          {subitem.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      </ScrollView>
+
+      {/* Footer */}
+      <View style={sidebarStyles.footer}>
+        <TouchableOpacity
+          style={sidebarStyles.logoutButton}
+          onPress={handleLogout}
+          activeOpacity={0.8}
+        >
+          <View style={sidebarStyles.logoutIcon}>
+            <Ionicons name="log-out-outline" size={20} color="#ffffff" />
+          </View>
+          <Text style={sidebarStyles.logoutButtonText}>Cerrar Sesión</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
