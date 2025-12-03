@@ -62,7 +62,7 @@ const storage = {
 // CONSTANTES DE SEGURIDAD
 // ==================================================================================
 const MAX_INTENTOS_LOGIN = 5;
-const TIEMPO_BLOQUEO_MS = 15 * 60 * 1000; // 15 minutos
+const TIEMPO_BLOQUEO_MS = 5 * 1000; // 15 minutos
 const STORAGE_KEYS = {
   INTENTOS: '@login_intentos',
   BLOQUEO_HASTA: '@login_bloqueo_hasta',

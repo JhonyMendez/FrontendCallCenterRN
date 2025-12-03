@@ -20,18 +20,20 @@ export const personaService = {
       return response;
     } catch (error) {
       console.error('❌ [personaService] Error completo:', error);
-      console.error('❌ [personaService] Error data:', error.data);
-      console.error('❌ [personaService] Status:', error.status);
+      console.error('❌ [personaService] Error data:', error.response?.data);
+      console.error('❌ [personaService] Status:', error.response?.status);
+      console.error('❌ [personaService] Detalles validación:', JSON.stringify(error.response?.data, null, 2));
       
       // Extraer detalles de validación
       let errorMsg = 'Error al crear persona';
-      if (error.data?.detail) {
-        if (Array.isArray(error.data.detail)) {
+
+      if (error.response?.data?.detail) {
+        if (Array.isArray(error.response.data.detail)) {
           // FastAPI devuelve errores de validación como array
-          const errores = error.data.detail.map(e => `${e.loc.join('.')}: ${e.msg}`).join('\n');
+          const errores = error.response.data.detail.map(e => `${e.loc.join('.')}: ${e.msg}`).join('\n');
           errorMsg = `Error de validación:\n${errores}`;
         } else {
-          errorMsg = error.data.detail;
+          errorMsg = error.response.data.detail;
         }
       } else if (error.message) {
         errorMsg = error.message;

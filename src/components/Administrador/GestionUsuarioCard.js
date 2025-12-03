@@ -1,7 +1,3 @@
-// ==================================================================================
-// src/components/Administrador/GestionUsuarioCard.js
-// Wizard de 4 Pasos - Versión Simple
-// ==================================================================================
 
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,16 +12,19 @@ import {
   View
 } from 'react-native';
 import { personaService } from '../../api/services/personaService';
+import { usuarioRolService } from '../../api/services/usuarioRolService';
 import { usuarioService } from '../../api/services/usuarioService';
+
 import { styles } from '../../styles/GestionUsuariosStyles';
 import DateInput from '../common/DateInput';
+
 
 const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
 
     console.log('🎭 Roles recibidos en Card:', roles);
   console.log('🎭 Total roles:', roles?.length || 0);
   // ==================== ESTADOS ====================
-  const [pasoActual, setPasoActual] = useState(1);
+  const [pasoActual, setPasoActual] = useState(1); 
   const [guardando, setGuardando] = useState(false);
   const [errors, setErrors] = useState({});
   
@@ -130,16 +129,27 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
 }
 
   if (paso === 3) {
-    if (!username.trim()) newErrors.username = 'El usuario es requerido';
-    if (!email.trim()) newErrors.email = 'El email es requerido';
-    if (!email.includes('@')) newErrors.email = 'Email inválido';
-    
-    if (!usuario) {
-      if (!password) newErrors.password = 'La contraseña es requerida';
-      if (password && password.length < 8) newErrors.password = 'Mínimo 8 caracteres';
-      if (password !== confirmPassword) newErrors.confirmPassword = 'Las contraseñas no coinciden';
+  if (!username.trim()) newErrors.username = 'El usuario es requerido';
+  if (!email.trim()) newErrors.email = 'El email es requerido';
+  if (!email.includes('@')) newErrors.email = 'Email inválido';
+  
+  if (!usuario) {
+    if (!password) newErrors.password = 'La contraseña es requerida';
+    else {
+      if (password.length < 8) {
+        newErrors.password = 'Mínimo 8 caracteres';
+      }
+      // 👇 NUEVO: al menos una mayúscula
+      else if (!/[A-Z]/.test(password)) {
+        newErrors.password = 'Debe contener al menos una letra mayúscula';
+      }
+    }
+    if (password !== confirmPassword) {
+      newErrors.confirmPassword = 'Las contraseñas no coinciden';
     }
   }
+}
+
 
   if (paso === 4) {
     if (rolesSeleccionados.length === 0) {
@@ -182,17 +192,26 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
       }
       
       onGuardado(true);
+      Alert.alert('Éxito', usuario ? 'Usuario actualizado correctamente' : 'Usuario creado exitosamente');
     } catch (error) {
       console.error('Error guardando usuario:', error);
-      Alert.alert('Error', error.message || 'No se pudo guardar el usuario');
+      Alert.alert(
+      'Error', 
+      error.response?.data?.error || 
+      error.response?.data?.message || 
+      error.message || 
+      'No se pudo guardar el usuario'
+    );
       onGuardado(false);
     } finally {
       setGuardando(false);
     }
   };
 
-  const crearUsuario = async () => {
+const crearUsuario = async () => {
   try {
+    // ========== VALIDACIONES PREVIAS ==========
+
     // Validar y limpiar cédula (10 dígitos exactos)
     const cedulaLimpia = cedula.trim().replace(/[-\s]/g, '');
     if (cedulaLimpia.length !== 10 || !/^\d{10}$/.test(cedulaLimpia)) {
@@ -211,15 +230,30 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
       throw new Error('El teléfono debe tener entre 7 y 15 dígitos numéricos');
     }
 
+    // Extra: validación de contraseña alineada con el backend
+    if (!password) {
+      throw new Error('La contraseña es requerida');
+    }
+    if (password.length < 8) {
+      throw new Error('La contraseña debe tener mínimo 8 caracteres');
+    }
+    if (!/[A-Z]/.test(password)) {
+      throw new Error('La contraseña debe contener al menos una letra mayúscula');
+    }
+    if (password !== confirmPassword) {
+      throw new Error('Las contraseñas no coinciden');
+    }
+
+    // ========== 1. CREAR PERSONA ==========
     const personaData = {
-      cedula: cedulaLimpia,                    
+      cedula: cedulaLimpia,
       nombre: nombre.trim(),
       apellido: apellido.trim(),
       fecha_nacimiento: fechaNacimiento || null,
-      genero: genero ? genero.toLowerCase() : null,  
-      telefono: telefonoLimpio,               
+      genero: genero ? genero.toLowerCase() : null,
+      telefono: telefonoLimpio,
       direccion: direccion.trim() || null,
-      tipo_persona: tipoPersona.toLowerCase(), 
+      tipo_persona: tipoPersona.toLowerCase(),
       celular: null,
       email_personal: email.trim().toLowerCase(),
       ciudad: null,
@@ -234,34 +268,72 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
     };
 
     console.log('📤 Creando persona:', personaData);
-    
     const personaResponse = await personaService.create(personaData);
+    console.log('✅ Persona creada:', personaResponse);
+
     const id_persona = personaResponse.id_persona;
 
+    if (!id_persona) {
+      console.error('❌ No se obtuvo id_persona en la respuesta:', personaResponse);
+      throw new Error('No se pudo obtener el ID de la persona creada');
+    }
+
+    // ========== 2. CREAR USUARIO ==========
     const usuarioData = {
       username: username.trim(),
-      email: email.trim().toLowerCase(),      
+      email: email.trim().toLowerCase(),
       password: password,
       estado: estado,
       id_persona: id_persona
     };
 
     console.log('📤 Creando usuario:', usuarioData);
-
     const usuarioResponse = await usuarioService.create(usuarioData);
-    const id_usuario = usuarioResponse.id_usuario;
+    console.log('✅ Usuario creado:', usuarioResponse);
+
+    const id_usuario = usuarioResponse.usuario?.id_usuario || usuarioResponse.id_usuario;
+
+    if (!id_usuario) {
+      console.error('❌ No se obtuvo id_usuario en la respuesta:', usuarioResponse);
+      throw new Error('No se pudo obtener el ID del usuario creado');
+    }
+
+    // ========== 3. ASIGNAR ROLES (TABLA USUARIO_ROL) ==========
+    if (!rolesSeleccionados || rolesSeleccionados.length === 0) {
+      console.warn('⚠️ No hay roles seleccionados, no se creará usuario_rol');
+      return;
+    }
+
+    console.log('👥 Roles seleccionados para asignar:', rolesSeleccionados);
 
     for (const id_rol of rolesSeleccionados) {
-      await usuarioService.asignarRol(id_usuario, id_rol);
+      const usuarioRolData = {
+        id_usuario: id_usuario,
+        id_rol: id_rol,
+        activo: true
+      };
+
+      console.log('📤 Creando usuario_rol:', usuarioRolData);
+      const usuarioRolResponse = await usuarioRolService.asignarRol(usuarioRolData);
+      console.log('✅ UsuarioRol creado:', usuarioRolResponse);
     }
-  } catch (error) {
-  console.error('❌ Error en crearUsuario:', error);
-  console.error('📋 Detalles completos:', error.data);
-console.error('📋 Details array:', error.data?.details);
-console.error('📋 Primer detalle:', error.data?.details?.[0]);
-  throw error;
-}
-};
+
+  }  catch (error) {
+    console.error('❌ Error en crearUsuario:', error);
+    
+    // ✅ CAMBIA ESTAS LÍNEAS para ver el error real
+    console.error('📋 Response completo:', error.response);
+    console.error('📋 Data completo:', JSON.stringify(error.response?.data, null, 2));
+    
+    // ✅ LANZA EL ERROR CON EL MENSAJE DEL BACKEND
+    const mensajeError = error.response?.data?.detail || 
+                        error.response?.data?.message || 
+                        error.response?.data?.error ||
+                        error.message;
+    
+    throw new Error(mensajeError);
+  }
+  };
 
 /// =================== ACTUALIZAR USUARIO ====================
 
@@ -293,13 +365,19 @@ const actualizarUsuario = async () => {
   const rolesAEliminar = rolesActuales.filter(r => !rolesSeleccionados.includes(r));
   const rolesAAgregar = rolesSeleccionados.filter(r => !rolesActuales.includes(r));
 
+  // 🔻 Revocar roles que ya no están seleccionados
   for (const id_rol of rolesAEliminar) {
-    await usuarioService.removerRol(usuario.id_usuario, id_rol);
+    await usuarioRolService.revocarRol(usuario.id_usuario, id_rol);
   }
 
+  // 🔺 Asignar nuevos roles
   for (const id_rol of rolesAAgregar) {
-    await usuarioService.asignarRol(usuario.id_usuario, id_rol);
+    await usuarioRolService.asignarRolAUsuario(usuario.id_usuario, {
+      id_rol: id_rol
+      // igual, aquí puedes sumar más campos si tu backend lo requiere
+    });
   }
+
 };
 
 const toggleRol = (rolId) => {
@@ -607,18 +685,19 @@ const toggleRol = (rolId) => {
       </View>
     ) : (
       <View style={styles.rolesGrid}>
-        {roles.map((rol, index) => {
-          const rolId = rol.id_rol || rol.id || index;
-          return (
-            <RoleCard
-              key={rolId}
-              rol={rol}
-              rolId={rolId}
-              selected={rolesSeleccionados.includes(rolId)}
-              onToggle={() => toggleRol(rolId)}
-            />
-          );
-        })}
+        {roles.map((rol) => {
+        const rolId = rol.id_rol;  // 👈 usamos solo el id_rol del backend
+        return (
+          <RoleCard
+            key={rolId}
+            rol={rol}
+            rolId={rolId}
+            selected={rolesSeleccionados.includes(rolId)}
+            onToggle={() => toggleRol(rolId)}
+          />
+        );
+      })}
+
       </View>
     )}
   </View>
