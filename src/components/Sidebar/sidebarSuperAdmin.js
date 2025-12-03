@@ -49,9 +49,9 @@ export default function SuperAdminSidebar({ isOpen }) {
       label: 'Departamentos',
       icon: 'business-outline',
       submenu: [
-        { label: 'Todos los Departamentos', route: '/(superadmin)/departamentos' },
-        { label: 'Crear Departamento', route: '/(superadmin)/departamentos/crear' },
-        { label: 'Asignar Usuarios', route: '/(superadmin)/departamentos/asignar' },
+        { label: 'Todos los Departamentos', route: '/superadmin/departamento' },
+        { label: 'Crear Departamento', route: '/superadmin/departamentos/crear' },
+        { label: 'Asignar Usuarios', route: '/superadmin/departamentos/asignar' },
       ]
     },
     {
@@ -59,9 +59,9 @@ export default function SuperAdminSidebar({ isOpen }) {
       label: 'Gestión de Roles',
       icon: 'shield-checkmark-outline',
       submenu: [
-        { label: 'Todos los Roles', route: '/(superadmin)/roles' },
-        { label: 'Permisos por Rol', route: '/(superadmin)/roles/permisos' },
-        { label: 'Asignar Roles', route: '/(superadmin)/roles/asignar' },
+        { label: 'Todos los Roles', route: '/superadmin/roles' },
+        { label: 'Permisos por Rol', route: '/superadmin/roles/permisos' },
+        { label: 'Asignar Roles', route: '/superadmin/roles/asignar' },
       ]
     },
     {

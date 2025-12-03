@@ -1,11 +1,11 @@
-// app/departamentos.tsx
-import ListaDepartamentos from '@/src/pages/Departamentos/ListaDepartamentos';
+// app/(superadmin)/departamentos.tsx
+import GestionDepartamentosPage from '@/src/pages/Administrador/GestionDepartamentosPage';
 import { Platform, StatusBar, StyleSheet, View } from 'react-native';
 
 export default function DepartamentosScreen() {
   return (
     <View style={styles.container}>
-      <ListaDepartamentos />
+      <GestionDepartamentosPage />
     </View>
   );
 }
