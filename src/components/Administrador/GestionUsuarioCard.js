@@ -3,7 +3,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   Animated,
   ScrollView,
   Text,
@@ -17,11 +16,12 @@ import { usuarioService } from '../../api/services/usuarioService';
 
 import { styles } from '../../styles/GestionUsuariosStyles';
 import DateInput from '../common/DateInput';
-
+import Toast from '../common/Toast';
+   
 
 const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
 
-    console.log('🎭 Roles recibidos en Card:', roles);
+    console.log('🎭 Roles recibidos ensdfsdf Card:', roles);
   console.log('🎭 Total roles:', roles?.length || 0);
   // ==================== ESTADOS ====================
   const [pasoActual, setPasoActual] = useState(1); 
@@ -38,6 +38,9 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
   const [genero, setGenero] = useState('');
   const [mostrarCalendario, setMostrarCalendario] = useState(false);
   const [tipoPersona, setTipoPersona] = useState('');
+
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'error' });
+
   
   // Datos de Usuario (Paso 3)
   const [username, setUsername] = useState('');
@@ -134,14 +137,17 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
   if (!email.includes('@')) newErrors.email = 'Email inválido';
   
   if (!usuario) {
-    if (!password) newErrors.password = 'La contraseña es requerida';
-    else {
+    if (!password) {
+      newErrors.password = 'La contraseña es requerida';
+    } else {
       if (password.length < 8) {
         newErrors.password = 'Mínimo 8 caracteres';
-      }
-      // 👇 NUEVO: al menos una mayúscula
-      else if (!/[A-Z]/.test(password)) {
-        newErrors.password = 'Debe contener al menos una letra mayúscula';
+      } else if (!/[A-Z]/.test(password)) {
+        newErrors.password = 'Debe contener una mayúscula';
+      } else if (!/[a-z]/.test(password)) {
+        newErrors.password = 'Debe contener una minúscula';
+      } else if (!/[0-9]/.test(password)) {
+        newErrors.password = 'Debe contener un número';
       }
     }
     if (password !== confirmPassword) {
@@ -161,15 +167,24 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
   return Object.keys(newErrors).length === 0;
 };
 
+const mostrarToast = (message, type = 'error') => {
+  setToast({ visible: true, message, type });
+};
+
+const ocultarToast = () => {
+  setToast({ visible: false, message: '', type: 'error' });
+};
+
+
   // ==================== NAVEGACIÓN ====================
-  const handleSiguiente = () => {
-    if (validarPaso(pasoActual)) {
-      setPasoActual(pasoActual + 1);
-      setErrors({});
-    } else {
-      Alert.alert('Error', 'Por favor completa los campos requeridos');
-    }
-  };
+const handleSiguiente = () => {
+  if (validarPaso(pasoActual)) {
+    setPasoActual(pasoActual + 1);
+    setErrors({});
+  } else {
+    mostrarToast('Por favor completa los campos requeridos', 'warning');
+  }
+};
 
   const handleAnterior = () => {
     setPasoActual(pasoActual - 1);
@@ -177,36 +192,35 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
   };
 
   // ==================== GUARDAR ====================
-  const handleGuardar = async () => {
-    if (!validarPaso(4)) {
-      Alert.alert('Error', 'Por favor selecciona al menos un rol');
-      return;
-    }
+const handleGuardar = async () => {
+  if (!validarPaso(4)) {
+    mostrarToast('Por favor selecciona al menos un rol', 'warning');
+    return;
+  }
 
-    setGuardando(true);
-    try {
-      if (usuario) {
-        await actualizarUsuario();
-      } else {
-        await crearUsuario();
-      }
-      
-      onGuardado(true);
-      Alert.alert('Éxito', usuario ? 'Usuario actualizado correctamente' : 'Usuario creado exitosamente');
-    } catch (error) {
-      console.error('Error guardando usuario:', error);
-      Alert.alert(
-      'Error', 
-      error.response?.data?.error || 
-      error.response?.data?.message || 
-      error.message || 
-      'No se pudo guardar el usuario'
-    );
-      onGuardado(false);
-    } finally {
-      setGuardando(false);
+  setGuardando(true);
+  try {
+    if (usuario) {
+      await actualizarUsuario();
+    } else {
+      await crearUsuario();
     }
-  };
+    
+    mostrarToast(
+      usuario ? '✅ Usuario actualizado correctamente' : '✅ Usuario creado exitosamente',
+      'success'
+    );
+    
+    setTimeout(() => {
+      onGuardado(true);
+    }, 1500);
+  } catch (error) {
+    mostrarToast(error.message || 'No se pudo guardar el usuario', 'error');
+    onGuardado(false);
+  } finally {
+    setGuardando(false);
+  }
+};
 
 const crearUsuario = async () => {
   try {
@@ -240,6 +254,12 @@ const crearUsuario = async () => {
     if (!/[A-Z]/.test(password)) {
       throw new Error('La contraseña debe contener al menos una letra mayúscula');
     }
+    if (!/[a-z]/.test(password)) {
+      throw new Error('La contraseña debe contener al menos una letra minúscula');
+    }
+    if (!/[0-9]/.test(password)) {
+      throw new Error('La contraseña debe contener al menos un número');
+    }
     if (password !== confirmPassword) {
       throw new Error('Las contraseñas no coinciden');
     }
@@ -267,14 +287,10 @@ const crearUsuario = async () => {
       foto_perfil: null
     };
 
-    console.log('📤 Creando persona:', personaData);
     const personaResponse = await personaService.create(personaData);
-    console.log('✅ Persona creada:', personaResponse);
-
     const id_persona = personaResponse.id_persona;
 
     if (!id_persona) {
-      console.error('❌ No se obtuvo id_persona en la respuesta:', personaResponse);
       throw new Error('No se pudo obtener el ID de la persona creada');
     }
 
@@ -287,24 +303,17 @@ const crearUsuario = async () => {
       id_persona: id_persona
     };
 
-    console.log('📤 Creando usuario:', usuarioData);
     const usuarioResponse = await usuarioService.create(usuarioData);
-    console.log('✅ Usuario creado:', usuarioResponse);
-
     const id_usuario = usuarioResponse.usuario?.id_usuario || usuarioResponse.id_usuario;
 
     if (!id_usuario) {
-      console.error('❌ No se obtuvo id_usuario en la respuesta:', usuarioResponse);
       throw new Error('No se pudo obtener el ID del usuario creado');
     }
 
     // ========== 3. ASIGNAR ROLES (TABLA USUARIO_ROL) ==========
     if (!rolesSeleccionados || rolesSeleccionados.length === 0) {
-      console.warn('⚠️ No hay roles seleccionados, no se creará usuario_rol');
       return;
     }
-
-    console.log('👥 Roles seleccionados para asignar:', rolesSeleccionados);
 
     for (const id_rol of rolesSeleccionados) {
       const usuarioRolData = {
@@ -313,19 +322,11 @@ const crearUsuario = async () => {
         activo: true
       };
 
-      console.log('📤 Creando usuario_rol:', usuarioRolData);
-      const usuarioRolResponse = await usuarioRolService.asignarRol(usuarioRolData);
-      console.log('✅ UsuarioRol creado:', usuarioRolResponse);
+      await usuarioRolService.asignarRol(usuarioRolData);
     }
 
-  }  catch (error) {
-    console.error('❌ Error en crearUsuario:', error);
-    
-    // ✅ CAMBIA ESTAS LÍNEAS para ver el error real
-    console.error('📋 Response completo:', error.response);
-    console.error('📋 Data completo:', JSON.stringify(error.response?.data, null, 2));
-    
-    // ✅ LANZA EL ERROR CON EL MENSAJE DEL BACKEND
+  } catch (error) {
+    // Extraer mensaje del backend
     const mensajeError = error.response?.data?.detail || 
                         error.response?.data?.message || 
                         error.response?.data?.error ||
@@ -333,7 +334,7 @@ const crearUsuario = async () => {
     
     throw new Error(mensajeError);
   }
-  };
+};
 
 /// =================== ACTUALIZAR USUARIO ====================
 
@@ -411,11 +412,13 @@ const toggleRol = (rolId) => {
           <Ionicons name="card-outline" size={20} color="#667eea" style={styles.inputIcon} />
           <TextInput
             style={styles.input}
-            placeholder="0123456789"
+            placeholder="10 dígitos (ej: 0102417144)"
             placeholderTextColor="#9CA3AF"
             value={cedula}
             onChangeText={(text) => {
-              setCedula(text);
+              // ✅ VALIDACIÓN EN TIEMPO REAL
+              const limpio = text.replace(/[^0-9]/g, '');
+              setCedula(limpio);
               if (errors.cedula) setErrors({...errors, cedula: undefined});
             }}
             keyboardType="numeric"
@@ -447,16 +450,18 @@ const toggleRol = (rolId) => {
         </Text>
         <View style={[styles.inputContainer, errors.nombre && styles.inputError]}>
           <Ionicons name="person-outline" size={20} color="#667eea" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Juan"
-            placeholderTextColor="#9CA3AF"
-            value={nombre}
-            onChangeText={(text) => {
-              setNombre(text);
-              if (errors.nombre) setErrors({...errors, nombre: undefined});
-            }}
-          />
+            <TextInput
+              style={styles.input}
+              placeholder="Solo letras (ej: María)"
+              placeholderTextColor="#9CA3AF"
+              value={nombre}
+              onChangeText={(text) => {
+                // ✅ SOLO LETRAS Y ESPACIOS
+                const limpio = text.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+                setNombre(limpio);
+                if (errors.nombre) setErrors({...errors, nombre: undefined});
+              }}
+            />
         </View>
         {errors.nombre && <Text style={styles.errorText}>{errors.nombre}</Text>}
       </View>
@@ -467,16 +472,18 @@ const toggleRol = (rolId) => {
         </Text>
         <View style={[styles.inputContainer, errors.apellido && styles.inputError]}>
           <Ionicons name="person-outline" size={20} color="#667eea" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Pérez"
-            placeholderTextColor="#9CA3AF"
-            value={apellido}
-            onChangeText={(text) => {
-              setApellido(text);
-              if (errors.apellido) setErrors({...errors, apellido: undefined});
-            }}
-          />
+            <TextInput
+              style={styles.input}
+              placeholder="Solo letras (ej: Pérez)"
+              placeholderTextColor="#9CA3AF"
+              value={apellido}
+              onChangeText={(text) => {
+                // ✅ SOLO LETRAS Y ESPACIOS
+                const limpio = text.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+                setApellido(limpio);
+                if (errors.apellido) setErrors({...errors, apellido: undefined});
+              }}
+            />
         </View>
         {errors.apellido && <Text style={styles.errorText}>{errors.apellido}</Text>}
       </View>
@@ -487,15 +494,18 @@ const toggleRol = (rolId) => {
         <Text style={styles.label}>TELÉFONO</Text>
         <View style={styles.inputContainer}>
           <Ionicons name="call-outline" size={20} color="#667eea" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="0987654321"
-            placeholderTextColor="#9CA3AF"
-            value={telefono}
-            onChangeText={setTelefono}
-            keyboardType="phone-pad"
-            maxLength={10}
-          />
+            <TextInput
+              style={styles.input}
+              placeholder="7-15 dígitos (ej: 0987654321)"
+              placeholderTextColor="#9CA3AF"
+              value={telefono}
+              onChangeText={(text) => {
+                const limpio = text.replace(/[^0-9]/g, '');
+                setTelefono(limpio);
+              }}
+              keyboardType="phone-pad"
+              maxLength={15}
+            />
         </View>
       </View>
 
@@ -520,17 +530,24 @@ const toggleRol = (rolId) => {
       <Text style={styles.sectionTitle}>ℹ️ Información Adicional</Text>
 
       <View style={styles.formRow}>
+
         <View style={styles.formColumn}>
           <Text style={styles.label}>GÉNERO</Text>
           <View style={styles.inputContainer}>
             <Ionicons name="transgender-outline" size={20} color="#667eea" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Masculino/Femenino/Otro"
-              placeholderTextColor="#9CA3AF"
-              value={genero}
-              onChangeText={setGenero}
-            />
+            <View style={styles.pickerContainer}>
+              {['masculino', 'femenino', 'otro', 'prefiero_no_decir'].map(g => (
+                <TouchableOpacity
+                  key={g}
+                  style={[styles.genderBtn, genero === g && styles.genderBtnActive]}
+                  onPress={() => setGenero(g)}
+                >
+                  <Text style={styles.genderBtnText}>
+                    {g.replace('_', ' ').toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
 
@@ -540,19 +557,28 @@ const toggleRol = (rolId) => {
           </Text>
           <View style={[styles.inputContainer, errors.tipoPersona && styles.inputError]}>
             <Ionicons name="briefcase-outline" size={20} color="#667eea" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="docente/administrativo/estudiante"
-              placeholderTextColor="#9CA3AF"
-              value={tipoPersona}
-              onChangeText={(text) => {
-                setTipoPersona(text);
-                if (errors.tipoPersona) setErrors({...errors, tipoPersona: undefined});
-              }}
-            />
+            <View style={styles.pickerContainer}>
+              {['docente', 'administrativo', 'estudiante', 'externo'].map(tipo => (
+                <TouchableOpacity
+                  key={tipo}
+                  style={[styles.tipoBtn, tipoPersona === tipo && styles.tipoBtnActive]}
+                  onPress={() => {
+                    setTipoPersona(tipo);
+                    if (errors.tipoPersona) setErrors({...errors, tipoPersona: undefined});
+                  }}
+                >
+                  <Text style={styles.tipoBtnText}>{tipo.toUpperCase()}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
           {errors.tipoPersona && <Text style={styles.errorText}>{errors.tipoPersona}</Text>}
         </View>
+
+
+
+
+
       </View>
 
       <View style={styles.infoCard}>
@@ -575,17 +601,23 @@ const toggleRol = (rolId) => {
           </Text>
           <View style={[styles.inputContainer, errors.username && styles.inputError]}>
             <Ionicons name="at-outline" size={20} color="#667eea" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="juanperez"
-              placeholderTextColor="#9CA3AF"
-              value={username}
-              onChangeText={(text) => {
-                setUsername(text);
-                if (errors.username) setErrors({...errors, username: undefined});
-              }}
-              autoCapitalize="none"
-            />
+
+              <TextInput
+                style={styles.input}
+                placeholder="4-50 caracteres (ej: juan_perez)"
+                placeholderTextColor="#9CA3AF"
+                value={username}
+                onChangeText={(text) => {
+                  // ✅ SOLO ALFANUMÉRICOS, GUIONES Y GUIONES BAJOS
+                  const limpio = text.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+                  setUsername(limpio);
+                  if (errors.username) setErrors({...errors, username: undefined});
+                }}
+                autoCapitalize="none"
+                maxLength={50}
+              />
+
+
           </View>
           {errors.username && <Text style={styles.errorText}>{errors.username}</Text>}
         </View>
@@ -596,18 +628,23 @@ const toggleRol = (rolId) => {
           </Text>
           <View style={[styles.inputContainer, errors.email && styles.inputError]}>
             <Ionicons name="mail-outline" size={20} color="#667eea" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="juan@ejemplo.com"
-              placeholderTextColor="#9CA3AF"
-              value={email}
-              onChangeText={(text) => {
-                setEmail(text);
-                if (errors.email) setErrors({...errors, email: undefined});
-              }}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
+
+
+              <TextInput
+                style={styles.input}
+                placeholder="correo@ejemplo.com"
+                placeholderTextColor="#9CA3AF"
+                value={email}
+                onChangeText={(text) => {
+                  setEmail(text.toLowerCase().trim());
+                  if (errors.email) setErrors({...errors, email: undefined});
+                }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+
+
+
           </View>
           {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
         </View>
@@ -704,6 +741,7 @@ const toggleRol = (rolId) => {
 );
 
   // ==================== RENDER PRINCIPAL ====================
+// ==================== RENDER PRINCIPAL ====================
   return (
     <Animated.View 
       style={[
@@ -711,120 +749,130 @@ const toggleRol = (rolId) => {
         { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
       ]}
     >
-      {/* Header con Stepper */}
-      <View style={styles.cardHeader}>
-        <View style={styles.cardHeaderTitle}>
-          <LinearGradient
-            colors={usuario ? ['#667eea', '#764ba2'] : ['#10B981', '#059669']}
-            style={{ borderRadius: 14, padding: 10 }}
-          >
-            <Ionicons 
-              name={usuario ? "create-outline" : "person-add-outline"} 
-              size={24} 
-              color="#FFFFFF" 
-            />
-          </LinearGradient>
-          <View>
-            <Text style={styles.cardTitle}>
-              {usuario ? 'Editar Usuario' : 'Nuevo Usuario'}
-            </Text>
-            <Text style={styles.pasoIndicator}>Paso {pasoActual} de 4</Text>
-          </View>
-        </View>
-        <TouchableOpacity style={styles.btnCerrar} onPress={onCerrar}>
-          <Ionicons name="close" size={24} color="#c7d2fe" />
-        </TouchableOpacity>
-      </View>
 
-      {/* Stepper Visual */}
-      <View style={styles.stepperContainer}>
-        {[1, 2, 3, 4].map((paso, index) => (
-          <React.Fragment key={paso}>
-            <View style={styles.stepWrapper}>
-              <View style={[
-                styles.stepCircle,
-                pasoActual === paso && styles.stepCircleActive,
-                pasoActual > paso && styles.stepCircleCompleted
-              ]}>
-                <Text style={[
-                  styles.stepNumber,
-                  (pasoActual === paso || pasoActual > paso) && styles.stepNumberActive
-                ]}>
-                  {pasoActual > paso ? '✓' : paso}
-                </Text>
-              </View>
-            </View>
-            {index < 3 && <View style={styles.stepLine} />}
-          </React.Fragment>
-        ))}
-      </View>
+    {/* Toast de notificaciones */}
+    <Toast
+      visible={toast.visible}
+      message={toast.message}
+      type={toast.type}
+      onHide={ocultarToast}
+    />
 
-      {/* Contenido del Paso Actual */}
-      <ScrollView 
-        style={styles.cardContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {pasoActual === 1 && renderPaso1()}
-        {pasoActual === 2 && renderPaso2()}
-        {pasoActual === 3 && renderPaso3()}
-        {pasoActual === 4 && renderPaso4()}
-      </ScrollView>
-
-      {/* Botones de Navegación */}
-      <View style={styles.actionsContainer}>
-        <TouchableOpacity 
-          style={styles.btnCancelar}
-          onPress={onCerrar}
-          activeOpacity={0.85}
+    {/* Header con Stepper */}
+    <View style={styles.cardHeader}>
+      <View style={styles.cardHeaderTitle}>
+        <LinearGradient
+          colors={usuario ? ['#667eea', '#764ba2'] : ['#10B981', '#059669']}
+          style={{ borderRadius: 14, padding: 10 }}
         >
-          <Text style={styles.btnCancelarText}>CANCELAR</Text>
-        </TouchableOpacity>
-
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          {pasoActual > 1 && (
-            <TouchableOpacity 
-              style={styles.btnAnterior}
-              onPress={handleAnterior}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.btnAnteriorText}>ANTERIOR</Text>
-            </TouchableOpacity>
-          )}
-
-          {pasoActual < 4 ? (
-            <TouchableOpacity 
-              onPress={handleSiguiente}
-              activeOpacity={0.85}
-            >
-              <LinearGradient
-                colors={['#667eea', '#764ba2']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.btnGuardar}
-              >
-                <Text style={styles.btnGuardarText}>SIGUIENTE</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity 
-              onPress={handleGuardar}
-              disabled={guardando}
-              activeOpacity={0.85}
-            >
-              <LinearGradient
-                colors={guardando ? ['#6B7280', '#4B5563'] : ['#10B981', '#059669']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.btnGuardar, guardando && styles.btnGuardarDisabled]}
-              >
-                <Text style={styles.btnGuardarText}>
-                  {guardando ? 'GUARDANDO...' : 'GUARDAR USUARIO'}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
+          <Ionicons 
+            name={usuario ? "create-outline" : "person-add-outline"} 
+            size={24} 
+            color="#FFFFFF" 
+          />
+        </LinearGradient>
+        <View>
+          <Text style={styles.cardTitle}>
+            {usuario ? 'Editar Usuario' : 'Nuevo Usuario'}
+          </Text>
+          <Text style={styles.pasoIndicador}>Paso {pasoActual} de 4</Text>
         </View>
       </View>
+      <TouchableOpacity style={styles.btnCerrar} onPress={onCerrar}>
+        <Ionicons name="close" size={24} color="#c7d2fe" />
+      </TouchableOpacity>
+    </View>
+
+    {/* Stepper Visual */}
+    <View style={styles.stepperContainer}>
+      {[1, 2, 3, 4].map((paso, index) => (
+        <React.Fragment key={paso}>
+          <View style={styles.stepWrapper}>
+            <View style={[
+              styles.stepCircle,
+              pasoActual === paso && styles.stepCircleActive,
+              pasoActual > paso && styles.stepCircleCompleted
+            ]}>
+              <Text style={[
+                styles.stepNumber,
+                (pasoActual === paso || pasoActual > paso) && styles.stepNumberActive
+              ]}>
+                {pasoActual > paso ? '✓' : paso}
+              </Text>
+            </View>
+          </View>
+          {index < 3 && <View style={styles.stepLine} />}
+        </React.Fragment>
+      ))}
+    </View>
+
+    {/* Contenido del Paso Actual */}
+    <ScrollView 
+      style={styles.cardContent}
+      showsVerticalScrollIndicator={false}
+    >
+      {pasoActual === 1 && renderPaso1()}
+      {pasoActual === 2 && renderPaso2()}
+      {pasoActual === 3 && renderPaso3()}
+      {pasoActual === 4 && renderPaso4()}
+    </ScrollView>
+
+    {/* Botones de Navegación */}
+    <View style={styles.actionsContainer}>
+      <TouchableOpacity 
+        style={styles.btnCancelar}
+        onPress={onCerrar}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.btnCancelarText}>CANCELAR</Text>
+      </TouchableOpacity>
+
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        {pasoActual > 1 && (
+          <TouchableOpacity 
+            style={styles.btnAnterior}
+            onPress={handleAnterior}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.btnAnteriorText}>ANTERIOR</Text>
+          </TouchableOpacity>
+        )}
+
+        {pasoActual < 4 ? (
+          <TouchableOpacity 
+            onPress={handleSiguiente}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={['#667eea', '#764ba2']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.btnGuardar}
+            >
+              <Text style={styles.btnGuardarText}>SIGUIENTE</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity 
+            onPress={handleGuardar}
+            disabled={guardando}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={guardando ? ['#6B7280', '#4B5563'] : ['#10B981', '#059669']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.btnGuardar, guardando && styles.btnGuardarDisabled]}
+            >
+              <Text style={styles.btnGuardarText}>
+                {guardando ? 'GUARDANDO...' : 'GUARDAR USUARIO'}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+
     </Animated.View>
   );
 };

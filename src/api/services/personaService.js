@@ -14,16 +14,11 @@ export const personaService = {
    */
   async create(data) {
     try {
-      console.log('📤 [personaService] Creando persona con datos:', JSON.stringify(data, null, 2));
       const response = await apiClient.post('/personas/', data);
-      console.log('✅ [personaService] Persona creada:', response);
+
       return response;
     } catch (error) {
-      console.error('❌ [personaService] Error completo:', error);
-      console.error('❌ [personaService] Error data:', error.response?.data);
-      console.error('❌ [personaService] Status:', error.response?.status);
-      console.error('❌ [personaService] Detalles validación:', JSON.stringify(error.response?.data, null, 2));
-      
+
       // Extraer detalles de validación
       let errorMsg = 'Error al crear persona';
 

@@ -964,4 +964,51 @@ pickerButtonText: {
     color: '#c7d2fe',
     letterSpacing: 1.2,
   },
+
+
+
+
+  
+
+
+
+  pickerContainer: {
+  flex: 1,
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  gap: 8,
+},
+genderBtn: {
+  paddingHorizontal: 12,
+  paddingVertical: 6,
+  borderRadius: 8,
+  backgroundColor: '#F3F4F6',
+  borderWidth: 1,
+  borderColor: '#E5E7EB',
+},
+genderBtnActive: {
+  backgroundColor: '#667eea',
+  borderColor: '#667eea',
+},
+genderBtnText: {
+  fontSize: 12,
+  color: '#6B7280',
+},
+tipoBtn: {
+  paddingHorizontal: 16,
+  paddingVertical: 8,
+  borderRadius: 8,
+  backgroundColor: '#F3F4F6',
+  borderWidth: 1,
+  borderColor: '#E5E7EB',
+},
+tipoBtnActive: {
+  backgroundColor: '#667eea',
+  borderColor: '#667eea',
+},
+tipoBtnText: {
+  fontSize: 13,
+  fontWeight: '600',
+  color: '#6B7280',
+},
 });
