@@ -20,7 +20,7 @@ import {
 
 import { rolService } from '../../api/services/rolService';
 import { usuarioService } from '../../api/services/usuarioService';
-import GestionUsuariosCard from '../../components/Administrador/GestionUsuarioCard';
+import GestionUsuariosCard from '../../components/SuperAdministrador/GestionUsuarioCard';
 
 // 🔹 Sidebar y estilos de layout (igual que en el dashboard)
 import SuperAdminSidebar from '../../components/Sidebar/sidebarSuperAdmin';

@@ -38,9 +38,6 @@ export default function SuperAdminSidebar({ isOpen }) {
       label: 'Gestión de Usuarios',
       icon: 'people-outline',
       submenu: [
-        { label: 'Todos los Usuarios', route: '/superadmin/usuarios' },
-        { label: 'Usuarios Activos', route: '/superadmin/usuarios/activos' },
-        { label: 'Usuarios Inactivos', route: '/superadmin/usuarios/inactivos' },
         { label: 'Gestión de Usuarios', route: '/superadmin/usuarios' },
       ]
     },
@@ -50,18 +47,14 @@ export default function SuperAdminSidebar({ isOpen }) {
       icon: 'business-outline',
       submenu: [
         { label: 'Todos los Departamentos', route: '/superadmin/departamento' },
-        { label: 'Crear Departamento', route: '/superadmin/departamentos/crear' },
-        { label: 'Asignar Usuarios', route: '/superadmin/departamentos/asignar' },
       ]
     },
     {
-      id: 'roles',
-      label: 'Gestión de Roles',
+      id: 'Agente Inteligente',
+      label: 'Gestión de Agentes',
       icon: 'shield-checkmark-outline',
       submenu: [
-        { label: 'Todos los Roles', route: '/superadmin/roles' },
-        { label: 'Permisos por Rol', route: '/superadmin/roles/permisos' },
-        { label: 'Asignar Roles', route: '/superadmin/roles/asignar' },
+        { label: 'Gestion de Agentes Inteligentes', route: '/superadmin/agente' },
       ]
     },
     {

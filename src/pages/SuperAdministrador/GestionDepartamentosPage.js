@@ -1,20 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Modal,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Modal,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { departamentoService } from '../../api/services/departamentoService';
-import GestionDepartamentosCard from '../../components/Administrador/GestionDepartamentosCard';
 import SuperAdminSidebar from '../../components/Sidebar/sidebarSuperAdmin';
 import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles';
+import GestionDepartamentosCard from '../../components/SuperAdministrador/GestionDepartamentosCard';
 import { styles } from '../../styles/gestionDepartamentosStyles';
 
 export default function GestionDepartamentosPage() {

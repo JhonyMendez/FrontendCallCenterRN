@@ -1,5 +1,5 @@
 // app/(superadmin)/departamentos.tsx
-import GestionDepartamentosPage from '@/src/pages/Administrador/GestionDepartamentosPage';
+import GestionDepartamentosPage from '@/src/pages/SuperAdministrador/GestionDepartamentosPage';
 import { Platform, StatusBar, StyleSheet, View } from 'react-native';
 
 export default function DepartamentosScreen() {
