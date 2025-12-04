@@ -51,7 +51,7 @@ export default function SuperAdminSidebar({ isOpen }) {
     },
     {
       id: 'Agente Inteligente',
-      label: 'Gestión de Agentes',
+      label: 'Agentes Inteligentes',
       icon: 'shield-checkmark-outline',
       submenu: [
         { label: 'Gestion de Agentes Inteligentes', route: '/superadmin/agente' },

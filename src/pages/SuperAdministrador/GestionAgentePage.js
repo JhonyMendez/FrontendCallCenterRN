@@ -8,7 +8,7 @@ import {
   Alert,
   FlatList,
   Modal,
-  ScrollView, // <-- ASEGÚRATE DE QUE ESTA LÍNEA ESTÉ PRESENTE
+  ScrollView,
   Switch,
   Text,
   TextInput,
@@ -16,6 +16,7 @@ import {
   View
 } from 'react-native';
 import { agenteService } from '../../api/services/agenteService';
+import { departamentoService } from '../../api/services/departamentoService';
 import SuperAdminSidebar from '../../components/Sidebar/sidebarSuperAdmin';
 import GestionAgenteCard from '../../components/SuperAdministrador/GestionAgenteCard';
 import { contentStyles } from '../../styles/contentStyles';
@@ -24,6 +25,7 @@ import { getStatIconColor, modalStyles, styles } from '../../styles/gestionAgent
 export default function GestionAgentePage() {
   // ============ STATE ============
   const [agentes, setAgentes] = useState([]);
+  const [departamentos, setDepartamentos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipo, setFilterTipo] = useState('todos');
@@ -37,7 +39,7 @@ export default function GestionAgentePage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [formMode, setFormMode] = useState('create'); // 'create' o 'edit'
   const [selectedAgente, setSelectedAgente] = useState(null);
-  
+
   // Form Data
   const [formData, setFormData] = useState({
     nombre_agente: '',
@@ -53,6 +55,7 @@ export default function GestionAgentePage() {
     zona_horaria: 'America/Guayaquil',
     activo: true,
     icono: '🤖',
+    id_departamento: '',
   });
   const [formErrors, setFormErrors] = useState({});
   
@@ -75,42 +78,96 @@ export default function GestionAgentePage() {
     cargarEstadisticas();
   }, [filterTipo, filterEstado]);
 
+  useEffect(() => {
+    cargarDepartamentos();
+  }, []);
+
   // ============ FUNCIONES DE CARGA ============
   const cargarAgentes = async () => {
-    try {
-      setLoading(true);
-      const params = {};
-      
-      if (filterTipo !== 'todos') {
-        params.tipo_agente = filterTipo;
-      }
-      
-      if (filterEstado !== 'todos') {
-        params.activo = filterEstado === 'activo';
-      }
-      
-      const data = await agenteService.getAll(params);
-      setAgentes(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error('Error al cargar agentes:', err);
-      Alert.alert('Error', 'No se pudieron cargar los agentes');
-      setAgentes([]);
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+    const params = {};
+    
+    if (filterTipo !== 'todos') {
+      params.tipo_agente = filterTipo;
     }
-  };
+    
+    if (filterEstado !== 'todos') {
+      params.activo = filterEstado === 'activo';
+    }
+    
+    const data = await agenteService.getAll(params);
+    
+    // Manejar diferentes estructuras de respuesta
+    const agentesArray = Array.isArray(data) ? data : (data?.data || []);
+    setAgentes(agentesArray);
+    
+  } catch (err) {
+    console.error('Error al cargar agentes:', err);
+    Alert.alert('Error', 'No se pudieron cargar los agentes');
+    setAgentes([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
-  const cargarEstadisticas = async () => {
+const cargarEstadisticas = async () => {
+  try {
+    console.log('🔍 Intentando cargar estadísticas...');
+    const data = await agenteService.getEstadisticasGenerales();
+    console.log('📦 Datos recibidos:', data);
+    
+    // Manejar diferentes estructuras de respuesta
+    const statsData = data?.data || data;
+    console.log('📊 Stats procesadas:', statsData);
+    
+    if (statsData && statsData.total !== undefined) {
+      const nuevasStats = {
+        total: Number(statsData.total) || 0,
+        activos: Number(statsData.activos) || 0,
+        router: Number(statsData.router) || 0,
+        especializados: Number(statsData.especializados) || 0,
+      };
+      console.log('✅ Actualizando stats a:', nuevasStats);
+      setStats(nuevasStats);
+    } else {
+      console.log('⚠️ Formato no válido, usando fallback');
+      throw new Error('Formato no válido');
+    }
+  } catch (err) {
+    console.error('❌ Error al cargar estadísticas:', err);
+    // Fallback: calcular desde todos los agentes
     try {
-      const data = await agenteService.getEstadisticasGenerales();
-      setStats(data || {
-        total: 0,
-        activos: 0,
-        router: 0,
-        especializados: 0,
-      });
+      console.log('🔄 Intentando fallback...');
+      const todosAgentes = await agenteService.getAll({});
+      console.log('📦 Agentes para calcular:', todosAgentes);
+      
+      const agentesArray = Array.isArray(todosAgentes) ? todosAgentes : (todosAgentes?.data || []);
+      console.log('📋 Array de agentes:', agentesArray.length);
+      
+      const calculadas = {
+        total: agentesArray.length,
+        activos: agentesArray.filter(a => a.activo).length,
+        router: agentesArray.filter(a => a.tipo_agente === 'router').length,
+        especializados: agentesArray.filter(a => a.tipo_agente === 'especializado').length,
+      };
+      console.log('✅ Estadísticas calculadas:', calculadas);
+      setStats(calculadas);
+    } catch (fallbackErr) {
+      console.error('❌ Error en fallback:', fallbackErr);
+    }
+  }
+};
+
+// ============  Cargar departamentos para el formulario ===========
+
+  const cargarDepartamentos = async () => {
+    try {
+      const data = await departamentoService.getAll({ activo: true });
+      setDepartamentos(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error('Error al cargar estadísticas:', err);
+      console.error('Error al cargar departamentos:', err);
+      setDepartamentos([]);
     }
   };
 
@@ -130,6 +187,7 @@ export default function GestionAgentePage() {
       zona_horaria: 'America/Guayaquil',
       activo: true,
       icono: '🤖',
+      id_departamento: '',
     });
     setFormErrors({});
   };
@@ -189,6 +247,7 @@ export default function GestionAgentePage() {
       zona_horaria: agente.zona_horaria || 'America/Guayaquil',
       activo: agente.activo !== undefined ? agente.activo : true,
       icono: agente.icono || '🤖',
+      id_departamento: agente.id_departamento?.toString() || '',
     });
     setShowFormModal(true);
   };
@@ -204,6 +263,7 @@ export default function GestionAgentePage() {
         ...formData,
         temperatura: parseFloat(formData.temperatura),
         max_tokens: parseInt(formData.max_tokens),
+        id_departamento: formData.id_departamento || null,
       };
 
       if (formMode === 'create') {
@@ -461,7 +521,7 @@ export default function GestionAgentePage() {
               </View>
               <View style={styles.statContent}>
                 <Text style={styles.statLabel}>Total Agentes</Text>
-                <Text style={styles.statValue}>{stats.total}</Text>
+                <Text style={styles.statValue}>{stats?.total ?? 0}</Text>
               </View>
             </View>
 
@@ -478,7 +538,7 @@ export default function GestionAgentePage() {
               </View>
               <View style={styles.statContent}>
                 <Text style={styles.statLabel}>Activos</Text>
-                <Text style={styles.statValue}>{stats.activos}</Text>
+                <Text style={styles.statValue}>{stats?.activos ?? 0}</Text>
               </View>
             </View>
 
@@ -495,7 +555,7 @@ export default function GestionAgentePage() {
               </View>
               <View style={styles.statContent}>
                 <Text style={styles.statLabel}>Routers</Text>
-                <Text style={styles.statValue}>{stats.router}</Text>
+                <Text style={styles.statValue}>{stats?.router ?? 0}</Text>
               </View>
             </View>
 
@@ -512,7 +572,7 @@ export default function GestionAgentePage() {
               </View>
               <View style={styles.statContent}>
                 <Text style={styles.statLabel}>Especializados</Text>
-                <Text style={styles.statValue}>{stats.especializados}</Text>
+                <Text style={styles.statValue}>{stats?.especializados ?? 0}</Text>
               </View>
             </View>
           </View>
@@ -536,72 +596,114 @@ export default function GestionAgentePage() {
           </View>
 
           {/* ============ FILTROS ============ */}
-          <View style={styles.filterContainer}>
-            {[
-              { key: 'todos', label: 'Todos', icon: 'apps' },
-              { key: 'router', label: 'Router', icon: 'filter' },
-              { key: 'especializado', label: 'Especializado', icon: 'star' },
-              { key: 'hibrido', label: 'Híbrido', icon: 'git-merge' },
-            ].map((filter) => (
-              <TouchableOpacity
-                key={filter.key}
-                style={[
-                  styles.filterButton,
-                  filterTipo === filter.key && styles.filterButtonActive,
-                ]}
-                onPress={() => setFilterTipo(filter.key)}
-                activeOpacity={0.7}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons 
-                    name={filter.icon} 
-                    size={14} 
-                    color={filterTipo === filter.key ? 'white' : 'rgba(255, 255, 255, 0.6)'} 
-                  />
-                  <Text
-                    style={[
-                      styles.filterText,
-                      filterTipo === filter.key && styles.filterTextActive,
-                    ]}
-                  >
-                    {filter.label}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+          <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
+            {/* Título general */}
+            <Text style={{
+              fontSize: 13,
+              fontWeight: '600',
+              color: 'rgba(255, 255, 255, 0.7)',
+              marginBottom: 12,
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
+            }}>
+              🔍 Filtros de búsqueda
+            </Text>
 
-            {[
-              { key: 'todos', label: 'Todos', icon: 'list' },
-              { key: 'activo', label: 'Activos', icon: 'checkmark-circle' },
-              { key: 'inactivo', label: 'Inactivos', icon: 'close-circle' },
-            ].map((filter) => (
-              <TouchableOpacity
-                key={filter.key}
-                style={[
-                  styles.filterButton,
-                  filterEstado === filter.key && styles.filterButtonActive,
-                ]}
-                onPress={() => setFilterEstado(filter.key)}
-                activeOpacity={0.7}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons 
-                    name={filter.icon} 
-                    size={14} 
-                    color={filterEstado === filter.key ? 'white' : 'rgba(255, 255, 255, 0.6)'} 
-                  />
-                  <Text
+            <View style={styles.filterContainer}>
+              {/* Filtros de Tipo de Agente */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '500',
+                  color: 'rgba(255, 255, 255, 0.6)',
+                  marginRight: 4,
+                }}>
+                  Tipo:
+                </Text>
+                {[
+                  { key: 'todos', label: 'Todos', icon: 'apps' },
+                  { key: 'router', label: 'Router', icon: 'filter' },
+                  { key: 'especializado', label: 'Especializado', icon: 'star' },
+                  { key: 'hibrido', label: 'Híbrido', icon: 'git-merge' },
+                ].map((filter) => (
+                  <TouchableOpacity
+                    key={filter.key}
                     style={[
-                      styles.filterText,
-                      filterEstado === filter.key && styles.filterTextActive,
+                      styles.filterButton,
+                      filterTipo === filter.key && styles.filterButtonActive,
                     ]}
+                    onPress={() => setFilterTipo(filter.key)}
+                    activeOpacity={0.7}
                   >
-                    {filter.label}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+                    <Ionicons 
+                      name={filter.icon} 
+                      size={14} 
+                      color={filterTipo === filter.key ? 'white' : 'rgba(255, 255, 255, 0.6)'} 
+                    />
+                    <Text
+                      style={[
+                        styles.filterText,
+                        filterTipo === filter.key && styles.filterTextActive,
+                      ]}
+                    >
+                      {filter.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Separador Visual */}
+              <View style={{
+                width: 2,
+                height: 32,
+                backgroundColor: 'rgba(102, 126, 234, 0.3)',
+                marginHorizontal: 12,
+                borderRadius: 1,
+              }} />
+
+              {/* Filtros de Estado */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '500',
+                  color: 'rgba(255, 255, 255, 0.6)',
+                  marginRight: 4,
+                }}>
+                  Estado:
+                </Text>
+                {[
+                  { key: 'todos', label: 'Todos', icon: 'list' },
+                  { key: 'activo', label: 'Activos', icon: 'checkmark-circle' },
+                  { key: 'inactivo', label: 'Inactivos', icon: 'close-circle' },
+                ].map((filter) => (
+                  <TouchableOpacity
+                    key={`estado-${filter.key}`}
+                    style={[
+                      styles.filterButton,
+                      filterEstado === filter.key && styles.filterButtonActive,
+                    ]}
+                    onPress={() => setFilterEstado(filter.key)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons 
+                      name={filter.icon} 
+                      size={14} 
+                      color={filterEstado === filter.key ? 'white' : 'rgba(255, 255, 255, 0.6)'} 
+                    />
+                    <Text
+                      style={[
+                        styles.filterText,
+                        filterEstado === filter.key && styles.filterTextActive,
+                      ]}
+                    >
+                      {filter.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
           </View>
+
 
           {/* ============ LISTA ============ */}
           {loading ? (
@@ -707,7 +809,7 @@ export default function GestionAgentePage() {
                   </View>
                 </View>
 
-                <View style={modalStyles.formGroup}>const modalStyles
+                <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Área de Especialidad *</Text>
                   <TextInput
                     style={[modalStyles.input, formErrors.area_especialidad && modalStyles.inputError]}
@@ -720,6 +822,44 @@ export default function GestionAgentePage() {
                   {formErrors.area_especialidad && (
                     <Text style={modalStyles.errorText}>{formErrors.area_especialidad}</Text>
                   )}
+                </View>
+
+                <View style={modalStyles.formGroup}>
+                  <Text style={modalStyles.label}>Departamento Responsable</Text>
+                  <View style={modalStyles.pickerContainer}>
+                    <TextInput
+                      style={modalStyles.picker}
+                      value={
+                        formData.id_departamento
+                          ? departamentos.find(d => d.id_departamento.toString() === formData.id_departamento)?.nombre || 'Seleccionar...'
+                          : 'Seleccionar departamento...'
+                      }
+                      editable={false}
+                    />
+                    <select
+                      value={formData.id_departamento}
+                      onChange={(e) => setFormData({ ...formData, id_departamento: e.target.value })}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        opacity: 0,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <option value="">Sin asignar</option>
+                      {departamentos.map((dept) => (
+                        <option key={dept.id_departamento} value={dept.id_departamento}>
+                          {dept.nombre} {dept.codigo ? `(${dept.codigo})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </View>
+                  <Text style={modalStyles.helperText}>
+                    Departamento que gestiona este agente
+                  </Text>
                 </View>
 
                 <View style={modalStyles.formGroup}>
@@ -892,7 +1032,7 @@ export default function GestionAgentePage() {
                       }}
                     >
                       <option value="America/Guayaquil">America/Guayaquil (GMT-5)</option>
-                      
+
                     </select>
                   </View>
                 </View>
@@ -1033,6 +1173,15 @@ export default function GestionAgentePage() {
                           <Text style={modalStyles.detailLabel}>Especialidad</Text>
                           <Text style={modalStyles.detailValue}>
                             {selectedAgente.area_especialidad || 'General'}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={modalStyles.detailItem}>
+                        <Ionicons name="business" size={16} color="#667eea" />
+                        <View style={{ flex: 1 }}>
+                          <Text style={modalStyles.detailLabel}>Departamento</Text>
+                          <Text style={modalStyles.detailValue}>
+                            {selectedAgente.departamento_nombre || 'Sin asignar'}
                           </Text>
                         </View>
                       </View>
