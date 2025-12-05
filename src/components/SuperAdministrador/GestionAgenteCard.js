@@ -15,7 +15,6 @@ const GestionAgenteCard = ({ agente, onEdit, onDelete, onView, onToggleStatus })
     
     // Extraer el nombre legible del modelo
     if (modelo.includes('claude')) {
-      // Ejemplo: "claude-sonnet-4-20250514" -> "Sonnet 4"
       const parts = modelo.split('-');
       if (parts.length >= 3) {
         const name = parts[1].charAt(0).toUpperCase() + parts[1].slice(1); // "Sonnet"

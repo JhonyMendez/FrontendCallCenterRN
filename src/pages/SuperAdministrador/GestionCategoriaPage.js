@@ -37,6 +37,8 @@ export default function GestionCategoriaPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
+  const [searchAgente, setSearchAgente] = useState('');
+  const [searchFilterAgente, setSearchFilterAgente] = useState('');
     
   const [formData, setFormData] = useState({
   nombre: '',
@@ -224,6 +226,7 @@ export default function GestionCategoriaPage() {
     });
     setEditingCategoria(null);
     setErrors({});
+    setSearchAgente('');
   };
 
   const handleInputChange = (field, value) => {
@@ -267,6 +270,16 @@ export default function GestionCategoriaPage() {
     const agente = agentes.find(a => a.id_agente === id_agente);
     return agente?.nombre_agente || 'Sin agente';
   };
+
+  const filteredAgentes = agentes.filter((agente) => {
+  const search = searchAgente.toLowerCase();
+  return !search || agente.nombre_agente?.toLowerCase().includes(search);
+  }); 
+
+  const filteredFilterAgentes = agentes.filter((agente) => {
+  const search = searchFilterAgente.toLowerCase();
+  return !search || agente.nombre_agente?.toLowerCase().includes(search);
+  });
 
   // ============ RENDER ============
   return (
@@ -421,8 +434,42 @@ export default function GestionCategoriaPage() {
               ))}
             </View>
 
-            {/* Filtro por Agente */}
+{/* Filtro por Agente */}
             <View style={{ marginTop: 12 }}>
+              {/* 🔍 Búsqueda compacta */}
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                marginBottom: 8,
+                borderRadius: 8,
+                backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.08)',
+              }}>
+                <Ionicons name="search" size={16} color="rgba(255, 255, 255, 0.4)" />
+                <TextInput
+                  style={{
+                    flex: 1,
+                    color: 'white',
+                    fontSize: 13,
+                    paddingVertical: 2,
+                  }}
+                  placeholder="Buscar agente..."
+                  placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                  value={searchFilterAgente}
+                  onChangeText={(text) => setSearchFilterAgente(sanitizeInput(text))}
+                />
+                {searchFilterAgente.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchFilterAgente('')}>
+                    <Ionicons name="close-circle" size={16} color="rgba(255, 255, 255, 0.4)" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Botones de filtro */}
               <View
                 ref={scrollRef}
                 onStartShouldSetResponder={() => true}
@@ -478,12 +525,12 @@ export default function GestionCategoriaPage() {
                       ]}
                       numberOfLines={1}
                     >
-                      Todos los agentes
+                      Todos
                     </Text>
                   </View>
                 </TouchableOpacity>
 
-                {agentes.map((agente) => (
+                {filteredFilterAgentes.map((agente) => (
                   <TouchableOpacity
                     key={agente.id_agente}
                     style={[
@@ -615,21 +662,68 @@ export default function GestionCategoriaPage() {
                       </Text>
                     </View>
                     
-                    {loadingAgentes ? (
+                  {loadingAgentes ? (
+                    <View style={{
+                      padding: 16,
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                      borderRadius: 12,
+                      alignItems: 'center',
+                    }}>
+                      <ActivityIndicator size="small" color="#667eea" />
+                      <Text style={{ color: 'rgba(255, 255, 255, 0.5)', marginTop: 8, fontSize: 12 }}>
+                        Cargando agentes...
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={{ gap: 8 }}>
+                      {/* 🔍 Campo de búsqueda de agentes - SIEMPRE VISIBLE */}
                       <View style={{
-                        padding: 16,
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                        borderRadius: 12,
+                        flexDirection: 'row',
                         alignItems: 'center',
+                        gap: 10,
+                        paddingHorizontal: 14,
+                        paddingVertical: 10,
+                        borderRadius: 10,
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        marginBottom: 8,
                       }}>
-                        <ActivityIndicator size="small" color="#667eea" />
-                        <Text style={{ color: 'rgba(255, 255, 255, 0.5)', marginTop: 8, fontSize: 12 }}>
-                          Cargando agentes...
-                        </Text>
+                        <Ionicons name="search" size={18} color="rgba(255, 255, 255, 0.5)" />
+                        <TextInput
+                          style={{
+                            flex: 1,
+                            color: 'white',
+                            fontSize: 14,
+                            paddingVertical: 4,
+                          }}
+                          placeholder="Buscar agente..."
+                          placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                          value={searchAgente}
+                          onChangeText={(text) => setSearchAgente(sanitizeInput(text))}
+                        />
+                        {searchAgente.length > 0 && (
+                          <TouchableOpacity onPress={() => setSearchAgente('')}>
+                            <Ionicons name="close-circle" size={18} color="rgba(255, 255, 255, 0.5)" />
+                          </TouchableOpacity>
+                        )}
                       </View>
-                    ) : (
-                      <View style={{ gap: 8 }}>
-                        {agentes.map((agente) => (
+
+                      {/* Lista de agentes filtrados */}
+                      {filteredAgentes.length === 0 ? (
+                        <View style={{
+                          padding: 20,
+                          alignItems: 'center',
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          borderRadius: 12,
+                        }}>
+                          <Ionicons name="search-outline" size={40} color="rgba(255, 255, 255, 0.3)" />
+                          <Text style={{ color: 'rgba(255, 255, 255, 0.5)', marginTop: 8, fontSize: 13 }}>
+                            No se encontraron agentes
+                          </Text>
+                        </View>
+                      ) : (
+                        filteredAgentes.map((agente) => (
                           <TouchableOpacity
                             key={agente.id_agente}
                             style={{
@@ -683,9 +777,10 @@ export default function GestionCategoriaPage() {
                               <Ionicons name="checkmark-circle" size={24} color="#667eea" />
                             )}
                           </TouchableOpacity>
-                        ))}
-                      </View>
-                    )}
+                        ))
+                      )}
+                    </View>
+                  )}
                     
                     {errors.id_agente && (
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>

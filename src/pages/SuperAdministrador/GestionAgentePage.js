@@ -19,6 +19,7 @@ import { agenteService } from '../../api/services/agenteService';
 import { departamentoService } from '../../api/services/departamentoService';
 import SuperAdminSidebar from '../../components/Sidebar/sidebarSuperAdmin';
 import GestionAgenteCard from '../../components/SuperAdministrador/GestionAgenteCard';
+import SecurityValidator from '../../components/utils/SecurityValidator';
 import { contentStyles } from '../../styles/contentStyles';
 import { getStatIconColor, modalStyles, styles } from '../../styles/gestionAgenteStyles';
 
@@ -93,30 +94,17 @@ const [formData, setFormData] = useState({
   }, []);
 
   // ============ HELPERS ============
-  // Helper para validar URLs de imagen
+// Validar URLs de imagen usando SecurityValidator
   const isValidImageUrl = (url) => {
     if (!url) return false;
     
-    // Extensiones de imagen comunes
-    const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i;
-    
-    // URLs directas con extensión
-    if (imageExtensions.test(url)) {
-      return true;
+    // Primero verificar que sea una URL segura
+    if (!SecurityValidator.isSecureUrl(url)) {
+      return false;
     }
     
-    // URLs conocidas que funcionan sin extensión
-    const trustedDomains = [
-      'googleusercontent.com',
-      'pinimg.com',
-      'cdninstagram.com',
-      'twimg.com',
-      'imgur.com',
-      'cloudinary.com',
-      'amazonaws.com',
-    ];
-    
-    return trustedDomains.some(domain => url.includes(domain));
+    // Luego verificar que sea una imagen válida
+    return SecurityValidator.isValidImageUrl(url);
   };
 
   // ============ FUNCIONES DE CARGA ============
@@ -242,124 +230,52 @@ const resetForm = () => {
 };
 
   // Validar formulario
-const validateForm = () => {
-  const newErrors = {};
+// Validar formulario con SecurityValidator
+// Validar formulario con SecurityValidator
+  const validateForm = () => {
+    console.log('🔍 Iniciando validación con SecurityValidator...');
+    
+    // Usar el validador de seguridad
+    const validation = SecurityValidator.validateAgenteForm(formData, formMode);
+    
+    console.log('📋 Resultado de validación:', {
+      isValid: validation.isValid,
+      errorsCount: Object.keys(validation.errors).length,
+      errors: validation.errors
+    });
 
-  // ============ VALIDACIONES OBLIGATORIAS ============
-  
-  // 1. NOMBRE DEL AGENTE
-  if (!formData.nombre_agente?.trim()) {
-    newErrors.nombre_agente = '⚠️ El nombre del agente es obligatorio';
-  } else if (formData.nombre_agente.trim().length < 3) {
-    newErrors.nombre_agente = '⚠️ Mínimo 3 caracteres';
-  }
-
-  // 2. ÁREA DE ESPECIALIDAD
-  if (!formData.area_especialidad?.trim()) {
-    newErrors.area_especialidad = '⚠️ La especialidad es obligatoria';
-  } else if (formData.area_especialidad.trim().length < 3) {
-    newErrors.area_especialidad = '⚠️ Mínimo 3 caracteres';
-  }
-
-  // 3. DESCRIPCIÓN
-  if (!formData.descripcion?.trim()) {
-    newErrors.descripcion = '⚠️ La descripción es obligatoria';
-  } else if (formData.descripcion.trim().length < 10) {
-    newErrors.descripcion = '⚠️ Mínimo 10 caracteres';
-  }
-
-  // 4. DEPARTAMENTO (AHORA OBLIGATORIO)
-  if (!formData.id_departamento) {
-    newErrors.id_departamento = '⚠️ Debes seleccionar un departamento';
-  } else {
-    if (formMode === 'create') {
+    // Si hay errores de departamento duplicado en modo creación
+    if (formMode === 'create' && formData.id_departamento) {
       const departamentoYaTieneAgente = agentes.some(
         a => a.id_departamento && 
              a.id_departamento.toString() === formData.id_departamento.toString()
       );
       
       if (departamentoYaTieneAgente) {
-        newErrors.id_departamento = '⚠️ Este departamento ya tiene un agente asignado';
+        validation.errors.id_departamento = '⚠️ Este departamento ya tiene un agente asignado';
+        validation.isValid = false;
       }
-    } else if (formMode === 'edit') {
-      if (selectedAgente?.id_departamento && 
+    }
+
+    // Si está editando y intenta cambiar departamento
+    if (formMode === 'edit' && selectedAgente?.id_departamento) {
+      if (formData.id_departamento && 
           selectedAgente.id_departamento.toString() !== formData.id_departamento.toString()) {
-        newErrors.id_departamento = '⚠️ No se puede cambiar el departamento';
+        validation.errors.id_departamento = '⚠️ No se puede cambiar el departamento';
+        validation.isValid = false;
       }
     }
-  }
 
-  // 5. URL DEL AVATAR (AHORA OBLIGATORIO)
-  if (!formData.avatar_url?.trim()) {
-    newErrors.avatar_url = '⚠️ La URL del avatar es obligatoria';
-  } else if (!formData.avatar_url.startsWith('http')) {
-    newErrors.avatar_url = '⚠️ Debe ser una URL válida (http:// o https://)';
-  }
-
-  // 6. COLOR DEL TEMA (AHORA OBLIGATORIO)
-  if (!formData.color_tema?.trim()) {
-    newErrors.color_tema = '⚠️ Debes seleccionar un color';
-  } else {
-    const hexRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
-    if (!hexRegex.test(formData.color_tema)) {
-      newErrors.color_tema = '⚠️ Color inválido. Usa formato hexadecimal (#667eea)';
+    setFormErrors(validation.errors);
+    
+    if (!validation.isValid) {
+      console.log('❌ Validación falló. Errores:', validation.errors);
+    } else {
+      console.log('✅ Validación exitosa');
     }
-  }
-
-  // 7. MENSAJE DE BIENVENIDA (AHORA OBLIGATORIO)
-  if (!formData.mensaje_bienvenida?.trim()) {
-    newErrors.mensaje_bienvenida = '⚠️ El mensaje de bienvenida es obligatorio';
-  } else if (formData.mensaje_bienvenida.trim().length < 10) {
-    newErrors.mensaje_bienvenida = '⚠️ Mínimo 10 caracteres';
-  }
-
-  // 8. MENSAJE DE DESPEDIDA (AHORA OBLIGATORIO)
-  if (!formData.mensaje_despedida?.trim()) {
-    newErrors.mensaje_despedida = '⚠️ El mensaje de despedida es obligatorio';
-  } else if (formData.mensaje_despedida.trim().length < 10) {
-    newErrors.mensaje_despedida = '⚠️ Mínimo 10 caracteres';
-  }
-
-  // 9. MENSAJE DE DERIVACIÓN (AHORA OBLIGATORIO)
-  if (!formData.mensaje_derivacion?.trim()) {
-    newErrors.mensaje_derivacion = '⚠️ El mensaje de derivación es obligatorio';
-  } else if (formData.mensaje_derivacion.trim().length < 10) {
-    newErrors.mensaje_derivacion = '⚠️ Mínimo 10 caracteres';
-  }
-
-  // 10. MENSAJE FUERA DE HORARIO (AHORA OBLIGATORIO)
-  if (!formData.mensaje_fuera_horario?.trim()) {
-    newErrors.mensaje_fuera_horario = '⚠️ El mensaje fuera de horario es obligatorio';
-  } else if (formData.mensaje_fuera_horario.trim().length < 10) {
-    newErrors.mensaje_fuera_horario = '⚠️ Mínimo 10 caracteres';
-  }
-
-  // 11. TEMPERATURA
-  const temp = parseFloat(formData.temperatura);
-  if (!formData.temperatura || isNaN(temp)) {
-    newErrors.temperatura = '⚠️ Selecciona una temperatura';
-  } else if (temp < 0 || temp > 2) {
-    newErrors.temperatura = '⚠️ Debe estar entre 0 y 2';
-  }
-
-  // 12. MAX TOKENS
-  const tokens = parseInt(formData.max_tokens);
-  if (!formData.max_tokens || isNaN(tokens)) {
-    newErrors.max_tokens = '⚠️ Selecciona los tokens máximos';
-  } else if (tokens < 100 || tokens > 100000) {
-    newErrors.max_tokens = '⚠️ Entre 100 y 100,000';
-  }
-
-  // 13. PROMPT DEL SISTEMA
-  if (!formData.prompt_sistema?.trim()) {
-    newErrors.prompt_sistema = '⚠️ El prompt del sistema es obligatorio';
-  } else if (formData.prompt_sistema.trim().length < 20) {
-    newErrors.prompt_sistema = '⚠️ Mínimo 20 caracteres para dar instrucciones claras';
-  }
-
-  setFormErrors(newErrors);
-  return Object.keys(newErrors).length === 0;
-};
+    
+    return validation.isValid;
+  };
 
   // ============ HANDLERS CRUD ============
   const handleCreateNew = () => {
@@ -468,23 +384,12 @@ const handleSaveForm = async () => {
   
   console.log('✅ Validación exitosa');
 
-  try {
-    const dataToSave = {
-      ...formData,
-      temperatura: parseFloat(formData.temperatura),
-      max_tokens: parseInt(formData.max_tokens),
-      id_departamento: formData.id_departamento || null,
-      prioridad_routing: parseInt(formData.prioridad_routing) || 0,
-      avatar_url: formData.avatar_url || null,
-      palabras_clave_trigger: formData.palabras_clave_trigger || null,
-      acciones_disponibles: formData.acciones_disponibles || null,
-      mensaje_bienvenida: formData.mensaje_bienvenida || null,
-      mensaje_despedida: formData.mensaje_despedida || null,
-      mensaje_derivacion: formData.mensaje_derivacion || null,
-      mensaje_fuera_horario: formData.mensaje_fuera_horario || null,
-    };
-
-    console.log('📦 Datos a enviar:', dataToSave);
+    try {
+        // Sanitizar y validar datos con SecurityValidator
+        const dataToSave = SecurityValidator.sanitizeAgenteData(formData);
+        
+        console.log('🧹 Datos sanitizados:', dataToSave);
+        console.log('📦 Datos a enviar:', dataToSave);
 
     if (formMode === 'create') {
       console.log('➕ Creando nuevo agente...');
@@ -586,17 +491,12 @@ const handleSaveForm = async () => {
   };
 
   // ============ UTILIDADES ============
-  const sanitizeInput = (text) => {
-    return text
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/<[^>]*>/g, '')
-      .trim();
-  };
 
   const handleSearchChange = (text) => {
-    const sanitized = sanitizeInput(text);
-    setSearchTerm(sanitized);
-  };
+      const sanitized = SecurityValidator.sanitizeText(text);
+      const truncated = SecurityValidator.truncateText(sanitized, 100);
+      setSearchTerm(truncated);
+    };
 
   const filteredAgentes = agentes.filter((agente) => {
     const matchSearch =
@@ -1792,276 +1692,276 @@ const handleSaveForm = async () => {
                 </View>
                 
                 {/* Temperatura (Creatividad) */}
-<View style={modalStyles.formGroup}>
-  <Text style={modalStyles.label}>Temperatura (Creatividad) *</Text>
-  
-  {/* Opciones de Temperatura */}
-  <View style={{ gap: 12 }}>
-    {/* OPCIÓN 1: Balanceado (0.6) - RECOMENDADO */}
-    <TouchableOpacity
-      style={[
-        {
-          backgroundColor: formData.temperatura === '0.6' 
-            ? 'rgba(102, 126, 234, 0.2)' 
-            : 'rgba(71, 85, 105, 0.3)',
-          borderWidth: 2,
-          borderColor: formData.temperatura === '0.6' 
-            ? '#667eea' 
-            : 'rgba(148, 163, 184, 0.3)',
-          borderRadius: 12,
-          padding: 16,
-        },
-        formErrors.temperatura && { borderColor: '#ef4444' }
-      ]}
-      onPress={() => setFormData({ ...formData, temperatura: '0.6' })}
-      activeOpacity={0.7}
-    >
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{
-            width: 24,
-            height: 24,
-            borderRadius: 12,
-            borderWidth: 2,
-            borderColor: formData.temperatura === '0.6' ? '#667eea' : '#94a3b8',
-            backgroundColor: formData.temperatura === '0.6' ? '#667eea' : 'transparent',
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}>
-            {formData.temperatura === '0.6' && (
-              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
-            )}
-          </View>
-          <Text style={{
-            color: formData.temperatura === '0.6' ? '#ffffff' : '#94a3b8',
-            fontSize: 16,
-            fontWeight: '600',
-          }}>
-            ⚖️ Balanceado (0.6)
-          </Text>
-        </View>
-        <View style={{
-          backgroundColor: 'rgba(34, 197, 94, 0.2)',
-          paddingHorizontal: 8,
-          paddingVertical: 4,
-          borderRadius: 6,
-          borderWidth: 1,
-          borderColor: '#22c55e',
-        }}>
-          <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '700' }}>
-            ✨ RECOMENDADO
-          </Text>
-        </View>
-      </View>
-      <Text style={{
-        color: formData.temperatura === '0.6' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
-        fontSize: 13,
-        marginBottom: 8,
-      }}>
-        Uso general - Ideal para la mayoría de casos
-      </Text>
-      {formData.temperatura === '0.6' && (
-        <View style={{
-          backgroundColor: 'rgba(102, 126, 234, 0.1)',
-          borderRadius: 8,
-          padding: 12,
-          gap: 6,
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
-            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
-              Equilibrio perfecto entre precisión y creatividad
-            </Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
-            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
-              Respuestas coherentes y útiles
-            </Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
-            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
-              Funciona bien en soporte, consultas y asesoría
-            </Text>
-          </View>
-        </View>
-      )}
-    </TouchableOpacity>
+                <View style={modalStyles.formGroup}>
+                  <Text style={modalStyles.label}>Temperatura (Creatividad) *</Text>
+                  
+                  {/* Opciones de Temperatura */}
+                  <View style={{ gap: 12 }}>
+                    {/* OPCIÓN 1: Balanceado (0.6) - RECOMENDADO */}
+                    <TouchableOpacity
+                      style={[
+                        {
+                          backgroundColor: formData.temperatura === '0.6' 
+                            ? 'rgba(102, 126, 234, 0.2)' 
+                            : 'rgba(71, 85, 105, 0.3)',
+                          borderWidth: 2,
+                          borderColor: formData.temperatura === '0.6' 
+                            ? '#667eea' 
+                            : 'rgba(148, 163, 184, 0.3)',
+                          borderRadius: 12,
+                          padding: 16,
+                        },
+                        formErrors.temperatura && { borderColor: '#ef4444' }
+                      ]}
+                      onPress={() => setFormData({ ...formData, temperatura: '0.6' })}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <View style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: 12,
+                            borderWidth: 2,
+                            borderColor: formData.temperatura === '0.6' ? '#667eea' : '#94a3b8',
+                            backgroundColor: formData.temperatura === '0.6' ? '#667eea' : 'transparent',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                          }}>
+                            {formData.temperatura === '0.6' && (
+                              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
+                            )}
+                          </View>
+                          <Text style={{
+                            color: formData.temperatura === '0.6' ? '#ffffff' : '#94a3b8',
+                            fontSize: 16,
+                            fontWeight: '600',
+                          }}>
+                            ⚖️ Balanceado (0.6)
+                          </Text>
+                        </View>
+                        <View style={{
+                          backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
+                          borderRadius: 6,
+                          borderWidth: 1,
+                          borderColor: '#22c55e',
+                        }}>
+                          <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '700' }}>
+                            ✨ RECOMENDADO
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={{
+                        color: formData.temperatura === '0.6' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
+                        fontSize: 13,
+                        marginBottom: 8,
+                      }}>
+                        Uso general - Ideal para la mayoría de casos
+                      </Text>
+                      {formData.temperatura === '0.6' && (
+                        <View style={{
+                          backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                          borderRadius: 8,
+                          padding: 12,
+                          gap: 6,
+                        }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+                              Equilibrio perfecto entre precisión y creatividad
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+                              Respuestas coherentes y útiles
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+                              Funciona bien en soporte, consultas y asesoría
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                    </TouchableOpacity>
 
-    {/* OPCIÓN 2: Creativo (0.9) */}
-    <TouchableOpacity
-      style={{
-        backgroundColor: formData.temperatura === '0.9' 
-          ? 'rgba(168, 85, 247, 0.2)' 
-          : 'rgba(71, 85, 105, 0.3)',
-        borderWidth: 2,
-        borderColor: formData.temperatura === '0.9' 
-          ? '#a855f7' 
-          : 'rgba(148, 163, 184, 0.3)',
-        borderRadius: 12,
-        padding: 16,
-      }}
-      onPress={() => setFormData({ ...formData, temperatura: '0.9' })}
-      activeOpacity={0.7}
-    >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-        <View style={{
-          width: 24,
-          height: 24,
-          borderRadius: 12,
-          borderWidth: 2,
-          borderColor: formData.temperatura === '0.9' ? '#a855f7' : '#94a3b8',
-          backgroundColor: formData.temperatura === '0.9' ? '#a855f7' : 'transparent',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}>
-          {formData.temperatura === '0.9' && (
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
-          )}
-        </View>
-        <Text style={{
-          color: formData.temperatura === '0.9' ? '#ffffff' : '#94a3b8',
-          fontSize: 16,
-          fontWeight: '600',
-        }}>
-          🎨 Creativo (0.9)
-        </Text>
-      </View>
-      <Text style={{
-        color: formData.temperatura === '0.9' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
-        fontSize: 13,
-        marginBottom: 8,
-      }}>
-        Para redacción, ideas y contenido variado
-      </Text>
-      {formData.temperatura === '0.9' && (
-        <View style={{
-          backgroundColor: 'rgba(168, 85, 247, 0.1)',
-          borderRadius: 8,
-          padding: 12,
-          gap: 6,
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
-            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
-              Respuestas más variadas y originales
-            </Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
-            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
-              Ideal para generar contenido creativo
-            </Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-            <Text style={{ color: '#fbbf24', fontSize: 12 }}>⚠</Text>
-            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
-              Puede ser menos preciso en datos técnicos
-            </Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-            <Text style={{ color: '#fbbf24', fontSize: 12 }}>⚠</Text>
-            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
-              Ocasionalmente divaga del tema principal
-            </Text>
-          </View>
-        </View>
-      )}
-    </TouchableOpacity>
+                    {/* OPCIÓN 2: Creativo (0.9) */}
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: formData.temperatura === '0.9' 
+                          ? 'rgba(168, 85, 247, 0.2)' 
+                          : 'rgba(71, 85, 105, 0.3)',
+                        borderWidth: 2,
+                        borderColor: formData.temperatura === '0.9' 
+                          ? '#a855f7' 
+                          : 'rgba(148, 163, 184, 0.3)',
+                        borderRadius: 12,
+                        padding: 16,
+                      }}
+                      onPress={() => setFormData({ ...formData, temperatura: '0.9' })}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                        <View style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 12,
+                          borderWidth: 2,
+                          borderColor: formData.temperatura === '0.9' ? '#a855f7' : '#94a3b8',
+                          backgroundColor: formData.temperatura === '0.9' ? '#a855f7' : 'transparent',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}>
+                          {formData.temperatura === '0.9' && (
+                            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
+                          )}
+                        </View>
+                        <Text style={{
+                          color: formData.temperatura === '0.9' ? '#ffffff' : '#94a3b8',
+                          fontSize: 16,
+                          fontWeight: '600',
+                        }}>
+                          🎨 Creativo (0.9)
+                        </Text>
+                      </View>
+                      <Text style={{
+                        color: formData.temperatura === '0.9' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
+                        fontSize: 13,
+                        marginBottom: 8,
+                      }}>
+                        Para redacción, ideas y contenido variado
+                      </Text>
+                      {formData.temperatura === '0.9' && (
+                        <View style={{
+                          backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                          borderRadius: 8,
+                          padding: 12,
+                          gap: 6,
+                        }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+                              Respuestas más variadas y originales
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+                              Ideal para generar contenido creativo
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#fbbf24', fontSize: 12 }}>⚠</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
+                              Puede ser menos preciso en datos técnicos
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#fbbf24', fontSize: 12 }}>⚠</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
+                              Ocasionalmente divaga del tema principal
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                    </TouchableOpacity>
 
-    {/* OPCIÓN 3: Muy Creativo (1.2) */}
-    <TouchableOpacity
-      style={{
-        backgroundColor: formData.temperatura === '1.2' 
-          ? 'rgba(251, 146, 60, 0.2)' 
-          : 'rgba(71, 85, 105, 0.3)',
-        borderWidth: 2,
-        borderColor: formData.temperatura === '1.2' 
-          ? '#fb923c' 
-          : 'rgba(148, 163, 184, 0.3)',
-        borderRadius: 12,
-        padding: 16,
-      }}
-      onPress={() => setFormData({ ...formData, temperatura: '1.2' })}
-      activeOpacity={0.7}
-    >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-        <View style={{
-          width: 24,
-          height: 24,
-          borderRadius: 12,
-          borderWidth: 2,
-          borderColor: formData.temperatura === '1.2' ? '#fb923c' : '#94a3b8',
-          backgroundColor: formData.temperatura === '1.2' ? '#fb923c' : 'transparent',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}>
-          {formData.temperatura === '1.2' && (
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
-          )}
-        </View>
-        <Text style={{
-          color: formData.temperatura === '1.2' ? '#ffffff' : '#94a3b8',
-          fontSize: 16,
-          fontWeight: '600',
-        }}>
-          🚀 Muy Creativo (1.2)
-        </Text>
-      </View>
-      <Text style={{
-        color: formData.temperatura === '1.2' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
-        fontSize: 13,
-        marginBottom: 8,
-      }}>
-        Experimental - Solo para casos especiales
-      </Text>
-      {formData.temperatura === '1.2' && (
-        <View style={{
-          backgroundColor: 'rgba(251, 146, 60, 0.1)',
-          borderRadius: 8,
-          padding: 12,
-          gap: 6,
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
-            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
-              Máxima originalidad e innovación
-            </Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
-            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
-              Útil para lluvia de ideas o brainstorming
-            </Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-            <Text style={{ color: '#ef4444', fontSize: 12 }}>✗</Text>
-            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
-              Respuestas impredecibles e inconsistentes
-            </Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-            <Text style={{ color: '#ef4444', fontSize: 12 }}>✗</Text>
-            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
-              Puede generar contenido irrelevante
-            </Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-            <Text style={{ color: '#ef4444', fontSize: 12 }}>✗</Text>
-            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
-              No recomendado para uso en producción
-            </Text>
-          </View>
-        </View>
-      )}
-    </TouchableOpacity>
-  </View>
+                    {/* OPCIÓN 3: Muy Creativo (1.2) */}
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: formData.temperatura === '1.2' 
+                          ? 'rgba(251, 146, 60, 0.2)' 
+                          : 'rgba(71, 85, 105, 0.3)',
+                        borderWidth: 2,
+                        borderColor: formData.temperatura === '1.2' 
+                          ? '#fb923c' 
+                          : 'rgba(148, 163, 184, 0.3)',
+                        borderRadius: 12,
+                        padding: 16,
+                      }}
+                      onPress={() => setFormData({ ...formData, temperatura: '1.2' })}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                        <View style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 12,
+                          borderWidth: 2,
+                          borderColor: formData.temperatura === '1.2' ? '#fb923c' : '#94a3b8',
+                          backgroundColor: formData.temperatura === '1.2' ? '#fb923c' : 'transparent',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}>
+                          {formData.temperatura === '1.2' && (
+                            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
+                          )}
+                        </View>
+                        <Text style={{
+                          color: formData.temperatura === '1.2' ? '#ffffff' : '#94a3b8',
+                          fontSize: 16,
+                          fontWeight: '600',
+                        }}>
+                          🚀 Muy Creativo (1.2)
+                        </Text>
+                      </View>
+                      <Text style={{
+                        color: formData.temperatura === '1.2' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
+                        fontSize: 13,
+                        marginBottom: 8,
+                      }}>
+                        Experimental - Solo para casos especiales
+                      </Text>
+                      {formData.temperatura === '1.2' && (
+                        <View style={{
+                          backgroundColor: 'rgba(251, 146, 60, 0.1)',
+                          borderRadius: 8,
+                          padding: 12,
+                          gap: 6,
+                        }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+                              Máxima originalidad e innovación
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+                              Útil para lluvia de ideas o brainstorming
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#ef4444', fontSize: 12 }}>✗</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
+                              Respuestas impredecibles e inconsistentes
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#ef4444', fontSize: 12 }}>✗</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
+                              Puede generar contenido irrelevante
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#ef4444', fontSize: 12 }}>✗</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
+                              No recomendado para uso en producción
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  </View>
 
-  {formErrors.temperatura && (
-    <Text style={modalStyles.errorText}>{formErrors.temperatura}</Text>
-  )}
-</View>
+                  {formErrors.temperatura && (
+                    <Text style={modalStyles.errorText}>{formErrors.temperatura}</Text>
+                  )}
+                </View>
 
 
 {/*MAXIMO DE TOKENS*/}
