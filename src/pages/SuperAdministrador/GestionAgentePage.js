@@ -33,6 +33,7 @@ export default function GestionAgentePage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showColorPicker, setShowColorPicker] = useState(false);
   
   // Modales
   const [showFormModal, setShowFormModal] = useState(false);
@@ -41,22 +42,34 @@ export default function GestionAgentePage() {
   const [selectedAgente, setSelectedAgente] = useState(null);
 
   // Form Data
-  const [formData, setFormData] = useState({
-    nombre_agente: '',
-    tipo_agente: 'especializado',
-    area_especialidad: '',
-    descripcion: '',
-    modelo_ia: 'claude-sonnet-4-20250514',
-    temperatura: '0.7',
-    max_tokens: '4000',
-    prompt_sistema: '',
-    herramientas_disponibles: '',
-    idioma_principal: 'es',
-    zona_horaria: 'America/Guayaquil',
-    activo: true,
-    icono: '🤖',
-    id_departamento: '',
-  });
+const [formData, setFormData] = useState({
+  nombre_agente: '',
+  tipo_agente: 'especializado',
+  area_especialidad: '',
+  descripcion: '',
+  modelo_ia: 'llama3:8b',
+  temperatura: '0.7',
+  max_tokens: '4000',
+  prompt_sistema: '',
+  herramientas_disponibles: '',
+  idioma_principal: 'es',
+  zona_horaria: 'America/Guayaquil',
+  activo: true,
+  icono: '🤖',
+  id_departamento: '',
+  // ⭐ NUEVOS CAMPOS
+  avatar_url: '',
+  color_tema: '#667eea',
+  mensaje_bienvenida: '',
+  mensaje_despedida: '',
+  mensaje_derivacion: '',
+  mensaje_fuera_horario: '',
+  palabras_clave_trigger: '',
+  prioridad_routing: '0',
+  puede_ejecutar_acciones: false,
+  acciones_disponibles: '',
+  requiere_autenticacion: false,
+});
   const [formErrors, setFormErrors] = useState({});
   
   const [stats, setStats] = useState({
@@ -68,9 +81,6 @@ export default function GestionAgentePage() {
 
   // ============ CONSTANTES ============
   const iconos = ['🤖', '🧠', '💼', '📊', '🎯', '🔧', '📚', '💡', '🌟', '⚡', '🎨', '🔬'];
-  const modelos = [
-    { label: 'llama3:8b', value: 'llama3:8b' },
-  ];
 
   // ============ EFFECTS ============
   useEffect(() => {
@@ -81,6 +91,33 @@ export default function GestionAgentePage() {
   useEffect(() => {
     cargarDepartamentos();
   }, []);
+
+  // ============ HELPERS ============
+  // Helper para validar URLs de imagen
+  const isValidImageUrl = (url) => {
+    if (!url) return false;
+    
+    // Extensiones de imagen comunes
+    const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i;
+    
+    // URLs directas con extensión
+    if (imageExtensions.test(url)) {
+      return true;
+    }
+    
+    // URLs conocidas que funcionan sin extensión
+    const trustedDomains = [
+      'googleusercontent.com',
+      'pinimg.com',
+      'cdninstagram.com',
+      'twimg.com',
+      'imgur.com',
+      'cloudinary.com',
+      'amazonaws.com',
+    ];
+    
+    return trustedDomains.some(domain => url.includes(domain));
+  };
 
   // ============ FUNCIONES DE CARGA ============
   const cargarAgentes = async () => {
@@ -172,56 +209,157 @@ const cargarEstadisticas = async () => {
   };
 
   // ============ FUNCIONES DE FORMULARIO ============
-  const resetForm = () => {
-    setFormData({
-      nombre_agente: '',
-      tipo_agente: 'especializado',
-      area_especialidad: '',
-      descripcion: '',
-      modelo_ia: 'claude-sonnet-4-20250514',
-      temperatura: '0.7',
-      max_tokens: '4000',
-      prompt_sistema: '',
-      herramientas_disponibles: '',
-      idioma_principal: 'es',
-      zona_horaria: 'America/Guayaquil',
-      activo: true,
-      icono: '🤖',
-      id_departamento: '',
-    });
-    setFormErrors({});
-  };
+const resetForm = () => {
+  setFormData({
+    nombre_agente: '',
+    tipo_agente: 'especializado',
+    area_especialidad: '',
+    descripcion: '',
+    modelo_ia: 'llama3:8b',
+    temperatura: '0.7',
+    max_tokens: '4000',
+    prompt_sistema: '',
+    herramientas_disponibles: '',
+    idioma_principal: 'es',
+    zona_horaria: 'America/Guayaquil',
+    activo: true,
+    icono: '🤖',
+    id_departamento: '',
+    // ⭐ NUEVOS CAMPOS
+    avatar_url: '',
+    color_tema: '#667eea',
+    mensaje_bienvenida: '',
+    mensaje_despedida: '',
+    mensaje_derivacion: '',
+    mensaje_fuera_horario: '',
+    palabras_clave_trigger: '',
+    prioridad_routing: '0',
+    puede_ejecutar_acciones: false,
+    acciones_disponibles: '',
+    requiere_autenticacion: false,
+  });
+  setFormErrors({});
+};
 
-  const validateForm = () => {
-    const newErrors = {};
+  // Validar formulario
+const validateForm = () => {
+  const newErrors = {};
 
-    if (!formData.nombre_agente.trim()) {
-      newErrors.nombre_agente = 'El nombre es requerido';
-    } else if (formData.nombre_agente.length < 3) {
-      newErrors.nombre_agente = 'El nombre debe tener al menos 3 caracteres';
+  // ============ VALIDACIONES OBLIGATORIAS ============
+  
+  // 1. NOMBRE DEL AGENTE
+  if (!formData.nombre_agente?.trim()) {
+    newErrors.nombre_agente = '⚠️ El nombre del agente es obligatorio';
+  } else if (formData.nombre_agente.trim().length < 3) {
+    newErrors.nombre_agente = '⚠️ Mínimo 3 caracteres';
+  }
+
+  // 2. ÁREA DE ESPECIALIDAD
+  if (!formData.area_especialidad?.trim()) {
+    newErrors.area_especialidad = '⚠️ La especialidad es obligatoria';
+  } else if (formData.area_especialidad.trim().length < 3) {
+    newErrors.area_especialidad = '⚠️ Mínimo 3 caracteres';
+  }
+
+  // 3. DESCRIPCIÓN
+  if (!formData.descripcion?.trim()) {
+    newErrors.descripcion = '⚠️ La descripción es obligatoria';
+  } else if (formData.descripcion.trim().length < 10) {
+    newErrors.descripcion = '⚠️ Mínimo 10 caracteres';
+  }
+
+  // 4. DEPARTAMENTO (AHORA OBLIGATORIO)
+  if (!formData.id_departamento) {
+    newErrors.id_departamento = '⚠️ Debes seleccionar un departamento';
+  } else {
+    if (formMode === 'create') {
+      const departamentoYaTieneAgente = agentes.some(
+        a => a.id_departamento && 
+             a.id_departamento.toString() === formData.id_departamento.toString()
+      );
+      
+      if (departamentoYaTieneAgente) {
+        newErrors.id_departamento = '⚠️ Este departamento ya tiene un agente asignado';
+      }
+    } else if (formMode === 'edit') {
+      if (selectedAgente?.id_departamento && 
+          selectedAgente.id_departamento.toString() !== formData.id_departamento.toString()) {
+        newErrors.id_departamento = '⚠️ No se puede cambiar el departamento';
+      }
     }
+  }
 
-    if (!formData.descripcion.trim()) {
-      newErrors.descripcion = 'La descripción es requerida';
+  // 5. URL DEL AVATAR (AHORA OBLIGATORIO)
+  if (!formData.avatar_url?.trim()) {
+    newErrors.avatar_url = '⚠️ La URL del avatar es obligatoria';
+  } else if (!formData.avatar_url.startsWith('http')) {
+    newErrors.avatar_url = '⚠️ Debe ser una URL válida (http:// o https://)';
+  }
+
+  // 6. COLOR DEL TEMA (AHORA OBLIGATORIO)
+  if (!formData.color_tema?.trim()) {
+    newErrors.color_tema = '⚠️ Debes seleccionar un color';
+  } else {
+    const hexRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
+    if (!hexRegex.test(formData.color_tema)) {
+      newErrors.color_tema = '⚠️ Color inválido. Usa formato hexadecimal (#667eea)';
     }
+  }
 
-    if (!formData.area_especialidad.trim()) {
-      newErrors.area_especialidad = 'La especialidad es requerida';
-    }
+  // 7. MENSAJE DE BIENVENIDA (AHORA OBLIGATORIO)
+  if (!formData.mensaje_bienvenida?.trim()) {
+    newErrors.mensaje_bienvenida = '⚠️ El mensaje de bienvenida es obligatorio';
+  } else if (formData.mensaje_bienvenida.trim().length < 10) {
+    newErrors.mensaje_bienvenida = '⚠️ Mínimo 10 caracteres';
+  }
 
-    const temp = parseFloat(formData.temperatura);
-    if (isNaN(temp) || temp < 0 || temp > 2) {
-      newErrors.temperatura = 'La temperatura debe estar entre 0 y 2';
-    }
+  // 8. MENSAJE DE DESPEDIDA (AHORA OBLIGATORIO)
+  if (!formData.mensaje_despedida?.trim()) {
+    newErrors.mensaje_despedida = '⚠️ El mensaje de despedida es obligatorio';
+  } else if (formData.mensaje_despedida.trim().length < 10) {
+    newErrors.mensaje_despedida = '⚠️ Mínimo 10 caracteres';
+  }
 
-    const tokens = parseInt(formData.max_tokens);
-    if (isNaN(tokens) || tokens < 100 || tokens > 100000) {
-      newErrors.max_tokens = 'Los tokens deben estar entre 100 y 100000';
-    }
+  // 9. MENSAJE DE DERIVACIÓN (AHORA OBLIGATORIO)
+  if (!formData.mensaje_derivacion?.trim()) {
+    newErrors.mensaje_derivacion = '⚠️ El mensaje de derivación es obligatorio';
+  } else if (formData.mensaje_derivacion.trim().length < 10) {
+    newErrors.mensaje_derivacion = '⚠️ Mínimo 10 caracteres';
+  }
 
-    setFormErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  // 10. MENSAJE FUERA DE HORARIO (AHORA OBLIGATORIO)
+  if (!formData.mensaje_fuera_horario?.trim()) {
+    newErrors.mensaje_fuera_horario = '⚠️ El mensaje fuera de horario es obligatorio';
+  } else if (formData.mensaje_fuera_horario.trim().length < 10) {
+    newErrors.mensaje_fuera_horario = '⚠️ Mínimo 10 caracteres';
+  }
+
+  // 11. TEMPERATURA
+  const temp = parseFloat(formData.temperatura);
+  if (!formData.temperatura || isNaN(temp)) {
+    newErrors.temperatura = '⚠️ Selecciona una temperatura';
+  } else if (temp < 0 || temp > 2) {
+    newErrors.temperatura = '⚠️ Debe estar entre 0 y 2';
+  }
+
+  // 12. MAX TOKENS
+  const tokens = parseInt(formData.max_tokens);
+  if (!formData.max_tokens || isNaN(tokens)) {
+    newErrors.max_tokens = '⚠️ Selecciona los tokens máximos';
+  } else if (tokens < 100 || tokens > 100000) {
+    newErrors.max_tokens = '⚠️ Entre 100 y 100,000';
+  }
+
+  // 13. PROMPT DEL SISTEMA
+  if (!formData.prompt_sistema?.trim()) {
+    newErrors.prompt_sistema = '⚠️ El prompt del sistema es obligatorio';
+  } else if (formData.prompt_sistema.trim().length < 20) {
+    newErrors.prompt_sistema = '⚠️ Mínimo 20 caracteres para dar instrucciones claras';
+  }
+
+  setFormErrors(newErrors);
+  return Object.keys(newErrors).length === 0;
+};
 
   // ============ HANDLERS CRUD ============
   const handleCreateNew = () => {
@@ -238,7 +376,7 @@ const cargarEstadisticas = async () => {
       tipo_agente: agente.tipo_agente || 'especializado',
       area_especialidad: agente.area_especialidad || '',
       descripcion: agente.descripcion || '',
-      modelo_ia: agente.modelo_ia || 'claude-sonnet-4-20250514',
+      modelo_ia: 'llama3:8b', 
       temperatura: agente.temperatura?.toString() || '0.7',
       max_tokens: agente.max_tokens?.toString() || '4000',
       prompt_sistema: agente.prompt_sistema || '',
@@ -248,46 +386,144 @@ const cargarEstadisticas = async () => {
       activo: agente.activo !== undefined ? agente.activo : true,
       icono: agente.icono || '🤖',
       id_departamento: agente.id_departamento?.toString() || '',
+      avatar_url: agente.avatar_url || '',
+      color_tema: agente.color_tema || '#667eea',
+      mensaje_bienvenida: agente.mensaje_bienvenida || '',
+      mensaje_despedida: agente.mensaje_despedida || '',
+      mensaje_derivacion: agente.mensaje_derivacion || '',
+      mensaje_fuera_horario: agente.mensaje_fuera_horario || '',
+      palabras_clave_trigger: agente.palabras_clave_trigger || '',
+      prioridad_routing: agente.prioridad_routing?.toString() || '0',
+      puede_ejecutar_acciones: agente.puede_ejecutar_acciones || false,
+      acciones_disponibles: agente.acciones_disponibles || '',
+      requiere_autenticacion: agente.requiere_autenticacion || false,
     });
     setShowFormModal(true);
   };
 
-  const handleSaveForm = async () => {
-    if (!validateForm()) {
-      Alert.alert('Error de validación', 'Por favor, corrige los errores en el formulario');
-      return;
-    }
 
-    try {
-      const dataToSave = {
-        ...formData,
-        temperatura: parseFloat(formData.temperatura),
-        max_tokens: parseInt(formData.max_tokens),
-        id_departamento: formData.id_departamento || null,
-      };
-
-      if (formMode === 'create') {
-        await agenteService.create(dataToSave);
-        setSuccessMessage('✅ Agente creado correctamente');
-      } else {
-        await agenteService.update(selectedAgente.id_agente, dataToSave);
-        setSuccessMessage('✅ Agente actualizado correctamente');
+// Función para obtener departamentos disponibles
+const getDepartamentosDisponibles = () => {
+  console.log('🔍 === DIAGNÓSTICO getDepartamentosDisponibles ===');
+  console.log('📌 Modo:', formMode);
+  console.log('📌 SelectedAgente:', selectedAgente);
+  console.log('📌 Total Departamentos:', departamentos.length);
+  console.log('📌 Total Agentes:', agentes.length);
+  
+  // Si estamos editando y el agente ya tiene departamento asignado
+  if (formMode === 'edit' && selectedAgente?.id_departamento) {
+    console.log('✏️ MODO EDICIÓN - Departamento actual:', selectedAgente.id_departamento);
+    const deptAsignado = departamentos.find(d => 
+      d.id_departamento.toString() === selectedAgente.id_departamento.toString()
+    );
+    console.log('✅ Departamento encontrado:', deptAsignado);
+    return deptAsignado ? [deptAsignado] : [];
+  }
+  
+  // Si estamos creando, filtrar departamentos que YA tienen agente
+  console.log('➕ MODO CREACIÓN - Filtrando departamentos ocupados...');
+  
+  // Obtener IDs de departamentos ocupados
+  const departamentosOcupados = agentes
+    .filter(a => {
+      const tieneDepto = a.id_departamento != null && a.id_departamento !== '';
+      if (tieneDepto) {
+        console.log(`   🔒 Agente "${a.nombre_agente}" ocupa departamento ID: ${a.id_departamento}`);
       }
+      return tieneDepto;
+    })
+    .map(a => a.id_departamento.toString());
+  
+  console.log('📋 IDs Ocupados:', departamentosOcupados);
+  
+  // Filtrar departamentos disponibles
+  const disponibles = departamentos.filter(d => {
+    const deptId = d.id_departamento.toString();
+    const estaOcupado = departamentosOcupados.includes(deptId);
+    console.log(`   ${estaOcupado ? '❌' : '✅'} Departamento "${d.nombre}" (ID: ${deptId}) - ${estaOcupado ? 'OCUPADO' : 'DISPONIBLE'}`);
+    return !estaOcupado;
+  });
+  
+  console.log('✅ Total Disponibles:', disponibles.length);
+  console.log('🎯 Departamentos Disponibles:', disponibles.map(d => `${d.nombre} (ID: ${d.id_departamento})`));
+  console.log('🔍 === FIN DIAGNÓSTICO ===\n');
+  
+  return disponibles;
+};
 
-      setShowSuccessMessage(true);
-      setShowFormModal(false);
-      cargarAgentes();
-      cargarEstadisticas();
-      resetForm();
 
-      setTimeout(() => {
-        setShowSuccessMessage(false);
-      }, 3000);
-    } catch (err) {
-      console.error('Error al guardar:', err);
-      Alert.alert('Error', err?.message || 'No se pudo guardar el agente');
+// Guardar agente (crear o actualizar)
+const handleSaveForm = async () => {
+  console.log('🔵 === INICIO handleSaveForm ===');
+  console.log('📋 FormData actual:', formData);
+  console.log('🎯 Modo:', formMode);
+  console.log('👤 Agente seleccionado:', selectedAgente);
+  
+  if (!validateForm()) {
+    console.log('❌ Validación falló');
+    console.log('🚫 Errores:', formErrors);
+    Alert.alert('Error de validación', 'Por favor, corrige los errores en el formulario');
+    return;
+  }
+  
+  console.log('✅ Validación exitosa');
+
+  try {
+    const dataToSave = {
+      ...formData,
+      temperatura: parseFloat(formData.temperatura),
+      max_tokens: parseInt(formData.max_tokens),
+      id_departamento: formData.id_departamento || null,
+      prioridad_routing: parseInt(formData.prioridad_routing) || 0,
+      avatar_url: formData.avatar_url || null,
+      palabras_clave_trigger: formData.palabras_clave_trigger || null,
+      acciones_disponibles: formData.acciones_disponibles || null,
+      mensaje_bienvenida: formData.mensaje_bienvenida || null,
+      mensaje_despedida: formData.mensaje_despedida || null,
+      mensaje_derivacion: formData.mensaje_derivacion || null,
+      mensaje_fuera_horario: formData.mensaje_fuera_horario || null,
+    };
+
+    console.log('📦 Datos a enviar:', dataToSave);
+
+    if (formMode === 'create') {
+      console.log('➕ Creando nuevo agente...');
+      const response = await agenteService.create(dataToSave);
+      console.log('✅ Respuesta del servidor:', response);
+      setSuccessMessage('✅ Agente creado correctamente');
+    } else {
+      console.log('✏️ Actualizando agente ID:', selectedAgente.id_agente);
+      const response = await agenteService.update(selectedAgente.id_agente, dataToSave);
+      console.log('✅ Respuesta del servidor:', response);
+      setSuccessMessage('✅ Agente actualizado correctamente');
     }
-  };
+
+    console.log('🎉 Guardado exitoso');
+    setShowSuccessMessage(true);
+    setShowFormModal(false);
+    
+    console.log('🔄 Recargando agentes...');
+    await cargarAgentes();
+    await cargarEstadisticas();
+    
+    resetForm();
+
+    setTimeout(() => {
+      setShowSuccessMessage(false);
+    }, 3000);
+    
+    console.log('🔵 === FIN handleSaveForm ===');
+  } catch (err) {
+    console.error('❌ ERROR AL GUARDAR:', err);
+    console.error('📄 Detalles del error:', {
+      message: err?.message,
+      response: err?.response?.data,
+      status: err?.response?.status,
+      stack: err?.stack
+    });
+    Alert.alert('Error', err?.message || 'No se pudo guardar el agente');
+  }
+};
 
   const handleView = (agente) => {
     setSelectedAgente(agente);
@@ -761,7 +997,7 @@ const cargarEstadisticas = async () => {
 
             <ScrollView style={modalStyles.content} showsVerticalScrollIndicator={false}>
               
-              {/* Información Básica */}
+            {/* ============ INFORMACIÓN BÁSICA ============ */}
               <View style={modalStyles.section}>
                 <Text style={modalStyles.sectionTitle}>📋 Información Básica</Text>
                 
@@ -780,35 +1016,6 @@ const cargarEstadisticas = async () => {
                   )}
                 </View>
 
-                 <View style={modalStyles.formGroup}>
-                  <Text style={modalStyles.label}>Tipo de Agente *</Text>
-                  <View style={modalStyles.pickerContainer}>
-                    <TextInput
-                      style={modalStyles.picker}
-                      value={formData.tipo_agente === 'especializado' ? '🎯 Especializado' : 
-                             formData.tipo_agente === 'router' ? '🔀 Router' : '🔄 Híbrido'}
-                      editable={false}
-                    />
-                    <select
-                      value={formData.tipo_agente}
-                      onChange={(e) => setFormData({ ...formData, tipo_agente: e.target.value })}
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        opacity: 0,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <option value="especializado">🎯 Especializado</option>
-                      <option value="router">🔀 Router</option>
-                      <option value="hibrido">🔄 Híbrido</option>
-                    </select>
-                  </View>
-                </View>
-
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Área de Especialidad *</Text>
                   <TextInput
@@ -825,48 +1032,10 @@ const cargarEstadisticas = async () => {
                 </View>
 
                 <View style={modalStyles.formGroup}>
-                  <Text style={modalStyles.label}>Departamento Responsable</Text>
-                  <View style={modalStyles.pickerContainer}>
-                    <TextInput
-                      style={modalStyles.picker}
-                      value={
-                        formData.id_departamento
-                          ? departamentos.find(d => d.id_departamento.toString() === formData.id_departamento)?.nombre || 'Seleccionar...'
-                          : 'Seleccionar departamento...'
-                      }
-                      editable={false}
-                    />
-                    <select
-                      value={formData.id_departamento}
-                      onChange={(e) => setFormData({ ...formData, id_departamento: e.target.value })}
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        opacity: 0,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <option value="">Sin asignar</option>
-                      {departamentos.map((dept) => (
-                        <option key={dept.id_departamento} value={dept.id_departamento}>
-                          {dept.nombre} {dept.codigo ? `(${dept.codigo})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </View>
-                  <Text style={modalStyles.helperText}>
-                    Departamento que gestiona este agente
-                  </Text>
-                </View>
-
-                <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Descripción *</Text>
                   <TextInput
                     style={[modalStyles.textArea, formErrors.descripcion && modalStyles.inputError]}
-                    placeholder="Describe las funciones del agente..."
+                    placeholder="Describe el propósito y funciones del agente..."
                     placeholderTextColor="rgba(255, 255, 255, 0.4)"
                     value={formData.descripcion}
                     onChangeText={(text) => setFormData({ ...formData, descripcion: text })}
@@ -880,85 +1049,1369 @@ const cargarEstadisticas = async () => {
                 </View>
 
                 <View style={modalStyles.formGroup}>
+                  <Text style={modalStyles.label}>Departamento Responsable</Text>
+                  {formErrors.id_departamento && (
+                        <View style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 8,
+                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                          padding: 10,
+                          borderRadius: 8,
+                          marginTop: 8,
+                          borderLeftWidth: 3,
+                          borderLeftColor: '#ef4444',
+                        }}>
+                          <Ionicons name="warning" size={16} color="#ef4444" />
+                          <Text style={{
+                            color: '#ef4444',
+                            fontSize: 12,
+                            fontWeight: '600',
+                            flex: 1,
+                          }}>
+                            {formErrors.id_departamento}
+                          </Text>
+                        </View>
+                      )}
+                  {/* Si está editando Y tiene departamento asignado - BLOQUEADO */}
+                  {formMode === 'edit' && selectedAgente?.id_departamento ? (
+                    <>
+                      <View style={{
+                        backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(148, 163, 184, 0.3)',
+                        borderRadius: 12,
+                        padding: 16,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                          <Ionicons name="business-outline" size={20} color="#94a3b8" />
+                          <Text style={{
+                            color: '#94a3b8',
+                            fontSize: 15,
+                            fontWeight: '500',
+                          }}>
+                            {departamentos.find(d => d.id_departamento.toString() === selectedAgente.id_departamento.toString())?.nombre || 'Departamento asignado'}
+                          </Text>
+                        </View>
+                        <View style={{
+                          backgroundColor: 'rgba(148, 163, 184, 0.2)',
+                          paddingHorizontal: 10,
+                          paddingVertical: 4,
+                          borderRadius: 6,
+                        }}>
+                          <Text style={{
+                            color: '#94a3b8',
+                            fontSize: 11,
+                            fontWeight: '600',
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.5,
+                          }}>
+                            Bloqueado
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={modalStyles.helperText}>
+                        ⚠️ El departamento no puede cambiarse una vez asignado
+                      </Text>
+                    </>
+                  ) : (
+                    /* Si está creando O no tiene departamento - SELECTOR */
+                    <>
+                      <View style={modalStyles.pickerContainer}>
+                        <TextInput
+                          style={modalStyles.picker}
+                          value={
+                            formData.id_departamento
+                              ? departamentos.find(d => d.id_departamento.toString() === formData.id_departamento)?.nombre || 'Seleccionar...'
+                              : 'Seleccionar departamento...'
+                          }
+                          editable={false}
+                        />
+                        <select
+                          value={formData.id_departamento}
+                          onChange={(e) => {
+                            setFormData({ ...formData, id_departamento: e.target.value });
+                          }}
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            opacity: 0,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <option value="">Sin asignar</option>
+                          {getDepartamentosDisponibles().map((dept) => (
+                          <option key={dept.id_departamento} value={dept.id_departamento}>
+                            {dept.nombre}{dept.codigo ? ` (${dept.codigo})` : ''}
+                          </option>
+                          ))}
+                        </select>
+                      </View>
+                      
+                      {/* Contador de departamentos */}
+                      <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 8,
+                        backgroundColor: getDepartamentosDisponibles().length > 0 
+                          ? 'rgba(34, 197, 94, 0.1)' 
+                          : 'rgba(239, 68, 68, 0.1)',
+                        padding: 10,
+                        borderRadius: 8,
+                        marginTop: 8,
+                      }}>
+                        <Ionicons 
+                          name={getDepartamentosDisponibles().length > 0 ? "checkmark-circle" : "close-circle"} 
+                          size={16} 
+                          color={getDepartamentosDisponibles().length > 0 ? "#22c55e" : "#ef4444"} 
+                        />
+                        <Text style={{
+                          color: getDepartamentosDisponibles().length > 0 ? "#22c55e" : "#ef4444",
+                          fontSize: 12,
+                          fontWeight: '600',
+                          flex: 1,
+                        }}>
+                          {getDepartamentosDisponibles().length > 0 
+                            ? `${getDepartamentosDisponibles().length} departamento(s) disponible(s)`
+                            : 'No hay departamentos disponibles'}
+                        </Text>
+                      </View>
+                      
+                      <Text style={modalStyles.helperText}>
+                        🔒 Cada departamento solo puede tener un agente asignado
+                      </Text>
+                    </>
+                  )}
+                </View>
+                
+                {/* ============ Icono  ============ */}
+                <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Icono</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    {iconos.map((icon) => (
+                  
+                  {/* Contenedor scrolleable */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      overflowX: 'auto',
+                      overflowY: 'hidden',
+                      paddingVertical: 8,
+                      paddingHorizontal: 4,
+                      cursor: 'grab',
+                      userSelect: 'none',
+                      scrollbarWidth: 'none',
+                      msOverflowStyle: 'none',
+                      WebkitOverflowScrolling: 'touch',
+                    }}
+                    onMouseDown={(e) => {
+                      const ele = e.currentTarget;
+                      ele.style.cursor = 'grabbing';
+                      const startX = e.pageX - ele.offsetLeft;
+                      const scrollLeft = ele.scrollLeft;
+
+                      const handleMouseMove = (e) => {
+                        const x = e.pageX - ele.offsetLeft;
+                        const walk = (x - startX) * 2;
+                        ele.scrollLeft = scrollLeft - walk;
+                      };
+
+                      const handleMouseUp = () => {
+                        ele.style.cursor = 'grab';
+                        document.removeEventListener('mousemove', handleMouseMove);
+                        document.removeEventListener('mouseup', handleMouseUp);
+                      };
+
+                      document.addEventListener('mousemove', handleMouseMove);
+                      document.addEventListener('mouseup', handleMouseUp);
+                    }}
+                  >
+                    {iconos.map((icon, index) => (
                       <TouchableOpacity
                         key={icon}
                         style={[
                           modalStyles.iconOption,
-                          formData.icono === icon && modalStyles.iconOptionSelected
+                          formData.icono === icon && modalStyles.iconOptionSelected,
+                          { marginRight: index < iconos.length - 1 ? 8 : 0 }
                         ]}
                         onPress={() => setFormData({ ...formData, icono: icon })}
+                        activeOpacity={0.7}
                       >
                         <Text style={modalStyles.iconText}>{icon}</Text>
                       </TouchableOpacity>
                     ))}
-                  </ScrollView>
+                  </div>
+                  
+                  {/* Texto de ayuda */}
+                  <Text style={modalStyles.helperText}>
+                    👆 Mantén clic y arrastra para ver más iconos
+                  </Text>
                 </View>
               </View>
 
+              {/* ============ SECCIÓN: APARIENCIA ============ */}
+              <View style={modalStyles.section}>
+                <Text style={modalStyles.sectionTitle}>🎨 Apariencia</Text>
+                
+                <View style={modalStyles.formGroup}>
+                  <Text style={modalStyles.label}>URL del Avatar</Text>
+                  
+                  {/* Input con validación */}
+                  <View style={{ gap: 12 }}>
+                    <TextInput
+                      style={[
+                        modalStyles.input,
+                        formErrors.avatar_url && modalStyles.inputError,
+                        formData.avatar_url && !isValidImageUrl(formData.avatar_url) && {
+                          borderColor: '#fbbf24',
+                          borderWidth: 2,
+                        }
+                      
+                      ]}
 
-{/* Configuración de IA */}
+                      
+                      
+                      placeholder="https://ejemplo.com/avatar.png o cualquier URL de imagen"
+                      placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                      value={formData.avatar_url}
+                      onChangeText={(text) => setFormData({ ...formData, avatar_url: text })}
+                      maxLength={1000}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                      {formErrors.avatar_url && (
+                        <Text style={modalStyles.errorText}>{formErrors.avatar_url}</Text>
+                      )}
+                    
+                    {/* Preview del Avatar */}
+                    {formData.avatar_url && formData.avatar_url.startsWith('http') && (
+                      <View style={{
+                        backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                        borderRadius: 12,
+                        padding: 16,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 12,
+                        borderWidth: 1,
+                        borderColor: 'rgba(102, 126, 234, 0.3)',
+                      }}>
+                        <img
+                          src={formData.avatar_url}
+                          alt="Preview Avatar"
+                          style={{
+                            width: 60,
+                            height: 60,
+                            borderRadius: 30,
+                            objectFit: 'cover',
+                            border: '2px solid rgba(102, 126, 234, 0.5)',
+                            backgroundColor: 'rgba(71, 85, 105, 0.5)',
+                          }}
+                          onError={(e) => {
+                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="60" height="60"%3E%3Crect fill="%23475569" width="60" height="60"/%3E%3Ctext x="50%25" y="50%25" font-size="30" text-anchor="middle" dy=".3em" fill="%2394a3b8"%3E❌%3C/text%3E%3C/svg%3E';
+                          }}
+                          onLoad={(e) => {
+                            e.target.style.border = '2px solid #22c55e';
+                          }}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <View style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 6,
+                            marginBottom: 4,
+                          }}>
+                            <Ionicons name="image" size={16} color="#667eea" />
+                            <Text style={{
+                              color: '#667eea',
+                              fontSize: 13,
+                              fontWeight: '600',
+                            }}>
+                              Vista previa
+                            </Text>
+                          </View>
+                          <Text style={{
+                            color: 'rgba(255, 255, 255, 0.6)',
+                            fontSize: 11,
+                          }}>
+                            Cargando imagen...
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+                    
+                    {/* Advertencia sobre URLs externas */}
+                    {formData.avatar_url && !isValidImageUrl(formData.avatar_url) && formData.avatar_url.startsWith('http') && (
+                      <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'flex-start',
+                        gap: 8,
+                        backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                        padding: 12,
+                        borderRadius: 8,
+                        borderLeftWidth: 3,
+                        borderLeftColor: '#fbbf24',
+                      }}>
+                        <Ionicons name="warning" size={18} color="#fbbf24" />
+                        <View style={{ flex: 1 }}>
+                          <Text style={{
+                            color: '#fbbf24',
+                            fontSize: 12,
+                            fontWeight: '600',
+                            marginBottom: 4,
+                          }}>
+                            URL Externa Detectada
+                          </Text>
+                          <Text style={{
+                            color: 'rgba(251, 191, 36, 0.8)',
+                            fontSize: 11,
+                          }}>
+                            Esta URL puede funcionar, pero algunos sitios bloquean imágenes externas. Si no se muestra correctamente, prueba descargando la imagen y subiéndola a un servicio como Imgur.
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                  
+                  <Text style={modalStyles.helperText}>
+                    ✅ Acepta URLs de: Google Images, Pinterest, Instagram, Twitter, etc.
+                  </Text>
+                  <Text style={[modalStyles.helperText, { marginTop: 4 }]}>
+                    💡 Copia la URL de la imagen (clic derecho → Copiar dirección de imagen)
+                  </Text>
+                  <Text style={[modalStyles.helperText, { marginTop: 4 }]}>
+                    ⚠️ Algunas plataformas pueden bloquear el acceso externo
+                  </Text>
+                </View>
+
+{/* COLOR */}
+                <View style={modalStyles.formGroup}>
+                  <Text style={modalStyles.label}>Color del Tema</Text>
+                  
+                  {/* Input y Preview con botón de paleta */}
+                  <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                    <TextInput
+                      style={[modalStyles.input, { flex: 1 }]}
+                      placeholder="#667eea"
+                      placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                      value={formData.color_tema}
+                      onChangeText={(text) => {
+                        const hex = text.startsWith('#') ? text : '#' + text;
+                        setFormData({ ...formData, color_tema: hex });
+                      }}
+                      maxLength={7}
+                      autoCapitalize="none"
+                    />
+                    
+                    {/* Preview del color */}
+                    <View style={{
+                      width: 50,
+                      height: 50,
+                      borderRadius: 8,
+                      backgroundColor: formData.color_tema || '#667eea',
+                      borderWidth: 2,
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                    }} />
+                    
+                    {/* Botón para abrir paleta */}
+                    <TouchableOpacity
+                      style={{
+                        width: 50,
+                        height: 50,
+                        borderRadius: 8,
+                        backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                        borderWidth: 2,
+                        borderColor: '#667eea',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                      }}
+                      onPress={() => setShowColorPicker(!showColorPicker)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons 
+                        name={showColorPicker ? "close" : "color-palette"} 
+                        size={24} 
+                        color="#667eea" 
+                      />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Paleta desplegable */}
+                  {showColorPicker && (
+                    <View style={{
+                      marginTop: 12,
+                      backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                      borderRadius: 12,
+                      padding: 16,
+                      borderWidth: 1,
+                      borderColor: 'rgba(148, 163, 184, 0.3)',
+                    }}>
+                      <Text style={{
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        fontSize: 13,
+                        fontWeight: '600',
+                        marginBottom: 12,
+                      }}>
+                        🎨 Selecciona un Color
+                      </Text>
+                      
+                      {/* Fila 1: Colores Principales */}
+                      <View style={{ marginBottom: 12 }}>
+                        <Text style={{
+                          color: 'rgba(255, 255, 255, 0.5)',
+                          fontSize: 11,
+                          marginBottom: 8,
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5,
+                        }}>
+                          Principales
+                        </Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                          {[
+                            { color: '#667eea', name: 'Índigo' },
+                            { color: '#3b82f6', name: 'Azul' },
+                            { color: '#8b5cf6', name: 'Púrpura' },
+                            { color: '#ec4899', name: 'Rosa' },
+                            { color: '#f43f5e', name: 'Rojo' },
+                          ].map((item) => (
+                            <TouchableOpacity
+                              key={item.color}
+                              style={{
+                                width: 50,
+                                height: 50,
+                                borderRadius: 8,
+                                backgroundColor: item.color,
+                                borderWidth: formData.color_tema === item.color ? 3 : 2,
+                                borderColor: formData.color_tema === item.color 
+                                  ? '#ffffff' 
+                                  : 'rgba(255, 255, 255, 0.2)',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                              }}
+                              onPress={() => {
+                                setFormData({ ...formData, color_tema: item.color });
+                                setShowColorPicker(false);
+                              }}
+                              activeOpacity={0.7}
+                            >
+                              {formData.color_tema === item.color && (
+                                <Ionicons name="checkmark-circle" size={20} color="#ffffff" />
+                              )}
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+
+                      {/* Fila 2: Colores Cálidos */}
+                      <View style={{ marginBottom: 12 }}>
+                        <Text style={{
+                          color: 'rgba(255, 255, 255, 0.5)',
+                          fontSize: 11,
+                          marginBottom: 8,
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5,
+                        }}>
+                          Cálidos
+                        </Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                          {[
+                            { color: '#f59e0b', name: 'Naranja' },
+                            { color: '#fb923c', name: 'Mandarina' },
+                            { color: '#ef4444', name: 'Rojo Vivo' },
+                            { color: '#dc2626', name: 'Carmesí' },
+                            { color: '#be185d', name: 'Magenta' },
+                          ].map((item) => (
+                            <TouchableOpacity
+                              key={item.color}
+                              style={{
+                                width: 50,
+                                height: 50,
+                                borderRadius: 8,
+                                backgroundColor: item.color,
+                                borderWidth: formData.color_tema === item.color ? 3 : 2,
+                                borderColor: formData.color_tema === item.color 
+                                  ? '#ffffff' 
+                                  : 'rgba(255, 255, 255, 0.2)',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                              }}
+                              onPress={() => {
+                                setFormData({ ...formData, color_tema: item.color });
+                                setShowColorPicker(false);
+                              }}
+                              activeOpacity={0.7}
+                            >
+                              {formData.color_tema === item.color && (
+                                <Ionicons name="checkmark-circle" size={20} color="#ffffff" />
+                              )}
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+
+                      {/* Fila 3: Colores Fríos */}
+                      <View style={{ marginBottom: 12 }}>
+                        <Text style={{
+                          color: 'rgba(255, 255, 255, 0.5)',
+                          fontSize: 11,
+                          marginBottom: 8,
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5,
+                        }}>
+                          Fríos
+                        </Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                          {[
+                            { color: '#06b6d4', name: 'Cyan' },
+                            { color: '#0891b2', name: 'Turquesa' },
+                            { color: '#0e7490', name: 'Azul Océano' },
+                            { color: '#0d9488', name: 'Verde Azulado' },
+                            { color: '#14b8a6', name: 'Teal' },
+                          ].map((item) => (
+                            <TouchableOpacity
+                              key={item.color}
+                              style={{
+                                width: 50,
+                                height: 50,
+                                borderRadius: 8,
+                                backgroundColor: item.color,
+                                borderWidth: formData.color_tema === item.color ? 3 : 2,
+                                borderColor: formData.color_tema === item.color 
+                                  ? '#ffffff' 
+                                  : 'rgba(255, 255, 255, 0.2)',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                              }}
+                              onPress={() => {
+                                setFormData({ ...formData, color_tema: item.color });
+                                setShowColorPicker(false);
+                              }}
+                              activeOpacity={0.7}
+                            >
+                              {formData.color_tema === item.color && (
+                                <Ionicons name="checkmark-circle" size={20} color="#ffffff" />
+                              )}
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+
+                      {/* Fila 4: Colores Naturales */}
+                      <View>
+                        <Text style={{
+                          color: 'rgba(255, 255, 255, 0.5)',
+                          fontSize: 11,
+                          marginBottom: 8,
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5,
+                        }}>
+                          Naturales
+                        </Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                          {[
+                            { color: '#10b981', name: 'Verde' },
+                            { color: '#22c55e', name: 'Esmeralda' },
+                            { color: '#84cc16', name: 'Lima' },
+                            { color: '#eab308', name: 'Amarillo' },
+                            { color: '#64748b', name: 'Pizarra' },
+                          ].map((item) => (
+                            <TouchableOpacity
+                              key={item.color}
+                              style={{
+                                width: 50,
+                                height: 50,
+                                borderRadius: 8,
+                                backgroundColor: item.color,
+                                borderWidth: formData.color_tema === item.color ? 3 : 2,
+                                borderColor: formData.color_tema === item.color 
+                                  ? '#ffffff' 
+                                  : 'rgba(255, 255, 255, 0.2)',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                              }}
+                              onPress={() => {
+                                setFormData({ ...formData, color_tema: item.color });
+                                setShowColorPicker(false);
+                              }}
+                              activeOpacity={0.7}
+                            >
+                              {formData.color_tema === item.color && (
+                                <Ionicons name="checkmark-circle" size={20} color="#ffffff" />
+                              )}
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                        {formErrors.color_tema && (
+                        <Text style={modalStyles.errorText}>{formErrors.color_tema}</Text>
+)}
+                      </View>
+                    </View>
+                  )}
+
+                  <Text style={modalStyles.helperText}>
+                    💡 Haz clic en 🎨 para ver más colores o ingresa tu código hexadecimal
+                  </Text>
+                </View>
+              </View>
+
+              {/* ============ SECCIÓN: MENSAJES PREDEFINIDOS ============ */}
+              <View style={modalStyles.section}>
+                <Text style={modalStyles.sectionTitle}>💬 Mensajes Predefinidos</Text>
+                
+                <View style={modalStyles.formGroup}>
+                  <Text style={modalStyles.label}>Mensaje de Bienvenida *</Text>
+                  <TextInput
+                    style={[modalStyles.textArea, formErrors.mensaje_bienvenida && modalStyles.inputError]}
+                    placeholder="¡Hola! Soy tu asistente virtual. ¿En qué puedo ayudarte?"
+                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                    value={formData.mensaje_bienvenida}
+                    onChangeText={(text) => setFormData({ ...formData, mensaje_bienvenida: text })}
+                    multiline
+                    numberOfLines={3}
+                    maxLength={500}
+                  />
+                  {formErrors.mensaje_bienvenida && (
+                    <Text style={modalStyles.errorText}>{formErrors.mensaje_bienvenida}</Text>
+                  )}
+                  <Text style={modalStyles.helperText}>
+                    Primer mensaje que verá el usuario al iniciar conversación
+                  </Text>
+                </View>
+
+                <View style={modalStyles.formGroup}>
+                  <Text style={modalStyles.label}>Mensaje de Despedida *</Text>
+                  <TextInput
+                    style={[modalStyles.textArea, formErrors.mensaje_despedida && modalStyles.inputError]}
+                    placeholder="¡Hasta pronto! Fue un gusto ayudarte."
+                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                    value={formData.mensaje_despedida}
+                    onChangeText={(text) => setFormData({ ...formData, mensaje_despedida: text })}
+                    multiline
+                    numberOfLines={3}
+                    maxLength={500}
+                  />
+                  {formErrors.mensaje_despedida && (
+                    <Text style={modalStyles.errorText}>{formErrors.mensaje_despedida}</Text>
+                  )}
+                  <Text style={modalStyles.helperText}>
+                    Mensaje cuando el usuario finaliza la conversación
+                  </Text>
+                </View>
+
+                <View style={modalStyles.formGroup}>
+                  <Text style={modalStyles.label}>Mensaje de Derivación *</Text>
+                  <TextInput
+                    style={[modalStyles.textArea, formErrors.mensaje_derivacion && modalStyles.inputError]}
+                    placeholder="Voy a transferir tu consulta a un especialista humano..."
+                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                    value={formData.mensaje_derivacion}
+                    onChangeText={(text) => setFormData({ ...formData, mensaje_derivacion: text })}
+                    multiline
+                    numberOfLines={3}
+                    maxLength={500}
+                  />
+                  {formErrors.mensaje_derivacion && (
+                    <Text style={modalStyles.errorText}>{formErrors.mensaje_derivacion}</Text>
+                  )}
+                  <Text style={modalStyles.helperText}>
+                    Mensaje cuando se deriva a otro agente o humano
+                  </Text>
+                </View>
+
+                <View style={modalStyles.formGroup}>
+                  <Text style={modalStyles.label}>Mensaje Fuera de Horario *</Text>
+                  <TextInput
+                    style={[modalStyles.textArea, formErrors.mensaje_fuera_horario && modalStyles.inputError]}
+                    placeholder="Gracias por escribir. Nuestro horario es Lunes-Viernes 8am-5pm..."
+                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                    value={formData.mensaje_fuera_horario}
+                    onChangeText={(text) => setFormData({ ...formData, mensaje_fuera_horario: text })}
+                    multiline
+                    numberOfLines={3}
+                    maxLength={500}
+                  />
+                  {formErrors.mensaje_fuera_horario && (
+                    <Text style={modalStyles.errorText}>{formErrors.mensaje_fuera_horario}</Text>
+                  )}
+                  <Text style={modalStyles.helperText}>
+                    Mensaje automático cuando se escribe fuera del horario
+                  </Text>
+                </View>
+                </View>
+
+              {/* Configuración de IA */}
               <View style={modalStyles.section}>
                 <Text style={modalStyles.sectionTitle}>🤖 Configuración de IA</Text>
                 
+                {/* ⭐ CAMPO BLOQUEADO DE MODELO IA ⭐ */}
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Modelo de IA</Text>
-                  <View style={modalStyles.pickerContainer}>
-                    <TextInput
-                      style={modalStyles.picker}
-                      value={modelos.find(m => m.value === formData.modelo_ia)?.label || 'Claude Sonnet 4'}
-                      editable={false}
-                    />
-                    <select
-                      value={formData.modelo_ia}
-                      onChange={(e) => setFormData({ ...formData, modelo_ia: e.target.value })}
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        opacity: 0,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {modelos.map((modelo) => (
-                        <option key={modelo.value} value={modelo.value}>
-                          {modelo.label}
-                        </option>
-                      ))}
-                    </select>
+                  <View style={{
+                    backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(148, 163, 184, 0.3)',
+                    borderRadius: 12,
+                    padding: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <Ionicons name="cube-outline" size={20} color="#94a3b8" />
+                      <Text style={{
+                        color: '#94a3b8',
+                        fontSize: 15,
+                        fontWeight: '500',
+                      }}>
+                        llama3:8b
+                      </Text>
+                    </View>
+                    <View style={{
+                      backgroundColor: 'rgba(148, 163, 184, 0.2)',
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      borderRadius: 6,
+                    }}>
+                      <Text style={{
+                        color: '#94a3b8',
+                        fontSize: 11,
+                        fontWeight: '600',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                      }}>
+                        Bloqueado
+                      </Text>
+                    </View>
                   </View>
+                  <Text style={modalStyles.helperText}>
+                    Este modelo está configurado por defecto y no se puede cambiar
+                  </Text>
                 </View>
+                
+                {/* Temperatura (Creatividad) */}
+<View style={modalStyles.formGroup}>
+  <Text style={modalStyles.label}>Temperatura (Creatividad) *</Text>
+  
+  {/* Opciones de Temperatura */}
+  <View style={{ gap: 12 }}>
+    {/* OPCIÓN 1: Balanceado (0.6) - RECOMENDADO */}
+    <TouchableOpacity
+      style={[
+        {
+          backgroundColor: formData.temperatura === '0.6' 
+            ? 'rgba(102, 126, 234, 0.2)' 
+            : 'rgba(71, 85, 105, 0.3)',
+          borderWidth: 2,
+          borderColor: formData.temperatura === '0.6' 
+            ? '#667eea' 
+            : 'rgba(148, 163, 184, 0.3)',
+          borderRadius: 12,
+          padding: 16,
+        },
+        formErrors.temperatura && { borderColor: '#ef4444' }
+      ]}
+      onPress={() => setFormData({ ...formData, temperatura: '0.6' })}
+      activeOpacity={0.7}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{
+            width: 24,
+            height: 24,
+            borderRadius: 12,
+            borderWidth: 2,
+            borderColor: formData.temperatura === '0.6' ? '#667eea' : '#94a3b8',
+            backgroundColor: formData.temperatura === '0.6' ? '#667eea' : 'transparent',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+            {formData.temperatura === '0.6' && (
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
+            )}
+          </View>
+          <Text style={{
+            color: formData.temperatura === '0.6' ? '#ffffff' : '#94a3b8',
+            fontSize: 16,
+            fontWeight: '600',
+          }}>
+            ⚖️ Balanceado (0.6)
+          </Text>
+        </View>
+        <View style={{
+          backgroundColor: 'rgba(34, 197, 94, 0.2)',
+          paddingHorizontal: 8,
+          paddingVertical: 4,
+          borderRadius: 6,
+          borderWidth: 1,
+          borderColor: '#22c55e',
+        }}>
+          <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '700' }}>
+            ✨ RECOMENDADO
+          </Text>
+        </View>
+      </View>
+      <Text style={{
+        color: formData.temperatura === '0.6' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
+        fontSize: 13,
+        marginBottom: 8,
+      }}>
+        Uso general - Ideal para la mayoría de casos
+      </Text>
+      {formData.temperatura === '0.6' && (
+        <View style={{
+          backgroundColor: 'rgba(102, 126, 234, 0.1)',
+          borderRadius: 8,
+          padding: 12,
+          gap: 6,
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+              Equilibrio perfecto entre precisión y creatividad
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+              Respuestas coherentes y útiles
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+              Funciona bien en soporte, consultas y asesoría
+            </Text>
+          </View>
+        </View>
+      )}
+    </TouchableOpacity>
 
-                <View style={modalStyles.formGroup}>
-                  <Text style={modalStyles.label}>Temperatura (Creatividad)</Text>
-                  <TextInput
-                    style={[modalStyles.input, formErrors.temperatura && modalStyles.inputError]}
-                    placeholder="0.7"
-                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                    value={formData.temperatura}
-                    onChangeText={(text) => setFormData({ ...formData, temperatura: text })}
-                    keyboardType="decimal-pad"
-                  />
-                  {formErrors.temperatura && (
-                    <Text style={modalStyles.errorText}>{formErrors.temperatura}</Text>
-                  )}
-                  <Text style={modalStyles.helperText}>Valor entre 0 (preciso) y 2 (creativo)</Text>
-                </View>
+    {/* OPCIÓN 2: Creativo (0.9) */}
+    <TouchableOpacity
+      style={{
+        backgroundColor: formData.temperatura === '0.9' 
+          ? 'rgba(168, 85, 247, 0.2)' 
+          : 'rgba(71, 85, 105, 0.3)',
+        borderWidth: 2,
+        borderColor: formData.temperatura === '0.9' 
+          ? '#a855f7' 
+          : 'rgba(148, 163, 184, 0.3)',
+        borderRadius: 12,
+        padding: 16,
+      }}
+      onPress={() => setFormData({ ...formData, temperatura: '0.9' })}
+      activeOpacity={0.7}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+        <View style={{
+          width: 24,
+          height: 24,
+          borderRadius: 12,
+          borderWidth: 2,
+          borderColor: formData.temperatura === '0.9' ? '#a855f7' : '#94a3b8',
+          backgroundColor: formData.temperatura === '0.9' ? '#a855f7' : 'transparent',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
+          {formData.temperatura === '0.9' && (
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
+          )}
+        </View>
+        <Text style={{
+          color: formData.temperatura === '0.9' ? '#ffffff' : '#94a3b8',
+          fontSize: 16,
+          fontWeight: '600',
+        }}>
+          🎨 Creativo (0.9)
+        </Text>
+      </View>
+      <Text style={{
+        color: formData.temperatura === '0.9' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
+        fontSize: 13,
+        marginBottom: 8,
+      }}>
+        Para redacción, ideas y contenido variado
+      </Text>
+      {formData.temperatura === '0.9' && (
+        <View style={{
+          backgroundColor: 'rgba(168, 85, 247, 0.1)',
+          borderRadius: 8,
+          padding: 12,
+          gap: 6,
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+              Respuestas más variadas y originales
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+              Ideal para generar contenido creativo
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+            <Text style={{ color: '#fbbf24', fontSize: 12 }}>⚠</Text>
+            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
+              Puede ser menos preciso en datos técnicos
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+            <Text style={{ color: '#fbbf24', fontSize: 12 }}>⚠</Text>
+            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
+              Ocasionalmente divaga del tema principal
+            </Text>
+          </View>
+        </View>
+      )}
+    </TouchableOpacity>
 
+    {/* OPCIÓN 3: Muy Creativo (1.2) */}
+    <TouchableOpacity
+      style={{
+        backgroundColor: formData.temperatura === '1.2' 
+          ? 'rgba(251, 146, 60, 0.2)' 
+          : 'rgba(71, 85, 105, 0.3)',
+        borderWidth: 2,
+        borderColor: formData.temperatura === '1.2' 
+          ? '#fb923c' 
+          : 'rgba(148, 163, 184, 0.3)',
+        borderRadius: 12,
+        padding: 16,
+      }}
+      onPress={() => setFormData({ ...formData, temperatura: '1.2' })}
+      activeOpacity={0.7}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+        <View style={{
+          width: 24,
+          height: 24,
+          borderRadius: 12,
+          borderWidth: 2,
+          borderColor: formData.temperatura === '1.2' ? '#fb923c' : '#94a3b8',
+          backgroundColor: formData.temperatura === '1.2' ? '#fb923c' : 'transparent',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
+          {formData.temperatura === '1.2' && (
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
+          )}
+        </View>
+        <Text style={{
+          color: formData.temperatura === '1.2' ? '#ffffff' : '#94a3b8',
+          fontSize: 16,
+          fontWeight: '600',
+        }}>
+          🚀 Muy Creativo (1.2)
+        </Text>
+      </View>
+      <Text style={{
+        color: formData.temperatura === '1.2' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
+        fontSize: 13,
+        marginBottom: 8,
+      }}>
+        Experimental - Solo para casos especiales
+      </Text>
+      {formData.temperatura === '1.2' && (
+        <View style={{
+          backgroundColor: 'rgba(251, 146, 60, 0.1)',
+          borderRadius: 8,
+          padding: 12,
+          gap: 6,
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+              Máxima originalidad e innovación
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+              Útil para lluvia de ideas o brainstorming
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+            <Text style={{ color: '#ef4444', fontSize: 12 }}>✗</Text>
+            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
+              Respuestas impredecibles e inconsistentes
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+            <Text style={{ color: '#ef4444', fontSize: 12 }}>✗</Text>
+            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
+              Puede generar contenido irrelevante
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+            <Text style={{ color: '#ef4444', fontSize: 12 }}>✗</Text>
+            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
+              No recomendado para uso en producción
+            </Text>
+          </View>
+        </View>
+      )}
+    </TouchableOpacity>
+  </View>
+
+  {formErrors.temperatura && (
+    <Text style={modalStyles.errorText}>{formErrors.temperatura}</Text>
+  )}
+</View>
+
+
+{/*MAXIMO DE TOKENS*/}
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Tokens Máximos</Text>
-                  <TextInput
-                    style={[modalStyles.input, formErrors.max_tokens && modalStyles.inputError]}
-                    placeholder="4000"
-                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                    value={formData.max_tokens}
-                    onChangeText={(text) => setFormData({ ...formData, max_tokens: text })}
-                    keyboardType="number-pad"
-                  />
+                  
+                  {/* Opciones de Tokens */}
+                  <View style={{ gap: 12 }}>
+                    {/* OPCIÓN 1: Respuestas Cortas (500) */}
+                    <TouchableOpacity
+                      style={[
+                        {
+                          backgroundColor: formData.max_tokens === '500' 
+                            ? 'rgba(59, 130, 246, 0.2)' 
+                            : 'rgba(71, 85, 105, 0.3)',
+                          borderWidth: 2,
+                          borderColor: formData.max_tokens === '500' 
+                            ? '#3b82f6' 
+                            : 'rgba(148, 163, 184, 0.3)',
+                          borderRadius: 12,
+                          padding: 16,
+                        },
+                        formErrors.max_tokens && { borderColor: '#ef4444' }
+                      ]}
+                      onPress={() => setFormData({ ...formData, max_tokens: '500' })}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                        <View style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 12,
+                          borderWidth: 2,
+                          borderColor: formData.max_tokens === '500' ? '#3b82f6' : '#94a3b8',
+                          backgroundColor: formData.max_tokens === '500' ? '#3b82f6' : 'transparent',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}>
+                          {formData.max_tokens === '500' && (
+                            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
+                          )}
+                        </View>
+                        <Text style={{
+                          color: formData.max_tokens === '500' ? '#ffffff' : '#94a3b8',
+                          fontSize: 16,
+                          fontWeight: '600',
+                        }}>
+                          ⚡ Cortas (500 tokens)
+                        </Text>
+                      </View>
+                      <Text style={{
+                        color: formData.max_tokens === '500' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
+                        fontSize: 13,
+                        marginBottom: 8,
+                      }}>
+                        Respuestas rápidas y directas
+                      </Text>
+                      {formData.max_tokens === '500' && (
+                        <View style={{
+                          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                          borderRadius: 8,
+                          padding: 12,
+                          gap: 6,
+                        }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+                              Respuestas ultra rápidas
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+                              Consumo mínimo de recursos
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#ef4444', fontSize: 12 }}>✗</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
+                              Respuestas muy limitadas en extensión
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#ef4444', fontSize: 12 }}>✗</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
+                              No apta para explicaciones detalladas
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+
+                    {/* OPCIÓN 2: FAQ (800) */}
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: formData.max_tokens === '800' 
+                          ? 'rgba(16, 185, 129, 0.2)' 
+                          : 'rgba(71, 85, 105, 0.3)',
+                        borderWidth: 2,
+                        borderColor: formData.max_tokens === '800' 
+                          ? '#10b981' 
+                          : 'rgba(148, 163, 184, 0.3)',
+                        borderRadius: 12,
+                        padding: 16,
+                      }}
+                      onPress={() => setFormData({ ...formData, max_tokens: '800' })}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                        <View style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 12,
+                          borderWidth: 2,
+                          borderColor: formData.max_tokens === '800' ? '#10b981' : '#94a3b8',
+                          backgroundColor: formData.max_tokens === '800' ? '#10b981' : 'transparent',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}>
+                          {formData.max_tokens === '800' && (
+                            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
+                          )}
+                        </View>
+                        <Text style={{
+                          color: formData.max_tokens === '800' ? '#ffffff' : '#94a3b8',
+                          fontSize: 16,
+                          fontWeight: '600',
+                        }}>
+                          💬 FAQ (800 tokens)
+                        </Text>
+                      </View>
+                      <Text style={{
+                        color: formData.max_tokens === '800' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
+                        fontSize: 13,
+                        marginBottom: 8,
+                      }}>
+                        Ideal para preguntas frecuentes
+                      </Text>
+                      {formData.max_tokens === '800' && (
+                        <View style={{
+                          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                          borderRadius: 8,
+                          padding: 12,
+                          gap: 6,
+                        }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+                              Perfecto para preguntas y respuestas
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+                              Buen balance velocidad/detalle
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#fbbf24', fontSize: 12 }}>⚠</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
+                              Puede quedarse corto en temas complejos
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+
+                    {/* OPCIÓN 3: Normal (1000) - RECOMENDADO */}
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: formData.max_tokens === '1000' 
+                          ? 'rgba(102, 126, 234, 0.2)' 
+                          : 'rgba(71, 85, 105, 0.3)',
+                        borderWidth: 2,
+                        borderColor: formData.max_tokens === '1000' 
+                          ? '#667eea' 
+                          : 'rgba(148, 163, 184, 0.3)',
+                        borderRadius: 12,
+                        padding: 16,
+                      }}
+                      onPress={() => setFormData({ ...formData, max_tokens: '1000' })}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <View style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: 12,
+                            borderWidth: 2,
+                            borderColor: formData.max_tokens === '1000' ? '#667eea' : '#94a3b8',
+                            backgroundColor: formData.max_tokens === '1000' ? '#667eea' : 'transparent',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                          }}>
+                            {formData.max_tokens === '1000' && (
+                              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
+                            )}
+                          </View>
+                          <Text style={{
+                            color: formData.max_tokens === '1000' ? '#ffffff' : '#94a3b8',
+                            fontSize: 16,
+                            fontWeight: '600',
+                          }}>
+                            ⚖️ Normal (1000 tokens)
+                          </Text>
+                        </View>
+                        <View style={{
+                          backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
+                          borderRadius: 6,
+                          borderWidth: 1,
+                          borderColor: '#22c55e',
+                        }}>
+                          <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '700' }}>
+                            ✨ RECOMENDADO
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={{
+                        color: formData.max_tokens === '1000' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
+                        fontSize: 13,
+                        marginBottom: 8,
+                      }}>
+                        Uso general - Respuestas completas
+                      </Text>
+                      {formData.max_tokens === '1000' && (
+                        <View style={{
+                          backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                          borderRadius: 8,
+                          padding: 12,
+                          gap: 6,
+                        }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+                              Respuestas completas y bien estructuradas
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+                              Versátil para la mayoría de casos
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+                              Consumo equilibrado de recursos
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#fbbf24', fontSize: 12 }}>⚠</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
+                              Consumo moderado de tokens
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+
+                    {/* OPCIÓN 4: Detalladas (2000) */}
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: formData.max_tokens === '2000' 
+                          ? 'rgba(168, 85, 247, 0.2)' 
+                          : 'rgba(71, 85, 105, 0.3)',
+                        borderWidth: 2,
+                        borderColor: formData.max_tokens === '2000' 
+                          ? '#a855f7' 
+                          : 'rgba(148, 163, 184, 0.3)',
+                        borderRadius: 12,
+                        padding: 16,
+                      }}
+                      onPress={() => setFormData({ ...formData, max_tokens: '2000' })}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                        <View style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 12,
+                          borderWidth: 2,
+                          borderColor: formData.max_tokens === '2000' ? '#a855f7' : '#94a3b8',
+                          backgroundColor: formData.max_tokens === '2000' ? '#a855f7' : 'transparent',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}>
+                          {formData.max_tokens === '2000' && (
+                            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
+                          )}
+                        </View>
+                        <Text style={{
+                          color: formData.max_tokens === '2000' ? '#ffffff' : '#94a3b8',
+                          fontSize: 16,
+                          fontWeight: '600',
+                        }}>
+                          📚 Detalladas (2000 tokens)
+                        </Text>
+                      </View>
+                      <Text style={{
+                        color: formData.max_tokens === '2000' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
+                        fontSize: 13,
+                        marginBottom: 8,
+                      }}>
+                        Explicaciones extensas y profundas
+                      </Text>
+                      {formData.max_tokens === '2000' && (
+                        <View style={{
+                          backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                          borderRadius: 8,
+                          padding: 12,
+                          gap: 6,
+                        }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+                              Respuestas muy detalladas y exhaustivas
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#22c55e', fontSize: 12 }}>✓</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12, flex: 1 }}>
+                              Ideal para consultas complejas
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#ef4444', fontSize: 12 }}>✗</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
+                              Mayor consumo de recursos y costos
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#ef4444', fontSize: 12 }}>✗</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
+                              Respuestas más lentas
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                            <Text style={{ color: '#ef4444', fontSize: 12 }}>✗</Text>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, flex: 1 }}>
+                              Puede incluir información innecesaria
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
                   {formErrors.max_tokens && (
                     <Text style={modalStyles.errorText}>{formErrors.max_tokens}</Text>
                   )}
@@ -977,66 +2430,106 @@ const cargarEstadisticas = async () => {
                     maxLength={2000}
                   />
                 </View>
+                {formErrors.prompt_sistema && (
+                  <Text style={modalStyles.errorText}>{formErrors.prompt_sistema}</Text>
+                )}
               </View>
 
               {/* Configuración Regional */}
               <View style={modalStyles.section}>
                 <Text style={modalStyles.sectionTitle}>🌍 Configuración Regional</Text>
                 
-                 <View style={modalStyles.formGroup}>
+                {/* Idioma Principal - BLOQUEADO */}
+                <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Idioma Principal</Text>
-                  <View style={modalStyles.pickerContainer}>
-                    <TextInput
-                      style={modalStyles.picker}
-                      value={formData.idioma_principal === 'es' ? '🇪🇸 Español' : ''}
-                      editable={false}
-                    />
-                    <select
-                      value={formData.idioma_principal}
-                      onChange={(e) => setFormData({ ...formData, idioma_principal: e.target.value })}
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        opacity: 0,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <option value="es">🇪🇸 Español</option>
-          
-                    </select>
+                  <View style={{
+                    backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(148, 163, 184, 0.3)',
+                    borderRadius: 12,
+                    padding: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <Text style={{ fontSize: 20 }}>🇪🇸</Text>
+                      <Text style={{
+                        color: '#94a3b8',
+                        fontSize: 15,
+                        fontWeight: '500',
+                      }}>
+                        Español
+                      </Text>
+                    </View>
+                    <View style={{
+                      backgroundColor: 'rgba(148, 163, 184, 0.2)',
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      borderRadius: 6,
+                    }}>
+                      <Text style={{
+                        color: '#94a3b8',
+                        fontSize: 11,
+                        fontWeight: '600',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                      }}>
+                        Bloqueado
+                      </Text>
+                    </View>
                   </View>
+                  <Text style={modalStyles.helperText}>
+                    El idioma está configurado en Español por defecto
+                  </Text>
                 </View>
 
+                {/* Zona Horaria - BLOQUEADA */}
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Zona Horaria</Text>
-                  <View style={modalStyles.pickerContainer}>
-                    <TextInput
-                      style={modalStyles.picker}
-                      value={formData.zona_horaria === 'America/Guayaquil' ? 'America/Guayaquil (GMT-5)' :''}
-                      editable={false}
-                    />
-                    <select
-                      value={formData.zona_horaria}
-                      onChange={(e) => setFormData({ ...formData, zona_horaria: e.target.value })}
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        opacity: 0,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <option value="America/Guayaquil">America/Guayaquil (GMT-5)</option>
-
-                    </select>
+                  <View style={{
+                    backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(148, 163, 184, 0.3)',
+                    borderRadius: 12,
+                    padding: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <Ionicons name="time-outline" size={20} color="#94a3b8" />
+                      <Text style={{
+                        color: '#94a3b8',
+                        fontSize: 15,
+                        fontWeight: '500',
+                      }}>
+                        America/Guayaquil (GMT-5)
+                      </Text>
+                    </View>
+                    <View style={{
+                      backgroundColor: 'rgba(148, 163, 184, 0.2)',
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      borderRadius: 6,
+                    }}>
+                      <Text style={{
+                        color: '#94a3b8',
+                        fontSize: 11,
+                        fontWeight: '600',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                      }}>
+                        Bloqueado
+                      </Text>
+                    </View>
                   </View>
+                  <Text style={modalStyles.helperText}>
+                    La zona horaria está configurada para Ecuador
+                  </Text>
                 </View>
 
+                {/* Estado del Agente - ACTIVO */}
                 <View style={modalStyles.formGroup}>
                   <View style={modalStyles.switchContainer}>
                     <View>
@@ -1158,9 +2651,21 @@ const cargarEstadisticas = async () => {
                   {/* Descripción */}
                   <View style={modalStyles.detailSection}>
                     <Text style={modalStyles.detailSectionTitle}>📝 Descripción</Text>
-                    <Text style={modalStyles.detailText}>
-                      {selectedAgente.descripcion || 'Sin descripción disponible'}
-                    </Text>
+                    <View style={{
+                      backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                      borderRadius: 12,
+                      padding: 16,
+                      borderWidth: 1,
+                      borderColor: 'rgba(148, 163, 184, 0.3)',
+                    }}>
+                      <Text style={{
+                        color: 'rgba(255, 255, 255, 0.9)',
+                        fontSize: 14,
+                        lineHeight: 22,
+                      }}>
+                        {selectedAgente.descripcion || 'Sin descripción disponible'}
+                      </Text>
+                    </View>
                   </View>
 
                   {/* Información General */}
@@ -1215,30 +2720,118 @@ const cargarEstadisticas = async () => {
                     </View>
                   </View>
 
-                  {/* Configuración Regional */}
-                  <View style={modalStyles.detailSection}>
-                    <Text style={modalStyles.detailSectionTitle}>🌍 Configuración Regional</Text>
-                    <View style={modalStyles.detailGrid}>
-                      <View style={modalStyles.detailItem}>
-                        <Ionicons name="language" size={16} color="#667eea" />
-                        <View style={{ flex: 1 }}>
-                          <Text style={modalStyles.detailLabel}>Idioma</Text>
-                          <Text style={modalStyles.detailValue}>
-                            {selectedAgente.idioma_principal?.toUpperCase() || 'N/A'}
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={modalStyles.detailItem}>
-                        <Ionicons name="time" size={16} color="#667eea" />
-                        <View style={{ flex: 1 }}>
-                          <Text style={modalStyles.detailLabel}>Zona Horaria</Text>
-                          <Text style={modalStyles.detailValue}>
-                            {selectedAgente.zona_horaria?.split('/')[1]?.replace('_', ' ') || 'N/A'}
-                          </Text>
-                        </View>
-                      </View>
+{/* Configuración Regional */}
+              <View style={modalStyles.section}>
+                <Text style={modalStyles.sectionTitle}>🌍 Configuración Regional</Text>
+                
+                {/* Idioma Principal - BLOQUEADO */}
+                <View style={modalStyles.formGroup}>
+                  <Text style={modalStyles.label}>Idioma Principal</Text>
+                  <View style={{
+                    backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(148, 163, 184, 0.3)',
+                    borderRadius: 12,
+                    padding: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <Text style={{ fontSize: 24 }}>🇪🇸</Text>
+                      <Text style={{
+                        color: '#94a3b8',
+                        fontSize: 15,
+                        fontWeight: '500',
+                      }}>
+                        Español
+                      </Text>
+                    </View>
+                    <View style={{
+                      backgroundColor: 'rgba(148, 163, 184, 0.2)',
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      borderRadius: 6,
+                    }}>
+                      <Text style={{
+                        color: '#94a3b8',
+                        fontSize: 11,
+                        fontWeight: '600',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                      }}>
+                        Bloqueado
+                      </Text>
                     </View>
                   </View>
+                  <Text style={modalStyles.helperText}>
+                    El idioma está configurado en Español por defecto
+                  </Text>
+                </View>
+
+                {/* Zona Horaria - BLOQUEADA */}
+                <View style={modalStyles.formGroup}>
+                  <Text style={modalStyles.label}>Zona Horaria</Text>
+                  <View style={{
+                    backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(148, 163, 184, 0.3)',
+                    borderRadius: 12,
+                    padding: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <Ionicons name="time-outline" size={20} color="#94a3b8" />
+                      <Text style={{
+                        color: '#94a3b8',
+                        fontSize: 15,
+                        fontWeight: '500',
+                      }}>
+                        America/Guayaquil (GMT-5)
+                      </Text>
+                    </View>
+                    <View style={{
+                      backgroundColor: 'rgba(148, 163, 184, 0.2)',
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      borderRadius: 6,
+                    }}>
+                      <Text style={{
+                        color: '#94a3b8',
+                        fontSize: 11,
+                        fontWeight: '600',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                      }}>
+                        Bloqueado
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={modalStyles.helperText}>
+                    La zona horaria está configurada para Ecuador
+                  </Text>
+                </View>
+
+                {/* Estado del Agente - ACTIVO (Switch funcional) */}
+                <View style={modalStyles.formGroup}>
+                  <View style={modalStyles.switchContainer}>
+                    <View>
+                      <Text style={modalStyles.label}>Estado del Agente</Text>
+                      <Text style={modalStyles.helperText}>
+                        {formData.activo ? 'Agente activo y disponible' : 'Agente desactivado'}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={formData.activo}
+                      onValueChange={(value) => setFormData({ ...formData, activo: value })}
+                      trackColor={{ false: '#475569', true: '#667eea' }}
+                      thumbColor={formData.activo ? '#ffffff' : '#cbd5e1'}
+                    />
+                  </View>
+                </View>
+              </View>
 
                   {/* Estadísticas */}
                   <View style={modalStyles.detailSection}>

@@ -51,10 +51,11 @@ export default function SuperAdminSidebar({ isOpen }) {
     },
     {
       id: 'Agente Inteligente',
-      label: 'Agentes Inteligentes',
+      label: 'Gestion para agentes inteligentes',
       icon: 'shield-checkmark-outline',
       submenu: [
-        { label: 'Gestion de Agentes Inteligentes', route: '/superadmin/agente' },
+        { label: 'Agentes Inteligentes', route: '/superadmin/agente' },
+        { label: 'Categoria', route: '/superadmin/categoria' },
       ]
     },
     {
