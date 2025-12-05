@@ -238,7 +238,27 @@ export const personaService = {
    */
   async getByCedula(cedula) {
     return this.buscarPorCedula(cedula);
+  },
+
+
+
+
+  /**
+   * Crear usuario completo con transacción atómica
+   * @param {Object} data - { username, email, password, persona: {...}, roles: [...] }
+   */
+  async createCompleto(data) {
+    try {
+      const response = await apiClient.post('/usuarios/crear-completo', data);
+      return response;
+    } catch (error) {
+      const mensajeError = error.response?.data?.detail || 
+                          error.response?.data?.message || 
+                          error.message;
+      throw new Error(mensajeError);
+    }
   }
+
 };
 
 export default personaService;

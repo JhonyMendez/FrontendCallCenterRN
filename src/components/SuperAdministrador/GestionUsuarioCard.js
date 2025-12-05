@@ -1,13 +1,7 @@
-// ==================================================================================
-// src/components/Administrador/GestionUsuarioCard.js
-// Wizard de 4 Pasos - Versión Simple
-// ==================================================================================
-
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   Animated,
   ScrollView,
   Text,
@@ -16,18 +10,31 @@ import {
   View
 } from 'react-native';
 import { personaService } from '../../api/services/personaService';
+import { usuarioRolService } from '../../api/services/usuarioRolService';
 import { usuarioService } from '../../api/services/usuarioService';
+
 import { styles } from '../../styles/GestionUsuariosStyles';
 import DateInput from '../common/DateInput';
+import Toast from '../common/Toast';
+
 
 const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
 
-    console.log('🎭 Roles recibidos en Card:', roles);
-  console.log('🎭 Total roles:', roles?.length || 0);
   // ==================== ESTADOS ====================
-  const [pasoActual, setPasoActual] = useState(1);
+  const [pasoActual, setPasoActual] = useState(1); 
   const [guardando, setGuardando] = useState(false);
   const [errors, setErrors] = useState({});
+  
+  // Al inicio del componente, después de los otros estados
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'error' });
+
+  const mostrarToast = (message, type = 'error') => {
+    setToast({ visible: true, message, type });
+  };
+
+  const ocultarToast = () => {
+    setToast({ visible: false, message: '', type: 'error' });
+  };
   
   // Datos de Persona (Paso 1 y 2)
   const [nombre, setNombre] = useState('');
@@ -84,72 +91,85 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
 
 
   const handleFechaSeleccionada = (event, selectedDate) => {
-  setMostrarCalendario(false);
-  if (selectedDate) {
-    const año = selectedDate.getFullYear();
-    const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
-    const dia = String(selectedDate.getDate()).padStart(2, '0');
-    setFechaNacimiento(`${año}-${mes}-${dia}`);
-   }
+    setMostrarCalendario(false);
+    if (selectedDate) {
+      const año = selectedDate.getFullYear();
+      const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const dia = String(selectedDate.getDate()).padStart(2, '0');
+      setFechaNacimiento(`${año}-${mes}-${dia}`);
+    }
   };
 
   // ==================== VALIDACIÓN POR PASO ====================
   const validarPaso = (paso) => {
-  const newErrors = {};
+    const newErrors = {};
 
-  if (paso === 1) {
-  // Validar cédula (10 dígitos)
-  const cedulaLimpia = cedula.trim().replace(/[-\s]/g, '');
-  if (!cedulaLimpia) {
-    newErrors.cedula = 'La cédula es requerida';
-  } else if (cedulaLimpia.length !== 10 || !/^\d{10}$/.test(cedulaLimpia)) {
-    newErrors.cedula = 'La cédula debe tener exactamente 10 dígitos';
-  }
-  
-  if (!nombre.trim()) newErrors.nombre = 'El nombre es requerido';
-  if (!apellido.trim()) newErrors.apellido = 'El apellido es requerido';
-  
-  // Validar teléfono si existe
-  if (telefono.trim()) {
-    const telefonoLimpio = telefono.trim().replace(/[-\s()]/g, '');
-    if (telefonoLimpio.length < 7 || telefonoLimpio.length > 15 || !/^\d+$/.test(telefonoLimpio)) {
-      newErrors.telefono = 'Teléfono inválido (7-15 dígitos)';
+    if (paso === 1) {
+      // Validar cédula (10 dígitos)
+      const cedulaLimpia = cedula.trim().replace(/[-\s]/g, '');
+      if (!cedulaLimpia) {
+        newErrors.cedula = 'La cédula es requerida';
+      } else if (cedulaLimpia.length !== 10 || !/^\d{10}$/.test(cedulaLimpia)) {
+        newErrors.cedula = 'La cédula debe tener exactamente 10 dígitos';
+      }
+      
+      if (!nombre.trim()) newErrors.nombre = 'El nombre es requerido';
+      if (!apellido.trim()) newErrors.apellido = 'El apellido es requerido';
+      
+      // Validar teléfono si existe
+      if (telefono.trim()) {
+        const telefonoLimpio = telefono.trim().replace(/[-\s()]/g, '');
+        if (telefonoLimpio.length < 7 || telefonoLimpio.length > 15 || !/^\d+$/.test(telefonoLimpio)) {
+          newErrors.telefono = 'Teléfono inválido (7-15 dígitos)';
+        }
+      }
     }
-  }
-}
 
-  if (paso === 2) {
-  if (!tipoPersona) {
-    newErrors.tipoPersona = 'Selecciona el tipo de persona';
-  } else {
-    const tiposValidos = ['docente', 'administrativo', 'estudiante', 'externo'];
-    if (!tiposValidos.includes(tipoPersona.toLowerCase())) {
-      newErrors.tipoPersona = 'Tipo de persona inválido';
+    if (paso === 2) {
+      if (!tipoPersona) {
+        newErrors.tipoPersona = 'Selecciona el tipo de persona';
+      } else {
+        const tiposValidos = ['docente', 'administrativo', 'estudiante', 'externo'];
+        if (!tiposValidos.includes(tipoPersona.toLowerCase())) {
+          newErrors.tipoPersona = 'Tipo de persona inválido';
+        }
+      }
     }
-  }
-}
 
-  if (paso === 3) {
-    if (!username.trim()) newErrors.username = 'El usuario es requerido';
-    if (!email.trim()) newErrors.email = 'El email es requerido';
-    if (!email.includes('@')) newErrors.email = 'Email inválido';
-    
-    if (!usuario) {
-      if (!password) newErrors.password = 'La contraseña es requerida';
-      if (password && password.length < 8) newErrors.password = 'Mínimo 8 caracteres';
-      if (password !== confirmPassword) newErrors.confirmPassword = 'Las contraseñas no coinciden';
+    if (paso === 3) {
+      if (!username.trim()) newErrors.username = 'El usuario es requerido';
+      if (!email.trim()) newErrors.email = 'El email es requerido';
+      if (!email.includes('@')) newErrors.email = 'Email inválido';
+      
+      if (!usuario) {
+        if (!password) {
+          newErrors.password = 'La contraseña es requerida';
+        } else {
+          if (password.length < 8) {
+            newErrors.password = 'Mínimo 8 caracteres';
+          } else if (!/[A-Z]/.test(password)) {
+            newErrors.password = 'Debe contener una mayúscula';
+          } else if (!/[a-z]/.test(password)) {
+            newErrors.password = 'Debe contener una minúscula';
+          } else if (!/[0-9]/.test(password)) {
+            newErrors.password = 'Debe contener un número';
+          }
+        }
+        if (password !== confirmPassword) {
+          newErrors.confirmPassword = 'Las contraseñas no coinciden';
+        }
+      }
     }
-  }
 
-  if (paso === 4) {
-    if (rolesSeleccionados.length === 0) {
-      newErrors.roles = 'Selecciona al menos un rol';
+    if (paso === 4) {
+      if (rolesSeleccionados.length === 0) {
+        newErrors.roles = 'Selecciona al menos un rol';
+      }
     }
-  }
 
-  setErrors(newErrors);
-  return Object.keys(newErrors).length === 0;
-};
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   // ==================== NAVEGACIÓN ====================
   const handleSiguiente = () => {
@@ -157,7 +177,7 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
       setPasoActual(pasoActual + 1);
       setErrors({});
     } else {
-      Alert.alert('Error', 'Por favor completa los campos requeridos');
+      mostrarToast('Por favor completa los campos requeridos', 'warning');
     }
   };
 
@@ -169,7 +189,7 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
   // ==================== GUARDAR ====================
   const handleGuardar = async () => {
     if (!validarPaso(4)) {
-      Alert.alert('Error', 'Por favor selecciona al menos un rol');
+      mostrarToast('Por favor selecciona al menos un rol', 'warning');
       return;
     }
 
@@ -181,262 +201,286 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
         await crearUsuario();
       }
       
-      onGuardado(true);
+      mostrarToast(
+        usuario ? '✅ Usuario actualizado correctamente' : '✅ Usuario creado exitosamente',
+        'success'
+      );
+      
+      setTimeout(() => {
+        onGuardado(true);
+      }, 1500);
     } catch (error) {
-      console.error('Error guardando usuario:', error);
-      Alert.alert('Error', error.message || 'No se pudo guardar el usuario');
+      mostrarToast(error.message || 'No se pudo guardar el usuario', 'error');
       onGuardado(false);
     } finally {
       setGuardando(false);
     }
   };
 
-  const crearUsuario = async () => {
+
+
+const crearUsuario = async () => {
   try {
-    // Validar y limpiar cédula (10 dígitos exactos)
     const cedulaLimpia = cedula.trim().replace(/[-\s]/g, '');
-    if (cedulaLimpia.length !== 10 || !/^\d{10}$/.test(cedulaLimpia)) {
-      throw new Error('La cédula debe tener exactamente 10 dígitos numéricos');
-    }
-
-    // Validar tipo_persona
-    const tiposValidos = ['docente', 'administrativo', 'estudiante', 'externo'];
-    if (!tipoPersona || !tiposValidos.includes(tipoPersona.toLowerCase())) {
-      throw new Error('El tipo de persona debe ser: docente, administrativo, estudiante o externo');
-    }
-
-    // Limpiar teléfono (solo si existe)
     const telefonoLimpio = telefono ? telefono.trim().replace(/[-\s()]/g, '') : null;
-    if (telefonoLimpio && (telefonoLimpio.length < 7 || telefonoLimpio.length > 15 || !/^\d+$/.test(telefonoLimpio))) {
-      throw new Error('El teléfono debe tener entre 7 y 15 dígitos numéricos');
-    }
 
-    const personaData = {
-      cedula: cedulaLimpia,                    
-      nombre: nombre.trim(),
-      apellido: apellido.trim(),
-      fecha_nacimiento: fechaNacimiento || null,
-      genero: genero ? genero.toLowerCase() : null,  
-      telefono: telefonoLimpio,               
-      direccion: direccion.trim() || null,
-      tipo_persona: tipoPersona.toLowerCase(), 
-      celular: null,
-      email_personal: email.trim().toLowerCase(),
-      ciudad: null,
-      provincia: null,
-      id_departamento: null,
-      cargo: null,
-      fecha_ingreso_institucion: null,
-      contacto_emergencia_nombre: null,
-      contacto_emergencia_telefono: null,
-      contacto_emergencia_relacion: null,
-      foto_perfil: null
+    // ✅ USAR createCompleto (transacción atómica)
+    const usuarioCompletoData = {
+      username: username.trim(),
+      email: email.trim().toLowerCase(),
+      password: password,
+      estado: estado,
+      persona: {
+        cedula: cedulaLimpia,
+        nombre: nombre.trim(),
+        apellido: apellido.trim(),
+        fecha_nacimiento: fechaNacimiento || null,
+        genero: genero ? genero.toLowerCase() : null,
+        telefono: telefonoLimpio,
+        direccion: direccion.trim() || null,
+        tipo_persona: tipoPersona.toLowerCase(),
+        celular: null,
+        email_personal: email.trim().toLowerCase(),
+        ciudad: null,
+        provincia: null,
+        id_departamento: null,
+        cargo: null,
+        fecha_ingreso_institucion: null,
+        contacto_emergencia_nombre: null,
+        contacto_emergencia_telefono: null,
+        contacto_emergencia_relacion: null,
+        foto_perfil: null
+      },
+      roles: rolesSeleccionados
     };
 
-    console.log('📤 Creando persona:', personaData);
+    // ✅ LLAMADA A createCompleto (NO personaService.create)
+    const response = await usuarioService.createCompleto(usuarioCompletoData);
+    return response;
+
+  } catch (error) {
+    let mensajeError = 'Error desconocido';
     
-    const personaResponse = await personaService.create(personaData);
-    const id_persona = personaResponse.id_persona;
+    if (error.data?.details && Array.isArray(error.data.details) && error.data.details.length > 0) {
+      const errores = error.data.details.map(e => e.message || e.msg).filter(Boolean);
+      mensajeError = errores.join('\n');
+    } 
+    else if (error.data?.detail) {
+      mensajeError = error.data.detail;
+    }
+    else if (error.data?.message) {
+      mensajeError = error.data.message;
+    }
+    else if (error.message) {
+      mensajeError = error.message;
+    }
+    
+    throw new Error(mensajeError);
+  }
+};
+
+  /// =================== ACTUALIZAR USUARIO ====================
+
+const actualizarUsuario = async () => {
+  try {
+    if (usuario.id_persona) {
+      const personaData = {
+        nombre: nombre.trim(),
+        apellido: apellido.trim(),
+        cedula: cedula.trim(),
+        telefono: telefono.trim() || null,
+        direccion: direccion.trim() || null
+      };
+      await personaService.update(usuario.id_persona, personaData);
+    }
 
     const usuarioData = {
       username: username.trim(),
-      email: email.trim().toLowerCase(),      
-      password: password,
-      estado: estado,
-      id_persona: id_persona
+      email: email.trim(),
+      estado: estado
     };
-
-    console.log('📤 Creando usuario:', usuarioData);
-
-    const usuarioResponse = await usuarioService.create(usuarioData);
-    const id_usuario = usuarioResponse.id_usuario;
-
-    for (const id_rol of rolesSeleccionados) {
-      await usuarioService.asignarRol(id_usuario, id_rol);
+    
+    if (password) {
+      usuarioData.password = password;
     }
+
+    await usuarioService.update(usuario.id_usuario, usuarioData);
+
+    const rolesActuales = usuario.roles?.map(r => r.id_rol) || [];
+    const rolesAEliminar = rolesActuales.filter(r => !rolesSeleccionados.includes(r));
+    const rolesAAgregar = rolesSeleccionados.filter(r => !rolesActuales.includes(r));
+
+    for (const id_rol of rolesAEliminar) {
+      await usuarioRolService.revocarRol(usuario.id_usuario, id_rol);
+    }
+
+    for (const id_rol of rolesAAgregar) {
+      await usuarioRolService.asignarRolAUsuario(usuario.id_usuario, {
+        id_rol: id_rol
+      });
+    }
+
   } catch (error) {
-  console.error('❌ Error en crearUsuario:', error);
-  console.error('📋 Detalles completos:', error.data);
-console.error('📋 Details array:', error.data?.details);
-console.error('📋 Primer detalle:', error.data?.details?.[0]);
-  throw error;
-}
+    // ========== EXTRAER MENSAJE DEL BACKEND ==========
+    let mensajeError = 'Error al actualizar usuario';
+    
+    if (error.data?.details && Array.isArray(error.data.details) && error.data.details.length > 0) {
+      const errores = error.data.details.map(e => e.message || e.msg).filter(Boolean);
+      mensajeError = errores.join('\n');
+    } 
+    else if (error.data?.detail) {
+      mensajeError = error.data.detail;
+    }
+    else if (error.data?.message) {
+      mensajeError = error.data.message;
+    }
+    else if (error.message) {
+      mensajeError = error.message;
+    }
+    
+    throw new Error(mensajeError);
+  }
 };
 
-/// =================== ACTUALIZAR USUARIO ====================
 
-const actualizarUsuario = async () => {
-  if (usuario.id_persona) {
-    const personaData = {
-      nombre: nombre.trim(),
-      apellido: apellido.trim(),
-      cedula: cedula.trim(),
-      telefono: telefono.trim() || null,
-      direccion: direccion.trim() || null
-    };
-    await personaService.update(usuario.id_persona, personaData);
-  }
 
-  const usuarioData = {
-    username: username.trim(),
-    email: email.trim(),
-    estado: estado
+  const toggleRol = (rolId) => {
+    if (rolesSeleccionados.includes(rolId)) {
+      setRolesSeleccionados(rolesSeleccionados.filter(r => r !== rolId));
+    } else {
+      setRolesSeleccionados([...rolesSeleccionados, rolId]);
+    }
+    
+    if (errors.roles) {
+      setErrors({ ...errors, roles: undefined });
+    }
   };
-  
-  if (password) {
-    usuarioData.password = password;
-  }
-
-  await usuarioService.update(usuario.id_usuario, usuarioData);
-
-  const rolesActuales = usuario.roles?.map(r => r.id_rol) || [];
-  const rolesAEliminar = rolesActuales.filter(r => !rolesSeleccionados.includes(r));
-  const rolesAAgregar = rolesSeleccionados.filter(r => !rolesActuales.includes(r));
-
-  for (const id_rol of rolesAEliminar) {
-    await usuarioService.removerRol(usuario.id_usuario, id_rol);
-  }
-
-  for (const id_rol of rolesAAgregar) {
-    await usuarioService.asignarRol(usuario.id_usuario, id_rol);
-  }
-};
-
-const toggleRol = (rolId) => {
-  console.log('🎯 Toggle rol:', rolId);
-  console.log('📋 Roles actuales:', rolesSeleccionados);
-  
-  if (rolesSeleccionados.includes(rolId)) {
-    setRolesSeleccionados(rolesSeleccionados.filter(r => r !== rolId));
-  } else {
-    setRolesSeleccionados([...rolesSeleccionados, rolId]);
-  }
-  
-  if (errors.roles) {
-    setErrors({ ...errors, roles: undefined });
-  }
-  
-  console.log('✅ Nuevos roles:', rolesSeleccionados);
-};
 
   // ==================== RENDER PASOS ====================
   const renderPaso1 = () => (
-  <View>
-    <Text style={styles.sectionTitle}>📋 Información Personal Básica</Text>
+    <View>
+      <Text style={styles.sectionTitle}>📋 Información Personal Básica</Text>
 
-    <View style={styles.formRow}>
-      <View style={styles.formColumn}>
-        <Text style={styles.label}>
-          CÉDULA <Text style={styles.labelRequired}>*</Text>
-        </Text>
-        <View style={[styles.inputContainer, errors.cedula && styles.inputError]}>
-          <Ionicons name="card-outline" size={20} color="#667eea" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="0123456789"
-            placeholderTextColor="#9CA3AF"
-            value={cedula}
-            onChangeText={(text) => {
-              setCedula(text);
-              if (errors.cedula) setErrors({...errors, cedula: undefined});
-            }}
-            keyboardType="numeric"
-            maxLength={10}
-          />
+      <View style={styles.formRow}>
+        <View style={styles.formColumn}>
+          <Text style={styles.label}>
+            CÉDULA <Text style={styles.labelRequired}>*</Text>
+          </Text>
+          <View style={[styles.inputContainer, errors.cedula && styles.inputError]}>
+            <Ionicons name="card-outline" size={20} color="#667eea" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="10 dígitos (ej: 0102417144)"
+              placeholderTextColor="#9CA3AF"
+              value={cedula}
+              onChangeText={(text) => {
+                const limpio = text.replace(/[^0-9]/g, '');
+                setCedula(limpio);
+                if (errors.cedula) setErrors({...errors, cedula: undefined});
+              }}
+              keyboardType="numeric"
+              maxLength={10}
+            />
+          </View>
+          {errors.cedula && <Text style={styles.errorText}>{errors.cedula}</Text>}
         </View>
-        {errors.cedula && <Text style={styles.errorText}>{errors.cedula}</Text>}
+
+        <View style={styles.formColumn}>
+          <Text style={styles.label}>FECHA NACIMIENTO</Text>
+          <View style={styles.inputContainer}>
+            <Ionicons name="calendar-outline" size={20} color="#667eea" style={styles.inputIcon} />
+            <DateInput
+              value={fechaNacimiento}
+              onChangeText={setFechaNacimiento}
+              placeholder="Seleccionar fecha"
+              style={styles.input}
+              containerStyle={styles.inputContainer}
+            />
+          </View>
+        </View>
       </View>
 
-      <View style={styles.formColumn}>
-        <Text style={styles.label}>FECHA NACIMIENTO</Text>
-        <View style={styles.inputContainer}>
-          <Ionicons name="calendar-outline" size={20} color="#667eea" style={styles.inputIcon} />
-          <DateInput
-            value={fechaNacimiento}
-            onChangeText={setFechaNacimiento}
-            placeholder="Seleccionar fecha"
-            style={styles.input}
-            containerStyle={styles.inputContainer}
-          />
+      <View style={styles.formRow}>
+        <View style={styles.formColumn}>
+          <Text style={styles.label}>
+            NOMBRE <Text style={styles.labelRequired}>*</Text>
+          </Text>
+          <View style={[styles.inputContainer, errors.nombre && styles.inputError]}>
+            <Ionicons name="person-outline" size={20} color="#667eea" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Solo letras (ej: María)"
+              placeholderTextColor="#9CA3AF"
+              value={nombre}
+              onChangeText={(text) => {
+                const limpio = text.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+                setNombre(limpio);
+                if (errors.nombre) setErrors({...errors, nombre: undefined});
+              }}
+            />
+          </View>
+          {errors.nombre && <Text style={styles.errorText}>{errors.nombre}</Text>}
+        </View>
+
+        <View style={styles.formColumn}>
+          <Text style={styles.label}>
+            APELLIDO <Text style={styles.labelRequired}>*</Text>
+          </Text>
+          <View style={[styles.inputContainer, errors.apellido && styles.inputError]}>
+            <Ionicons name="person-outline" size={20} color="#667eea" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Solo letras (ej: Pérez)"
+              placeholderTextColor="#9CA3AF"
+              value={apellido}
+              onChangeText={(text) => {
+                const limpio = text.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+                setApellido(limpio);
+                if (errors.apellido) setErrors({...errors, apellido: undefined});
+              }}
+            />
+          </View>
+          {errors.apellido && <Text style={styles.errorText}>{errors.apellido}</Text>}
+        </View>
+      </View>
+
+      <View style={styles.formRow}>
+        <View style={styles.formColumn}>
+          <Text style={styles.label}>TELÉFONO</Text>
+          <View style={styles.inputContainer}>
+            <Ionicons name="call-outline" size={20} color="#667eea" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="7-15 dígitos (ej: 0987654321)"
+              placeholderTextColor="#9CA3AF"
+              value={telefono}
+              onChangeText={(text) => {
+                const limpio = text.replace(/[^0-9]/g, '');
+                setTelefono(limpio);
+              }}
+              keyboardType="phone-pad"
+              maxLength={15}
+            />
+          </View>
+        </View>
+
+        <View style={styles.formColumn}>
+          <Text style={styles.label}>DIRECCIÓN</Text>
+          <View style={styles.inputContainer}>
+            <Ionicons name="location-outline" size={20} color="#667eea" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Calle principal #123"
+              placeholderTextColor="#9CA3AF"
+              value={direccion}
+              onChangeText={setDireccion}
+            />
+          </View>
         </View>
       </View>
     </View>
+  );
 
-    <View style={styles.formRow}>
-      <View style={styles.formColumn}>cargarRoles
-        <Text style={styles.label}>
-          NOMBRE <Text style={styles.labelRequired}>*</Text>
-        </Text>
-        <View style={[styles.inputContainer, errors.nombre && styles.inputError]}>
-          <Ionicons name="person-outline" size={20} color="#667eea" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Juan"
-            placeholderTextColor="#9CA3AF"
-            value={nombre}
-            onChangeText={(text) => {
-              setNombre(text);
-              if (errors.nombre) setErrors({...errors, nombre: undefined});
-            }}
-          />
-        </View>
-        {errors.nombre && <Text style={styles.errorText}>{errors.nombre}</Text>}
-      </View>
-
-      <View style={styles.formColumn}>
-        <Text style={styles.label}>
-          APELLIDO <Text style={styles.labelRequired}>*</Text>
-        </Text>
-        <View style={[styles.inputContainer, errors.apellido && styles.inputError]}>
-          <Ionicons name="person-outline" size={20} color="#667eea" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Pérez"
-            placeholderTextColor="#9CA3AF"
-            value={apellido}
-            onChangeText={(text) => {
-              setApellido(text);
-              if (errors.apellido) setErrors({...errors, apellido: undefined});
-            }}
-          />
-        </View>
-        {errors.apellido && <Text style={styles.errorText}>{errors.apellido}</Text>}
-      </View>
-    </View>
-
-    <View style={styles.formRow}>
-      <View style={styles.formColumn}>
-        <Text style={styles.label}>TELÉFONO</Text>
-        <View style={styles.inputContainer}>
-          <Ionicons name="call-outline" size={20} color="#667eea" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="0987654321"
-            placeholderTextColor="#9CA3AF"
-            value={telefono}
-            onChangeText={setTelefono}
-            keyboardType="phone-pad"
-            maxLength={10}
-          />
-        </View>
-      </View>
-
-      <View style={styles.formColumn}>
-        <Text style={styles.label}>DIRECCIÓN</Text>
-        <View style={styles.inputContainer}>
-          <Ionicons name="location-outline" size={20} color="#667eea" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Calle principal #123"
-            placeholderTextColor="#9CA3AF"
-            value={direccion}
-            onChangeText={setDireccion}
-          />
-        </View>
-      </View>
-    </View>
-  </View>
-);
   const renderPaso2 = () => (
     <View>
       <Text style={styles.sectionTitle}>ℹ️ Información Adicional</Text>
@@ -446,13 +490,19 @@ const toggleRol = (rolId) => {
           <Text style={styles.label}>GÉNERO</Text>
           <View style={styles.inputContainer}>
             <Ionicons name="transgender-outline" size={20} color="#667eea" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Masculino/Femenino/Otro"
-              placeholderTextColor="#9CA3AF"
-              value={genero}
-              onChangeText={setGenero}
-            />
+            <View style={styles.pickerContainer}>
+              {['masculino', 'femenino', 'otro', 'prefiero_no_decir'].map(g => (
+                <TouchableOpacity
+                  key={g}
+                  style={[styles.genderBtn, genero === g && styles.genderBtnActive]}
+                  onPress={() => setGenero(g)}
+                >
+                  <Text style={[styles.genderBtnText, genero === g && styles.genderBtnTextActive]}>
+                    {g.replace('_', ' ').toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
 
@@ -462,16 +512,22 @@ const toggleRol = (rolId) => {
           </Text>
           <View style={[styles.inputContainer, errors.tipoPersona && styles.inputError]}>
             <Ionicons name="briefcase-outline" size={20} color="#667eea" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="docente/administrativo/estudiante"
-              placeholderTextColor="#9CA3AF"
-              value={tipoPersona}
-              onChangeText={(text) => {
-                setTipoPersona(text);
-                if (errors.tipoPersona) setErrors({...errors, tipoPersona: undefined});
-              }}
-            />
+            <View style={styles.pickerContainer}>
+              {['docente', 'administrativo', 'estudiante', 'externo'].map(tipo => (
+                <TouchableOpacity
+                  key={tipo}
+                  style={[styles.tipoBtn, tipoPersona === tipo && styles.tipoBtnActive]}
+                  onPress={() => {
+                    setTipoPersona(tipo);
+                    if (errors.tipoPersona) setErrors({...errors, tipoPersona: undefined});
+                  }}
+                >
+                  <Text style={[styles.tipoBtnText, tipoPersona === tipo && styles.tipoBtnTextActive]}>
+                    {tipo.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
           {errors.tipoPersona && <Text style={styles.errorText}>{errors.tipoPersona}</Text>}
         </View>
@@ -499,14 +555,16 @@ const toggleRol = (rolId) => {
             <Ionicons name="at-outline" size={20} color="#667eea" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
-              placeholder="juanperez"
+              placeholder="4-50 caracteres (ej: juan_perez)"
               placeholderTextColor="#9CA3AF"
               value={username}
               onChangeText={(text) => {
-                setUsername(text);
+                const limpio = text.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+                setUsername(limpio);
                 if (errors.username) setErrors({...errors, username: undefined});
               }}
               autoCapitalize="none"
+              maxLength={50}
             />
           </View>
           {errors.username && <Text style={styles.errorText}>{errors.username}</Text>}
@@ -520,11 +578,11 @@ const toggleRol = (rolId) => {
             <Ionicons name="mail-outline" size={20} color="#667eea" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
-              placeholder="juan@ejemplo.com"
+              placeholder="correo@ejemplo.com"
               placeholderTextColor="#9CA3AF"
               value={email}
               onChangeText={(text) => {
-                setEmail(text);
+                setEmail(text.toLowerCase().trim());
                 if (errors.email) setErrors({...errors, email: undefined});
               }}
               keyboardType="email-address"
@@ -582,47 +640,47 @@ const toggleRol = (rolId) => {
       <View style={styles.infoCard}>
         <Ionicons name="shield-checkmark" size={20} color="#667eea" />
         <Text style={styles.infoCardText}>
-          La contraseña debe tener mínimo 8 caracteres
+          La contraseña debe tener mínimo 8 caracteres, una mayúscula, una minúscula y un número
         </Text>
       </View>
     </View>
   );
 
   const renderPaso4 = () => (
-  <View>
-    <Text style={styles.sectionTitle}>👥 Asignación de Roles</Text>
+    <View>
+      <Text style={styles.sectionTitle}>👥 Asignación de Roles</Text>
 
-    {errors.roles && (
-      <View style={styles.infoCardError}>
-        <Text style={styles.infoCardText}>{errors.roles}</Text>
-      </View>
-    )}
+      {errors.roles && (
+        <View style={styles.infoCardError}>
+          <Text style={styles.infoCardText}>{errors.roles}</Text>
+        </View>
+      )}
 
-    {(!roles || roles.length === 0) ? (
-      <View style={styles.infoCard}>
-        <Ionicons name="alert-circle" size={20} color="#F59E0B" />
-        <Text style={styles.infoCardText}>
-          ⚠️ No hay roles disponibles. Verifica la conexión con el servidor.
-        </Text>
-      </View>
-    ) : (
-      <View style={styles.rolesGrid}>
-        {roles.map((rol, index) => {
-          const rolId = rol.id_rol || rol.id || index;
-          return (
-            <RoleCard
-              key={rolId}
-              rol={rol}
-              rolId={rolId}
-              selected={rolesSeleccionados.includes(rolId)}
-              onToggle={() => toggleRol(rolId)}
-            />
-          );
-        })}
-      </View>
-    )}
-  </View>
-);
+      {(!roles || roles.length === 0) ? (
+        <View style={styles.infoCard}>
+          <Ionicons name="alert-circle" size={20} color="#F59E0B" />
+          <Text style={styles.infoCardText}>
+            ⚠️ No hay roles disponibles. Verifica la conexión con el servidor.
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.rolesGrid}>
+          {roles.map((rol) => {
+            const rolId = rol.id_rol;
+            return (
+              <RoleCard
+                key={rolId}
+                rol={rol}
+                rolId={rolId}
+                selected={rolesSeleccionados.includes(rolId)}
+                onToggle={() => toggleRol(rolId)}
+              />
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
 
   // ==================== RENDER PRINCIPAL ====================
   return (
@@ -632,6 +690,16 @@ const toggleRol = (rolId) => {
         { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
       ]}
     >
+      {/* Toast de notificaciones */}
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onHide={ocultarToast}
+      />
+
+      
+
       {/* Header con Stepper */}
       <View style={styles.cardHeader}>
         <View style={styles.cardHeaderTitle}>
@@ -649,13 +717,25 @@ const toggleRol = (rolId) => {
             <Text style={styles.cardTitle}>
               {usuario ? 'Editar Usuario' : 'Nuevo Usuario'}
             </Text>
-            <Text style={styles.pasoIndicator}>Paso {pasoActual} de 4</Text>
+            <Text style={styles.pasoIndicador}>Paso {pasoActual} de 4</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.btnCerrar} onPress={onCerrar}>
+<TouchableOpacity style={styles.btnCerrar} onPress={onCerrar}>
           <Ionicons name="close" size={24} color="#c7d2fe" />
         </TouchableOpacity>
       </View>
+
+    {/* 👇 AGREGA ESTE BOTÓN DE PRUEBA AQUÍ */}
+    <TouchableOpacity 
+      onPress={() => mostrarToast('Prueba de Toast', 'success')}
+      style={{ padding: 10, backgroundColor: '#10B981', margin: 10, borderRadius: 8 }}
+    >
+      <Text style={{ color: '#fff', textAlign: 'center', fontWeight: 'bold' }}>
+        🧪 PROBAR TOAST
+      </Text>
+    </TouchableOpacity>
+    {/* 👆 FIN DEL BOTÓN DE PRUEBA */}
+
 
       {/* Stepper Visual */}
       <View style={styles.stepperContainer}>
@@ -701,6 +781,10 @@ const toggleRol = (rolId) => {
           <Text style={styles.btnCancelarText}>CANCELAR</Text>
         </TouchableOpacity>
 
+
+
+
+
         <View style={{ flexDirection: 'row', gap: 12 }}>
           {pasoActual > 1 && (
             <TouchableOpacity 
@@ -726,6 +810,11 @@ const toggleRol = (rolId) => {
                 <Text style={styles.btnGuardarText}>SIGUIENTE</Text>
               </LinearGradient>
             </TouchableOpacity>
+
+
+
+
+
           ) : (
             <TouchableOpacity 
               onPress={handleGuardar}
@@ -746,6 +835,7 @@ const toggleRol = (rolId) => {
           )}
         </View>
       </View>
+
     </Animated.View>
   );
 };

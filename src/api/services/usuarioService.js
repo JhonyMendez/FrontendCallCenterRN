@@ -30,6 +30,21 @@ export const usuarioService = {
     return await apiClient.post(ENDPOINTS.USUARIOS.BASE, usuarioData);
   },
 
+  // ✅ AGREGAR ESTE MÉTODO
+  /**
+   * Crear usuario completo con transacción atómica (Persona + Usuario + Roles)
+   * @param {Object} data - { username, email, password, persona: {...}, roles: [...] }
+   */
+  createCompleto: async (data) => {
+    try {
+      const response = await apiClient.post('/usuarios/crear-completo', data);
+      return response;
+    } catch (error) {
+      // Propagar el error tal cual viene del backend
+      throw error;
+    }
+  },
+
   // Listar usuarios
   getAll: async (params = {}) => {
     const query = new URLSearchParams();
@@ -73,7 +88,7 @@ export const usuarioService = {
   // Desbloquear usuario
   desbloquear: async (id) => {
     return await apiClient.post(ENDPOINTS.USUARIOS.DESBLOQUEAR(id));
-  }, // 👈 ESTA COMA FALTABA
+  },
 
   // Asignar rol
   asignarRol: async (id_usuario, id_rol) => {
