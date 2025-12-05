@@ -1,6 +1,6 @@
 // ==================================================================================
 // src/pages/Administrador/GestionUsuarioPage.js
-// Diseño Limpio y Moderno - Versión Simplificada + Sidebar SuperAdmin
+// ACTUALIZADO: Usa usuarioService.listarCompleto() para obtener toda la información
 // ==================================================================================
 
 import { Ionicons } from '@expo/vector-icons';
@@ -21,24 +21,24 @@ import {
 import { rolService } from '../../api/services/rolService';
 import { usuarioService } from '../../api/services/usuarioService';
 import GestionUsuariosCard from '../../components/SuperAdministrador/GestionUsuarioCard';
+import UsuarioCard from '../../components/SuperAdministrador/UsuarioCard'; // 👈 Componente con info completa
 
-// 🔹 Sidebar y estilos de layout (igual que en el dashboard)
 import SuperAdminSidebar from '../../components/Sidebar/sidebarSuperAdmin';
 import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles';
-
 import { styles } from '../../styles/GestionUsuariosStyles';
 
 const GestionUsuarioPage = () => {
   // ==================== ESTADOS ====================
-  const [sidebarOpen, setSidebarOpen] = useState(true);      // 👈 Estado del sidebar
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [usuarios, setUsuarios] = useState([]);               // Lista completa
-  const [usuariosFiltrados, setUsuariosFiltrados] = useState([]); // Lista filtrada
-  const [roles, setRoles] = useState([]);                    // Catálogo de roles
+  const [usuarios, setUsuarios] = useState([]);
+  const [usuariosFiltrados, setUsuariosFiltrados] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [filtroRol, setFiltroRol] = useState('todos');
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null);
+  const [totalUsuarios, setTotalUsuarios] = useState(0); // 👈 Total de usuarios
 
   // ==================== ANIMACIONES ====================
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -103,24 +103,27 @@ const GestionUsuarioPage = () => {
 
   const cargarUsuarios = async () => {
     try {
-      const response = await usuarioService.getAll({
+      console.log('📤 Solicitando usuarios completos...');
+      
+      // 🔥 CAMBIO PRINCIPAL: Usar listarCompleto en lugar de getAll
+      const response = await usuarioService.listarCompleto({
         skip: 0,
-        limit: 100
+        limit: 500
       });
 
-      let lista = [];
-      if (Array.isArray(response)) {
-        lista = response;
-      } else if (response && Array.isArray(response.data)) {
-        lista = response.data;
-      } else {
-        console.warn('⚠️ respuesta inesperada de usuarioService.getAll:', response);
-      }
+      console.log('✅ Respuesta recibida:', response);
 
-      console.log('👤 Usuarios cargados:', lista);
-      setUsuarios(lista);
+      // La respuesta tiene estructura: { total, skip, limit, usuarios }
+      const listaUsuarios = response.usuarios || [];
+      const total = response.total || 0;
+
+      console.log('👤 Usuarios cargados:', listaUsuarios.length);
+      console.log('📊 Total en BD:', total);
+
+      setUsuarios(listaUsuarios);
+      setTotalUsuarios(total);
     } catch (error) {
-      console.error('Error cargando usuarios:', error);
+      console.error('❌ Error cargando usuarios:', error);
       throw error;
     }
   };
@@ -226,7 +229,7 @@ const GestionUsuarioPage = () => {
         onToggle={() => setSidebarOpen(!sidebarOpen)}
       />
 
-      {/* Botón Toggle - mismo estilo que en Dashboard */}
+      {/* Botón Toggle */}
       <TouchableOpacity
         style={{
           position: 'absolute',
@@ -281,8 +284,10 @@ const GestionUsuarioPage = () => {
                   <View style={styles.headerTitleContainer}>
                     <Users size={32} color="#FFFFFF" />
                     <View>
-                      <Text style={styles.headerTitle}>Gestión de Usuarios</Text>
-                      <Text style={styles.headerSubtitle}>TecAi</Text>
+                      <Text style={styles.headerTitle}>Gestión de Usuariossss</Text>
+                      <Text style={styles.headerSubtitle}>
+                        {totalUsuarios} usuarios registrados
+                      </Text>
                     </View>
                   </View>
                   <TouchableOpacity 
@@ -299,11 +304,16 @@ const GestionUsuarioPage = () => {
                   <Search size={20} color="#9CA3AF" style={styles.searchIcon} />
                   <TextInput
                     style={styles.searchInput}
-                    placeholder="BUSCAR USUARIOS"
+                    placeholder="Buscar por nombre, usuario, email o cédula"
                     placeholderTextColor="#9CA3AF"
                     value={busqueda}
                     onChangeText={setBusqueda}
                   />
+                  {busqueda.length > 0 && (
+                    <TouchableOpacity onPress={() => setBusqueda('')}>
+                      <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 {/* Filtros de rol */}
@@ -363,7 +373,7 @@ const GestionUsuarioPage = () => {
               </View>
             </LinearGradient>
 
-            {/* Lista de usuarios */}
+            {/* Lista de usuarios - CON INFO COMPLETA */}
             <ScrollView 
               style={styles.listaContainer}
               showsVerticalScrollIndicator={false}
@@ -395,4 +405,5 @@ const GestionUsuarioPage = () => {
     </View>
   );
 };
+
 export default GestionUsuarioPage;

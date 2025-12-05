@@ -4,6 +4,55 @@ import { ENDPOINTS } from '../config';
 
 export const usuarioService = {
   // Login con logging detallado
+
+
+
+
+ /**
+   * 📋 Listar usuarios con información COMPLETA
+   * Incluye: Usuario + Persona + Departamento + Roles con permisos
+   */
+  listarCompleto: async (params = {}) => {
+    try {
+      console.log('📤 [usuarioService] Solicitando usuarios completos con params:', params);
+      
+      const query = new URLSearchParams();
+      if (params.skip !== undefined) query.append('skip', params.skip);
+      if (params.limit !== undefined) query.append('limit', params.limit);
+      if (params.estado) query.append('estado', params.estado);
+      if (params.id_departamento) query.append('id_departamento', params.id_departamento);
+      if (params.id_rol) query.append('id_rol', params.id_rol);
+      if (params.busqueda) query.append('busqueda', params.busqueda);
+      
+      const queryString = query.toString();
+      const endpoint = queryString
+        ? `/usuarios/completo?${queryString}`
+        : '/usuarios/completo';
+      
+      console.log('🌐 [usuarioService] Endpoint:', endpoint);
+      
+      const response = await apiClient.get(endpoint);
+      
+      console.log('✅ [usuarioService] Respuesta recibida');
+      console.log('✅ [usuarioService] Total usuarios:', response?.total || 0);
+      console.log('✅ [usuarioService] Usuarios en respuesta:', response?.usuarios?.length || 0);
+      
+      return response;
+    } catch (error) {
+      console.error('❌ [usuarioService] Error listando usuarios completos:', error);
+      throw new Error(
+        error.data?.detail || 
+        error.message || 
+        'Error al listar usuarios completos'
+      );
+    }
+  },
+
+
+
+
+
+
   login: async (credentials) => {
     try {
       console.log('🔐 [UsuarioService] Login iniciado');
