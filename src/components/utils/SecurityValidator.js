@@ -11,6 +11,9 @@ class SecurityValidator {
       nombre: 100,
       descripcion: 500,
       prompt: 2000,
+      prompt_mision: 300,      
+      prompt_regla: 200,
+      prompt_especializado: 500, 
       mensaje: 500,
       url: 1000,
       palabras_clave: 500,
@@ -342,20 +345,71 @@ class SecurityValidator {
       errors.max_tokens = '⚠️ Tokens debe estar entre 100 y 100,000';
     }
 
-    // 13. PROMPT SISTEMA
-    sanitized.prompt_sistema = this.sanitizeText(formData.prompt_sistema);
-    if (!sanitized.prompt_sistema) {
-      errors.prompt_sistema = '⚠️ El prompt del sistema es obligatorio';
-    } else if (sanitized.prompt_sistema.length < 20) {
-      errors.prompt_sistema = '⚠️ Mínimo 20 caracteres';
-    } else if (sanitized.prompt_sistema.length > this.CONFIG.MAX_LENGTHS.prompt) {
-      errors.prompt_sistema = `⚠️ Máximo ${this.CONFIG.MAX_LENGTHS.prompt} caracteres`;
+    // 13. PROMPT: MISIÓN (obligatorio)
+    sanitized.prompt_mision = this.sanitizeText(formData.prompt_mision);
+    if (!sanitized.prompt_mision) {
+      errors.prompt_mision = '⚠️ La misión del agente es obligatoria';
+    } else if (sanitized.prompt_mision.length < 10) {
+      errors.prompt_mision = '⚠️ Mínimo 10 caracteres';
+    } else if (sanitized.prompt_mision.length > 300) {
+      errors.prompt_mision = '⚠️ Máximo 300 caracteres';
     }
 
+    // 14. PROMPT: REGLAS (mínimo 2 obligatorias)
+    if (!Array.isArray(formData.prompt_reglas)) {
+      errors.prompt_reglas = '⚠️ Las reglas deben ser un array';
+    } else {
+      const reglasConContenido = formData.prompt_reglas.filter(r => r?.trim() !== '');
+      
+      if (reglasConContenido.length < 2) {
+        errors.prompt_reglas = '⚠️ Debes definir al menos 2 reglas de comportamiento';
+      }
+      
+      // Validar cada regla individualmente (solo las primeras 2 son obligatorias)
+      formData.prompt_reglas.forEach((regla, index) => {
+        if (index < 2 && !regla?.trim()) {
+          errors[`prompt_regla_${index}`] = `⚠️ La regla ${index + 1} es obligatoria`;
+        } else if (regla?.trim() && regla.trim().length > 200) {
+          errors[`prompt_regla_${index}`] = `⚠️ Máximo 200 caracteres`;
+        }
+      });
+    }
+
+    // 15. PROMPT: TONO (obligatorio)
+    if (!formData.prompt_tono) {
+      errors.prompt_tono = '⚠️ Debes seleccionar un tono de comunicación';
+    } else if (!['formal', 'amigable', 'tecnico'].includes(formData.prompt_tono)) {
+      errors.prompt_tono = '⚠️ Tono inválido (debe ser: formal, amigable o tecnico)';
+    }
+
+    //15.5 PROMPT ESPECIALIZADO 
+    sanitized.prompt_especializado = this.sanitizeText(formData.prompt_especializado || '');
+    if (sanitized.prompt_especializado) {
+      if (sanitized.prompt_especializado.length < 20) {
+        errors.prompt_especializado = '⚠️ Mínimo 20 caracteres si lo incluyes';
+      } else if (sanitized.prompt_especializado.length > this.CONFIG.MAX_LENGTHS.prompt_especializado) {
+        errors.prompt_especializado = `⚠️ Máximo ${this.CONFIG.MAX_LENGTHS.prompt_especializado} caracteres`;
+      }
+    }
+
+    // 16. PROMPT SISTEMA (validación condicional)
+    // ⭐ IMPORTANTE: Este campo se construye dinámicamente en handleSaveForm()
+    // combinando: prompt_mision + prompt_reglas + prompt_tono
+    // Por eso NO se valida en el formulario inicial (estará vacío o undefined)
+    // Solo validamos si ya viene construido (ej: al editar un agente existente)
+    if (formData.prompt_sistema && 
+        typeof formData.prompt_sistema === 'string' && 
+        formData.prompt_sistema.trim() !== '') {
+      // Si existe y tiene contenido real, validar longitud mínima
+      if (formData.prompt_sistema.trim().length < 20) {
+        errors.prompt_sistema = '⚠️ El prompt del sistema debe tener al menos 20 caracteres';
+      }
+    }
+
+    // Resultado
     return {
       isValid: Object.keys(errors).length === 0,
       errors,
-      sanitized,
     };
   }
 
@@ -381,14 +435,16 @@ class SecurityValidator {
         this.sanitizeText(formData.descripcion),
         this.CONFIG.MAX_LENGTHS.descripcion
       ),
-      prompt_sistema: this.truncateText(
-        this.sanitizeText(formData.prompt_sistema),
-        this.CONFIG.MAX_LENGTHS.prompt
-      ),
+      prompt_sistema: formData.prompt_sistema || '',
       mensaje_bienvenida: this.truncateText(
         this.sanitizeText(formData.mensaje_bienvenida),
         this.CONFIG.MAX_LENGTHS.mensaje
       ),
+      prompt_especializado: formData.prompt_especializado ? 
+      this.truncateText(
+        this.sanitizeText(formData.prompt_especializado),
+        this.CONFIG.MAX_LENGTHS.prompt_especializado
+      ) : '',
       mensaje_despedida: this.truncateText(
         this.sanitizeText(formData.mensaje_despedida),
         this.CONFIG.MAX_LENGTHS.mensaje

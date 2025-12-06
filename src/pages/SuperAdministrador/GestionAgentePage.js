@@ -51,7 +51,10 @@ const [formData, setFormData] = useState({
   modelo_ia: 'llama3:8b',
   temperatura: '0.7',
   max_tokens: '4000',
-  prompt_sistema: '',
+  prompt_mision: '',
+  prompt_reglas: ['', ''], 
+  prompt_tono: 'amigable',
+  prompt_especializado: '',
   herramientas_disponibles: '',
   idioma_principal: 'es',
   zona_horaria: 'America/Guayaquil',
@@ -206,14 +209,16 @@ const resetForm = () => {
     modelo_ia: 'llama3:8b',
     temperatura: '0.7',
     max_tokens: '4000',
-    prompt_sistema: '',
+    prompt_mision: '',
+    prompt_reglas: ['', ''],
+    prompt_tono: 'amigable',
+    prompt_especializado: '',
     herramientas_disponibles: '',
     idioma_principal: 'es',
     zona_horaria: 'America/Guayaquil',
     activo: true,
     icono: '🤖',
     id_departamento: '',
-    // ⭐ NUEVOS CAMPOS
     avatar_url: '',
     color_tema: '#667eea',
     mensaje_bienvenida: '',
@@ -230,7 +235,6 @@ const resetForm = () => {
 };
 
   // Validar formulario
-// Validar formulario con SecurityValidator
 // Validar formulario con SecurityValidator
   const validateForm = () => {
     console.log('🔍 Iniciando validación con SecurityValidator...');
@@ -284,38 +288,115 @@ const resetForm = () => {
     setShowFormModal(true);
   };
 
-  const handleEdit = (agente) => {
-    setFormMode('edit');
-    setSelectedAgente(agente);
-    setFormData({
-      nombre_agente: agente.nombre_agente || '',
-      tipo_agente: agente.tipo_agente || 'especializado',
-      area_especialidad: agente.area_especialidad || '',
-      descripcion: agente.descripcion || '',
-      modelo_ia: 'llama3:8b', 
-      temperatura: agente.temperatura?.toString() || '0.7',
-      max_tokens: agente.max_tokens?.toString() || '4000',
-      prompt_sistema: agente.prompt_sistema || '',
-      herramientas_disponibles: agente.herramientas_disponibles || '',
-      idioma_principal: agente.idioma_principal || 'es',
-      zona_horaria: agente.zona_horaria || 'America/Guayaquil',
-      activo: agente.activo !== undefined ? agente.activo : true,
-      icono: agente.icono || '🤖',
-      id_departamento: agente.id_departamento?.toString() || '',
-      avatar_url: agente.avatar_url || '',
-      color_tema: agente.color_tema || '#667eea',
-      mensaje_bienvenida: agente.mensaje_bienvenida || '',
-      mensaje_despedida: agente.mensaje_despedida || '',
-      mensaje_derivacion: agente.mensaje_derivacion || '',
-      mensaje_fuera_horario: agente.mensaje_fuera_horario || '',
-      palabras_clave_trigger: agente.palabras_clave_trigger || '',
-      prioridad_routing: agente.prioridad_routing?.toString() || '0',
-      puede_ejecutar_acciones: agente.puede_ejecutar_acciones || false,
-      acciones_disponibles: agente.acciones_disponibles || '',
-      requiere_autenticacion: agente.requiere_autenticacion || false,
-    });
-    setShowFormModal(true);
+  // ============ PARSER: Separar prompt_sistema en componentes ============
+  const parsePromptSistema = (prompt_sistema) => {
+    if (!prompt_sistema) {
+      return {
+        prompt_mision: '',
+        prompt_reglas: ['', ''],
+        prompt_tono: 'amigable',
+        prompt_especializado: ''
+      };
+    }
+
+    // Extraer MISIÓN
+    const misionMatch = prompt_sistema.match(/MISIÓN:\s*([\s\S]*?)(?=\n\n(?:ESPECIALIZACIÓN|REGLAS|TONO):|\n\nTONO:|$)/);
+    const prompt_mision = misionMatch ? misionMatch[1].trim() : '';
+
+    // Extraer ESPECIALIZACIÓN (si existe)
+    const especializacionMatch = prompt_sistema.match(/ESPECIALIZACIÓN:\s*([\s\S]*?)(?=\n\n(?:REGLAS|TONO):|\n\nTONO:|$)/);
+    const prompt_especializado = especializacionMatch ? especializacionMatch[1].trim() : '';
+
+    // Extraer REGLAS
+    const reglasMatch = prompt_sistema.match(/REGLAS:\s*([\s\S]*?)(?=\n\nTONO:|$)/);
+    let prompt_reglas = ['', ''];
+    
+    if (reglasMatch) {
+      const reglasTexto = reglasMatch[1].trim();
+      const reglasArray = reglasTexto
+        .split('\n')
+        .filter(linea => linea.trim().startsWith('-'))
+        .map(linea => linea.replace(/^-\s*/, '').trim())
+        .filter(r => r.length > 0);
+      
+      prompt_reglas = reglasArray.length >= 2 ? reglasArray : ['', ''];
+    }
+
+    // Extraer TONO
+    let prompt_tono = 'amigable';
+    
+    if (prompt_sistema.includes('formal') || prompt_sistema.includes('profesional')) {
+      prompt_tono = 'formal';
+    } else if (prompt_sistema.includes('técnico') || prompt_sistema.includes('tecnico')) {
+      prompt_tono = 'tecnico';
+    } else if (prompt_sistema.includes('amigable') || prompt_sistema.includes('empático')) {
+      prompt_tono = 'amigable';
+    }
+
+    return {
+      prompt_mision,
+      prompt_reglas,
+      prompt_tono,
+      prompt_especializado
+    };
   };
+
+  // Editar agente
+const handleEdit = (agente) => {
+  console.log('✏️ === INICIO handleEdit ===');
+  console.log('📦 Agente recibido:', agente);
+  console.log('📝 prompt_sistema original:', agente.prompt_sistema);
+  
+  setFormMode('edit');
+  setSelectedAgente(agente);
+  
+  // ⭐ PARSEAR prompt_sistema para obtener los componentes
+  const { prompt_mision, prompt_reglas, prompt_tono, prompt_especializado } = parsePromptSistema(agente.prompt_sistema);
+  
+  console.log('🔍 Datos parseados:');
+  console.log('   - Misión:', prompt_mision);
+  console.log('   - Reglas:', prompt_reglas);
+  console.log('   - Tono:', prompt_tono);
+  console.log('   - Especialización:', prompt_especializado);
+  
+  setFormData({
+    nombre_agente: agente.nombre_agente || '',
+    tipo_agente: agente.tipo_agente || 'especializado',
+    area_especialidad: agente.area_especialidad || '',
+    descripcion: agente.descripcion || '',
+    modelo_ia: 'llama3:8b', 
+    temperatura: agente.temperatura?.toString() || '0.7',
+    max_tokens: agente.max_tokens?.toString() || '4000',
+    
+    // ⭐ USAR LOS DATOS PARSEADOS
+    prompt_mision: prompt_mision,
+    prompt_reglas: prompt_reglas,
+    prompt_tono: prompt_tono,
+    prompt_especializado: prompt_especializado,
+    
+    herramientas_disponibles: agente.herramientas_disponibles || '',
+    idioma_principal: agente.idioma_principal || 'es',
+    zona_horaria: agente.zona_horaria || 'America/Guayaquil',
+    activo: agente.activo !== undefined ? agente.activo : true,
+    icono: agente.icono || '🤖',
+    id_departamento: agente.id_departamento?.toString() || '',
+    avatar_url: agente.avatar_url || '',
+    color_tema: agente.color_tema || '#667eea',
+    mensaje_bienvenida: agente.mensaje_bienvenida || '',
+    mensaje_despedida: agente.mensaje_despedida || '',
+    mensaje_derivacion: agente.mensaje_derivacion || '',
+    mensaje_fuera_horario: agente.mensaje_fuera_horario || '',
+    palabras_clave_trigger: agente.palabras_clave_trigger || '',
+    prioridad_routing: agente.prioridad_routing?.toString() || '0',
+    puede_ejecutar_acciones: agente.puede_ejecutar_acciones || false,
+    acciones_disponibles: agente.acciones_disponibles || '',
+    requiere_autenticacion: agente.requiere_autenticacion || false,
+  });
+  
+  setShowFormModal(true);
+  console.log('✅ Modal abierto con datos parseados');
+  console.log('✏️ === FIN handleEdit ===');
+};
 
 
 // Función para obtener departamentos disponibles
@@ -336,7 +417,6 @@ const getDepartamentosDisponibles = () => {
     return deptAsignado ? [deptAsignado] : [];
   }
   
-  // Si estamos creando, filtrar departamentos que YA tienen agente
   console.log('➕ MODO CREACIÓN - Filtrando departamentos ocupados...');
   
   // Obtener IDs de departamentos ocupados
@@ -368,67 +448,106 @@ const getDepartamentosDisponibles = () => {
 };
 
 
-// Guardar agente (crear o actualizar)
-const handleSaveForm = async () => {
-  console.log('🔵 === INICIO handleSaveForm ===');
-  console.log('📋 FormData actual:', formData);
-  console.log('🎯 Modo:', formMode);
-  console.log('👤 Agente seleccionado:', selectedAgente);
-  
-  if (!validateForm()) {
-    console.log('❌ Validación falló');
-    console.log('🚫 Errores:', formErrors);
-    Alert.alert('Error de validación', 'Por favor, corrige los errores en el formulario');
-    return;
-  }
-  
-  console.log('✅ Validación exitosa');
+  // Guardar agente (crear o actualizar)
+  const handleSaveForm = async () => {
+    console.log('🔵 === INICIO handleSaveForm ===');
+    console.log('📋 FormData actual:', formData);
+    console.log('🎯 Modo:', formMode);
+    console.log('👤 Agente seleccionado:', selectedAgente);
+    
+    if (!validateForm()) {
+      console.log('❌ Validación falló');
+      console.log('🚫 Errores:', formErrors);
+      Alert.alert('Error de validación', 'Por favor, corrige los errores en el formulario');
+      return;
+    }
+    
+    console.log('✅ Validación exitosa');
 
     try {
-        // Sanitizar y validar datos con SecurityValidator
-        const dataToSave = SecurityValidator.sanitizeAgenteData(formData);
-        
-        console.log('🧹 Datos sanitizados:', dataToSave);
-        console.log('📦 Datos a enviar:', dataToSave);
+      // ⭐ CONSTRUIR EL PROMPT_SISTEMA AQUÍ DENTRO
+      const { nombre_agente, area_especialidad, prompt_mision, prompt_reglas, prompt_tono, prompt_especializado } = formData;
 
-    if (formMode === 'create') {
-      console.log('➕ Creando nuevo agente...');
-      const response = await agenteService.create(dataToSave);
-      console.log('✅ Respuesta del servidor:', response);
-      setSuccessMessage('✅ Agente creado correctamente');
-    } else {
-      console.log('✏️ Actualizando agente ID:', selectedAgente.id_agente);
-      const response = await agenteService.update(selectedAgente.id_agente, dataToSave);
-      console.log('✅ Respuesta del servidor:', response);
-      setSuccessMessage('✅ Agente actualizado correctamente');
+      // Construir el contexto base
+      const contextoBase = `Eres ${nombre_agente} del TEC AZUAY, especializado en ${area_especialidad}.`;
+
+      // Construir la misión
+      const misionTexto = `\n\nMISIÓN:\n${prompt_mision}`;
+
+      // Construir especialización (si existe)
+      const especializacionTexto = prompt_especializado 
+        ? `\n\nESPECIALIZACIÓN:\n${prompt_especializado}`
+        : '';
+
+      // Construir las reglas (filtrar vacías)
+      const reglasLimpias = prompt_reglas.filter(r => r.trim() !== '');
+      const reglasTexto = reglasLimpias.length > 0 
+        ? `\n\nREGLAS:\n${reglasLimpias.map(r => `- ${r}`).join('\n')}`
+        : '';
+
+      // Construir el tono
+      const tonoMap = {
+        formal: 'Sé formal, profesional y preciso en tus respuestas.',
+        amigable: 'Sé amigable, cercano y empático, pero mantén profesionalismo.',
+        tecnico: 'Usa lenguaje técnico claro y preciso, enfócate en soluciones concretas.'
+      };
+      const tonoTexto = `\n\nTONO:\n${tonoMap[prompt_tono] || tonoMap.amigable}`;
+
+      // UNIR TODO EN prompt_sistema
+      const prompt_sistema_final = `${contextoBase}${misionTexto}${especializacionTexto}${reglasTexto}${tonoTexto}`;
+
+      console.log('📝 Prompt sistema construido:', prompt_sistema_final);
+
+      // Actualizar formData con el prompt construido
+      const dataConPrompt = {
+        ...formData,
+        prompt_sistema: prompt_sistema_final
+      };
+      
+      // Sanitizar y validar datos con SecurityValidator
+      const dataToSave = SecurityValidator.sanitizeAgenteData(dataConPrompt);
+      
+      console.log('🧹 Datos sanitizados:', dataToSave);
+      console.log('📦 Datos a enviar:', dataToSave);
+
+      if (formMode === 'create') {
+        console.log('➕ Creando nuevo agente...');
+        const response = await agenteService.create(dataToSave);
+        console.log('✅ Respuesta del servidor:', response);
+        setSuccessMessage('✅ Agente creado correctamente');
+      } else {
+        console.log('✏️ Actualizando agente ID:', selectedAgente.id_agente);
+        const response = await agenteService.update(selectedAgente.id_agente, dataToSave);
+        console.log('✅ Respuesta del servidor:', response);
+        setSuccessMessage('✅ Agente actualizado correctamente');
+      }
+
+      console.log('🎉 Guardado exitoso');
+      setShowSuccessMessage(true);
+      setShowFormModal(false);
+      
+      console.log('🔄 Recargando agentes...');
+      await cargarAgentes();
+      await cargarEstadisticas();
+      
+      resetForm();
+
+      setTimeout(() => {
+        setShowSuccessMessage(false);
+      }, 3000);
+      
+      console.log('🔵 === FIN handleSaveForm ===');
+    } catch (err) {
+      console.error('❌ ERROR AL GUARDAR:', err);
+      console.error('📄 Detalles del error:', {
+        message: err?.message,
+        response: err?.response?.data,
+        status: err?.response?.status,
+        stack: err?.stack
+      });
+      Alert.alert('Error', err?.message || 'No se pudo guardar el agente');
     }
-
-    console.log('🎉 Guardado exitoso');
-    setShowSuccessMessage(true);
-    setShowFormModal(false);
-    
-    console.log('🔄 Recargando agentes...');
-    await cargarAgentes();
-    await cargarEstadisticas();
-    
-    resetForm();
-
-    setTimeout(() => {
-      setShowSuccessMessage(false);
-    }, 3000);
-    
-    console.log('🔵 === FIN handleSaveForm ===');
-  } catch (err) {
-    console.error('❌ ERROR AL GUARDAR:', err);
-    console.error('📄 Detalles del error:', {
-      message: err?.message,
-      response: err?.response?.data,
-      status: err?.response?.status,
-      stack: err?.stack
-    });
-    Alert.alert('Error', err?.message || 'No se pudo guardar el agente');
-  }
-};
+  };
 
   const handleView = (agente) => {
     setSelectedAgente(agente);
@@ -2316,22 +2435,346 @@ const handleSaveForm = async () => {
                     <Text style={modalStyles.errorText}>{formErrors.max_tokens}</Text>
                   )}
                 </View>
-
+                
+                {/* PROMPT SISTEMA */}
+                {/* ⭐ CAMPO 1: MISIÓN */}
                 <View style={modalStyles.formGroup}>
-                  <Text style={modalStyles.label}>Prompt del Sistema</Text>
+                  <Text style={modalStyles.label}>Misión del Agente *</Text>
                   <TextInput
-                    style={modalStyles.textArea}
-                    placeholder="Instrucciones específicas para el comportamiento del agente..."
+                    style={[modalStyles.textArea, formErrors.prompt_mision && modalStyles.inputError]}
+                    placeholder="Ej: Ayudar a estudiantes a resolver problemas con sus cuentas y acceso a sistemas"
                     placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                    value={formData.prompt_sistema}
-                    onChangeText={(text) => setFormData({ ...formData, prompt_sistema: text })}
+                    value={formData.prompt_mision}
+                    onChangeText={(text) => setFormData({ ...formData, prompt_mision: text })}
                     multiline
-                    numberOfLines={6}
-                    maxLength={2000}
+                    numberOfLines={3}
+                    maxLength={300}
                   />
+                  {formErrors.prompt_mision && (
+                    <Text style={modalStyles.errorText}>{formErrors.prompt_mision}</Text>
+                  )}
+                  <Text style={modalStyles.helperText}>
+                    Define el objetivo principal del agente
+                  </Text>
+                </View>
+
+                {/* ⭐ CAMPO 2: REGLAS (Mínimo 2) */}
+                <View style={modalStyles.formGroup}>
+                  <Text style={modalStyles.label}>Reglas de Comportamiento * (Mínimo 2)</Text>
+                  
+                  {formData.prompt_reglas.map((regla, index) => (
+                    <View key={index} style={{ marginBottom: 12 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={{ color: '#667eea', fontSize: 16, fontWeight: '700' }}>
+                          {index + 1}.
+                        </Text>
+                        <TextInput
+                          style={[
+                            modalStyles.input,
+                            { flex: 1 },
+                            formErrors[`prompt_regla_${index}`] && modalStyles.inputError
+                          ]}
+                          placeholder={`Regla ${index + 1}: Ej: Responde siempre en español`}
+                          placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                          value={regla}
+                          onChangeText={(text) => {
+                            const nuevasReglas = [...formData.prompt_reglas];
+                            nuevasReglas[index] = text;
+                            setFormData({ ...formData, prompt_reglas: nuevasReglas });
+                          }}
+                          maxLength={200}
+                        />
+                        {/* Botón eliminar (solo si hay más de 2) */}
+                        {formData.prompt_reglas.length > 2 && (
+                          <TouchableOpacity
+                            onPress={() => {
+                              const nuevasReglas = formData.prompt_reglas.filter((_, i) => i !== index);
+                              setFormData({ ...formData, prompt_reglas: nuevasReglas });
+                            }}
+                            style={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: 8,
+                              backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                              borderWidth: 1,
+                              borderColor: '#ef4444',
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                            }}
+                          >
+                            <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                      {formErrors[`prompt_regla_${index}`] && (
+                        <Text style={modalStyles.errorText}>{formErrors[`prompt_regla_${index}`]}</Text>
+                      )}
+                    </View>
+                  ))}
+                  
+                  {/* Botón agregar regla */}
+                  <TouchableOpacity
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
+                      backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                      borderWidth: 2,
+                      borderColor: '#667eea',
+                      borderStyle: 'dashed',
+                      borderRadius: 12,
+                      padding: 14,
+                      marginTop: 8,
+                    }}
+                    onPress={() => {
+                      setFormData({
+                        ...formData,
+                        prompt_reglas: [...formData.prompt_reglas, '']
+                      });
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="add-circle-outline" size={20} color="#667eea" />
+                    <Text style={{ color: '#667eea', fontSize: 14, fontWeight: '600' }}>
+                      Agregar otra regla
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <Text style={modalStyles.helperText}>
+                    Define comportamientos específicos (mínimo 2, máximo recomendado 5)
+                  </Text>
+                </View>
+
+                {/* ⭐ CAMPO 3: TONO (Selector) */}
+                <View style={modalStyles.formGroup}>
+                  <Text style={modalStyles.label}>Tono de Comunicación *</Text>
+                  
+                  <View style={{ gap: 12 }}>
+                    {/* Opción: Formal */}
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: formData.prompt_tono === 'formal' 
+                          ? 'rgba(59, 130, 246, 0.2)' 
+                          : 'rgba(71, 85, 105, 0.3)',
+                        borderWidth: 2,
+                        borderColor: formData.prompt_tono === 'formal' 
+                          ? '#3b82f6' 
+                          : 'rgba(148, 163, 184, 0.3)',
+                        borderRadius: 12,
+                        padding: 16,
+                      }}
+                      onPress={() => setFormData({ ...formData, prompt_tono: 'formal' })}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <View style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 12,
+                          borderWidth: 2,
+                          borderColor: formData.prompt_tono === 'formal' ? '#3b82f6' : '#94a3b8',
+                          backgroundColor: formData.prompt_tono === 'formal' ? '#3b82f6' : 'transparent',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}>
+                          {formData.prompt_tono === 'formal' && (
+                            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
+                          )}
+                        </View>
+                        <Text style={{
+                          color: formData.prompt_tono === 'formal' ? '#ffffff' : '#94a3b8',
+                          fontSize: 16,
+                          fontWeight: '600',
+                        }}>
+                          🎩 Formal
+                        </Text>
+                      </View>
+                      <Text style={{
+                        color: formData.prompt_tono === 'formal' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
+                        fontSize: 13,
+                        marginTop: 8,
+                      }}>
+                        Profesional, preciso y corporativo
+                      </Text>
+                    </TouchableOpacity>
+
+                    {/* Opción: Amigable (RECOMENDADO) */}
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: formData.prompt_tono === 'amigable' 
+                          ? 'rgba(102, 126, 234, 0.2)' 
+                          : 'rgba(71, 85, 105, 0.3)',
+                        borderWidth: 2,
+                        borderColor: formData.prompt_tono === 'amigable' 
+                          ? '#667eea' 
+                          : 'rgba(148, 163, 184, 0.3)',
+                        borderRadius: 12,
+                        padding: 16,
+                      }}
+                      onPress={() => setFormData({ ...formData, prompt_tono: 'amigable' })}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <View style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: 12,
+                            borderWidth: 2,
+                            borderColor: formData.prompt_tono === 'amigable' ? '#667eea' : '#94a3b8',
+                            backgroundColor: formData.prompt_tono === 'amigable' ? '#667eea' : 'transparent',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                          }}>
+                            {formData.prompt_tono === 'amigable' && (
+                              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
+                            )}
+                          </View>
+                          <Text style={{
+                            color: formData.prompt_tono === 'amigable' ? '#ffffff' : '#94a3b8',
+                            fontSize: 16,
+                            fontWeight: '600',
+                          }}>
+                            😊 Amigable
+                          </Text>
+                        </View>
+                        <View style={{
+                          backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
+                          borderRadius: 6,
+                          borderWidth: 1,
+                          borderColor: '#22c55e',
+                        }}>
+                          <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '700' }}>
+                            ✨ RECOMENDADO
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={{
+                        color: formData.prompt_tono === 'amigable' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
+                        fontSize: 13,
+                      }}>
+                        Cercano, empático y profesional
+                      </Text>
+                    </TouchableOpacity>
+
+                    {/* Opción: Técnico */}
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: formData.prompt_tono === 'tecnico' 
+                          ? 'rgba(168, 85, 247, 0.2)' 
+                          : 'rgba(71, 85, 105, 0.3)',
+                        borderWidth: 2,
+                        borderColor: formData.prompt_tono === 'tecnico' 
+                          ? '#a855f7' 
+                          : 'rgba(148, 163, 184, 0.3)',
+                        borderRadius: 12,
+                        padding: 16,
+                      }}
+                      onPress={() => setFormData({ ...formData, prompt_tono: 'tecnico' })}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <View style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 12,
+                          borderWidth: 2,
+                          borderColor: formData.prompt_tono === 'tecnico' ? '#a855f7' : '#94a3b8',
+                          backgroundColor: formData.prompt_tono === 'tecnico' ? '#a855f7' : 'transparent',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}>
+                          {formData.prompt_tono === 'tecnico' && (
+                            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
+                          )}
+                        </View>
+                        <Text style={{
+                          color: formData.prompt_tono === 'tecnico' ? '#ffffff' : '#94a3b8',
+                          fontSize: 16,
+                          fontWeight: '600',
+                        }}>
+                          ⚙️ Técnico
+                        </Text>
+                      </View>
+                      <Text style={{
+                        color: formData.prompt_tono === 'tecnico' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
+                        fontSize: 13,
+                        marginTop: 8,
+                      }}>
+                        Lenguaje técnico, soluciones concretas
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {formErrors.prompt_tono && (
+                    <Text style={modalStyles.errorText}>{formErrors.prompt_tono}</Text>
+                  )}
                 </View>
                 {formErrors.prompt_sistema && (
                   <Text style={modalStyles.errorText}>{formErrors.prompt_sistema}</Text>
+                )}
+              </View>
+
+
+              {/* ⭐ NUEVO CAMPO: Especialización */}
+              <View style={modalStyles.formGroup}>
+                <Text style={modalStyles.label}>
+                  Especialización del Agente 
+                  <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 13 }}> (Opcional)</Text>
+                </Text>
+                <TextInput
+                  style={[
+                    modalStyles.textArea,
+                    formErrors.prompt_especializado && modalStyles.inputError
+                  ]}
+                  placeholder="Ej: Ayuda con requisitos de prácticas, formatos, horas necesarias, instituciones aliadas, procesos de vinculación..."
+                  placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                  value={formData.prompt_especializado}
+                  onChangeText={(text) => setFormData({ ...formData, prompt_especializado: text })}
+                  multiline
+                  numberOfLines={4}
+                  maxLength={500}
+                />
+                {formErrors.prompt_especializado && (
+                  <Text style={modalStyles.errorText}>{formErrors.prompt_especializado}</Text>
+                )}
+                <Text style={modalStyles.helperText}>
+                  💡 Describe temas específicos, servicios o áreas de ayuda del agente
+                </Text>
+                
+                {/* Preview del texto */}
+                {formData.prompt_especializado && formData.prompt_especializado.length > 0 && (
+                  <View style={{
+                    marginTop: 12,
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    borderRadius: 8,
+                    padding: 12,
+                    borderLeftWidth: 3,
+                    borderLeftColor: '#667eea',
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                      <Ionicons name="information-circle" size={16} color="#667eea" />
+                      <Text style={{ color: '#667eea', fontSize: 12, fontWeight: '600' }}>
+                        Vista previa de especialización
+                      </Text>
+                    </View>
+                    <Text style={{
+                      color: 'rgba(255, 255, 255, 0.8)',
+                      fontSize: 13,
+                      lineHeight: 20,
+                    }}>
+                      {formData.prompt_especializado}
+                    </Text>
+                    <Text style={{
+                      color: 'rgba(255, 255, 255, 0.5)',
+                      fontSize: 11,
+                      marginTop: 8,
+                    }}>
+                      {formData.prompt_especializado.length} / 500 caracteres
+                    </Text>
+                  </View>
                 )}
               </View>
 
@@ -2765,6 +3208,30 @@ const handleSaveForm = async () => {
                       <View style={modalStyles.promptBox}>
                         <Text style={modalStyles.promptText}>
                           {selectedAgente.prompt_sistema}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* ⭐ NUEVO: Especialización */}
+                  {selectedAgente.prompt_especializado && (
+                    <View style={modalStyles.detailSection}>
+                      <Text style={modalStyles.detailSectionTitle}>🎯 Especialización</Text>
+                      <View style={{
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderRadius: 12,
+                        padding: 16,
+                        borderWidth: 1,
+                        borderColor: 'rgba(102, 126, 234, 0.3)',
+                        borderLeftWidth: 4,
+                        borderLeftColor: '#667eea',
+                      }}>
+                        <Text style={{
+                          color: 'rgba(255, 255, 255, 0.9)',
+                          fontSize: 14,
+                          lineHeight: 22,
+                        }}>
+                          {selectedAgente.prompt_especializado}
                         </Text>
                       </View>
                     </View>
