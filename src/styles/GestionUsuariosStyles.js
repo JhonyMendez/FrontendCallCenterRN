@@ -1011,4 +1011,68 @@ tipoBtnText: {
   fontWeight: '600',
   color: '#6B7280',
 },
+
+
+
+
+// ✅ REEMPLAZA limitContainer con estos estilos más compactos
+
+limitSeparator: {
+  width: 1,
+  height: 30,
+  backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  marginHorizontal: 12,
+},
+limitContainerCompact: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 4,
+},
+limitBtnCompact: {
+  paddingHorizontal: 8,
+  paddingVertical: 4,
+  borderRadius: 6,
+  backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  minWidth: 32,
+  alignItems: 'center',
+},
+limitBtnCompactActive: {
+  backgroundColor: '#FFFFFF',
+},
+limitBtnTextCompact: {
+  color: 'rgba(255, 255, 255, 0.8)',
+  fontSize: 12,
+  fontWeight: '600',
+},
+limitBtnTextCompactActive: {
+  color: '#667eea',
+},
+
+// Mantén los estilos de paginación
+paginationContainer: {
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
+  gap: 20,
+  paddingVertical: 20,
+  marginTop: 20,
+},
+paginationBtn: {
+  padding: 10,
+  borderRadius: 8,
+  backgroundColor: '#F3F4F6',
+},
+paginationBtnDisabled: {
+  opacity: 0.5,
+},
+paginationText: {
+  fontSize: 14,
+  fontWeight: '600',
+  color: '#374151',
+},
+
+
+
 });
+
+

@@ -82,6 +82,12 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
       setCedula(usuario.persona?.cedula || '');
       setTelefono(usuario.persona?.telefono || '');
       setDireccion(usuario.persona?.direccion || '');
+
+      // ✅ AGREGAR ESTOS CAMPOS
+      setFechaNacimiento(usuario.persona?.fecha_nacimiento || '');
+      setGenero(usuario.persona?.genero || '');
+      setTipoPersona(usuario.persona?.tipo_persona || '');
+
       setUsername(usuario.username || '');
       setEmail(usuario.email || '');
       setEstado(usuario.estado || 'activo');
@@ -283,17 +289,24 @@ const crearUsuario = async () => {
 
 const actualizarUsuario = async () => {
   try {
+    // ========== 1. ACTUALIZAR PERSONA ==========
     if (usuario.id_persona) {
       const personaData = {
         nombre: nombre.trim(),
         apellido: apellido.trim(),
         cedula: cedula.trim(),
         telefono: telefono.trim() || null,
-        direccion: direccion.trim() || null
+        direccion: direccion.trim() || null,
+        // ✅ AGREGAR ESTOS CAMPOS
+        fecha_nacimiento: fechaNacimiento || null,
+        genero: genero ? genero.toLowerCase() : null,
+        tipo_persona: tipoPersona ? tipoPersona.toLowerCase() : null
       };
+      
       await personaService.update(usuario.id_persona, personaData);
     }
 
+    // ========== 2. ACTUALIZAR USUARIO ==========
     const usuarioData = {
       username: username.trim(),
       email: email.trim(),
@@ -306,6 +319,7 @@ const actualizarUsuario = async () => {
 
     await usuarioService.update(usuario.id_usuario, usuarioData);
 
+    // ========== 3. ACTUALIZAR ROLES ==========
     const rolesActuales = usuario.roles?.map(r => r.id_rol) || [];
     const rolesAEliminar = rolesActuales.filter(r => !rolesSeleccionados.includes(r));
     const rolesAAgregar = rolesSeleccionados.filter(r => !rolesActuales.includes(r));
@@ -321,7 +335,6 @@ const actualizarUsuario = async () => {
     }
 
   } catch (error) {
-    // ========== EXTRAER MENSAJE DEL BACKEND ==========
     let mensajeError = 'Error al actualizar usuario';
     
     if (error.data?.details && Array.isArray(error.data.details) && error.data.details.length > 0) {
@@ -724,17 +737,6 @@ const actualizarUsuario = async () => {
           <Ionicons name="close" size={24} color="#c7d2fe" />
         </TouchableOpacity>
       </View>
-
-    {/* 👇 AGREGA ESTE BOTÓN DE PRUEBA AQUÍ */}
-    <TouchableOpacity 
-      onPress={() => mostrarToast('Prueba de Toast', 'success')}
-      style={{ padding: 10, backgroundColor: '#10B981', margin: 10, borderRadius: 8 }}
-    >
-      <Text style={{ color: '#fff', textAlign: 'center', fontWeight: 'bold' }}>
-        🧪 PROBAR TOAST
-      </Text>
-    </TouchableOpacity>
-    {/* 👆 FIN DEL BOTÓN DE PRUEBA */}
 
 
       {/* Stepper Visual */}

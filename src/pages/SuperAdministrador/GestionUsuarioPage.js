@@ -1,6 +1,6 @@
 // ==================================================================================
 // src/pages/Administrador/GestionUsuarioPage.js
-// ACTUALIZADO: Usa usuarioService.listarCompleto() para obtener toda la información
+// ACTUALIZADO: Roles dinámicos + Control de usuarios máximos
 // ==================================================================================
 
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +21,7 @@ import {
 import { rolService } from '../../api/services/rolService';
 import { usuarioService } from '../../api/services/usuarioService';
 import GestionUsuariosCard from '../../components/SuperAdministrador/GestionUsuarioCard';
-import UsuarioCard from '../../components/SuperAdministrador/UsuarioCard'; // 👈 Componente con info completa
+import UsuarioCard from '../../components/SuperAdministrador/UsuarioCard';
 
 import SuperAdminSidebar from '../../components/Sidebar/sidebarSuperAdmin';
 import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles';
@@ -38,7 +38,12 @@ const GestionUsuarioPage = () => {
   const [filtroRol, setFiltroRol] = useState('todos');
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null);
-  const [totalUsuarios, setTotalUsuarios] = useState(0); // 👈 Total de usuarios
+  const [totalUsuarios, setTotalUsuarios] = useState(0);
+  
+  // ✅ NUEVOS ESTADOS PARA PAGINACIÓN
+  const [skip, setSkip] = useState(0);
+  const [limit, setLimit] = useState(50); // Por defecto 50 usuarios
+  const [paginaActual, setPaginaActual] = useState(1);
 
   // ==================== ANIMACIONES ====================
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -52,6 +57,13 @@ const GestionUsuarioPage = () => {
 
     cargarDatosIniciales();
   }, []);
+
+  // ✅ RECARGAR cuando cambien skip o limit
+  useEffect(() => {
+    if (!mostrarFormulario) {
+      cargarUsuarios();
+    }
+  }, [skip, limit]);
 
   // ==================== FILTRADO ====================
   useEffect(() => {
@@ -78,7 +90,7 @@ const GestionUsuarioPage = () => {
     if (filtroRol !== 'todos') {
       resultado = resultado.filter(u => 
         Array.isArray(u.roles) &&
-        u.roles.some(r => r.nombre_rol?.toLowerCase() === filtroRol.toLowerCase())
+        u.roles.some(r => r.id_rol === parseInt(filtroRol))
       );
     }
 
@@ -103,22 +115,13 @@ const GestionUsuarioPage = () => {
 
   const cargarUsuarios = async () => {
     try {
-      console.log('📤 Solicitando usuarios completos...');
-      
-      // 🔥 CAMBIO PRINCIPAL: Usar listarCompleto en lugar de getAll
       const response = await usuarioService.listarCompleto({
-        skip: 0,
-        limit: 500
+        skip: skip,
+        limit: limit
       });
 
-      console.log('✅ Respuesta recibida:', response);
-
-      // La respuesta tiene estructura: { total, skip, limit, usuarios }
       const listaUsuarios = response.usuarios || [];
       const total = response.total || 0;
-
-      console.log('👤 Usuarios cargados:', listaUsuarios.length);
-      console.log('📊 Total en BD:', total);
 
       setUsuarios(listaUsuarios);
       setTotalUsuarios(total);
@@ -141,11 +144,8 @@ const GestionUsuarioPage = () => {
         listaRoles = response;
       } else if (response && Array.isArray(response.data)) {
         listaRoles = response.data;
-      } else {
-        console.warn('⚠️ respuesta inesperada de rolService.listarRoles:', response);
       }
 
-      console.log('🎭 Roles cargados:', listaRoles);
       setRoles(listaRoles);
     } catch (error) {
       console.error('Error cargando roles:', error);
@@ -209,15 +209,31 @@ const GestionUsuarioPage = () => {
     }
   };
 
-  // Contar usuarios por rol
-  const contarPorRol = (nombreRol) => {
+  // ✅ CONTAR USUARIOS POR ROL (usando id_rol en lugar de nombre)
+  const contarPorRol = (idRol) => {
     const lista = Array.isArray(usuarios) ? usuarios : [];
-    if (nombreRol === 'todos') return lista.length;
+    if (idRol === 'todos') return lista.length;
 
     return lista.filter(u => 
       Array.isArray(u.roles) &&
-      u.roles.some(r => r.nombre_rol?.toLowerCase() === nombreRol.toLowerCase())
+      u.roles.some(r => r.id_rol === parseInt(idRol))
     ).length;
+  };
+
+  // ✅ PAGINACIÓN
+  const totalPaginas = Math.ceil(totalUsuarios / limit);
+
+  const cambiarPagina = (nuevaPagina) => {
+    if (nuevaPagina < 1 || nuevaPagina > totalPaginas) return;
+    
+    setPaginaActual(nuevaPagina);
+    setSkip((nuevaPagina - 1) * limit);
+  };
+
+  const cambiarLimit = (nuevoLimit) => {
+    setLimit(nuevoLimit);
+    setSkip(0);
+    setPaginaActual(1);
   };
 
   // ==================== RENDER ====================
@@ -284,7 +300,7 @@ const GestionUsuarioPage = () => {
                   <View style={styles.headerTitleContainer}>
                     <Users size={32} color="#FFFFFF" />
                     <View>
-                      <Text style={styles.headerTitle}>Gestión de Usuariossss</Text>
+                      <Text style={styles.headerTitle}>Gestión de Usuarios</Text>
                       <Text style={styles.headerSubtitle}>
                         {totalUsuarios} usuarios registrados
                       </Text>
@@ -298,6 +314,8 @@ const GestionUsuarioPage = () => {
                     <Ionicons name="add" size={32} color="#667eea" />
                   </TouchableOpacity>
                 </View>
+
+
 
                 {/* Barra de búsqueda */}
                 <View style={styles.searchContainer}>
@@ -316,7 +334,7 @@ const GestionUsuarioPage = () => {
                   )}
                 </View>
 
-                {/* Filtros de rol */}
+                {/* ✅ FILTROS DE ROL DINÁMICOS */}
                 <ScrollView 
                   horizontal 
                   showsHorizontalScrollIndicator={false}
@@ -338,42 +356,29 @@ const GestionUsuarioPage = () => {
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.filterChip,
-                      filtroRol === 'administrador' && styles.filterChipActive
-                    ]}
-                    onPress={() => setFiltroRol('administrador')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[
-                      styles.filterChipText,
-                      filtroRol === 'administrador' && styles.filterChipTextActive
-                    ]}>
-                      Admins ({contarPorRol('administrador')})
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.filterChip,
-                      filtroRol === 'funcionario' && styles.filterChipActive
-                    ]}
-                    onPress={() => setFiltroRol('funcionario')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[
-                      styles.filterChipText,
-                      filtroRol === 'funcionario' && styles.filterChipTextActive
-                    ]}>
-                      Funcionarios ({contarPorRol('funcionario')})
-                    </Text>
-                  </TouchableOpacity>
+                  {roles.map(rol => (
+                    <TouchableOpacity
+                      key={rol.id_rol}
+                      style={[
+                        styles.filterChip,
+                        filtroRol === String(rol.id_rol) && styles.filterChipActive
+                      ]}
+                      onPress={() => setFiltroRol(String(rol.id_rol))}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        styles.filterChipText,
+                        filtroRol === String(rol.id_rol) && styles.filterChipTextActive
+                      ]}>
+                        {rol.nombre_rol} ({contarPorRol(rol.id_rol)})
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
                 </ScrollView>
               </View>
             </LinearGradient>
 
-            {/* Lista de usuarios - CON INFO COMPLETA */}
+            {/* Lista de usuarios */}
             <ScrollView 
               style={styles.listaContainer}
               showsVerticalScrollIndicator={false}
@@ -397,6 +402,31 @@ const GestionUsuarioPage = () => {
                     index={index}
                   />
                 ))
+              )}
+
+              {/* ✅ PAGINACIÓN */}
+              {totalPaginas > 1 && (
+                <View style={styles.paginationContainer}>
+                  <TouchableOpacity
+                    style={[styles.paginationBtn, paginaActual === 1 && styles.paginationBtnDisabled]}
+                    onPress={() => cambiarPagina(paginaActual - 1)}
+                    disabled={paginaActual === 1}
+                  >
+                    <Ionicons name="chevron-back" size={20} color={paginaActual === 1 ? '#9CA3AF' : '#667eea'} />
+                  </TouchableOpacity>
+
+                  <Text style={styles.paginationText}>
+                    Página {paginaActual} de {totalPaginas}
+                  </Text>
+
+                  <TouchableOpacity
+                    style={[styles.paginationBtn, paginaActual === totalPaginas && styles.paginationBtnDisabled]}
+                    onPress={() => cambiarPagina(paginaActual + 1)}
+                    disabled={paginaActual === totalPaginas}
+                  >
+                    <Ionicons name="chevron-forward" size={20} color={paginaActual === totalPaginas ? '#9CA3AF' : '#667eea'} />
+                  </TouchableOpacity>
+                </View>
               )}
             </ScrollView>
           </ScrollView>
