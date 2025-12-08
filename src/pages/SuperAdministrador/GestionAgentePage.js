@@ -75,7 +75,7 @@ const [formData, setFormData] = useState({
   requiere_autenticacion: false,
 });
   const [formErrors, setFormErrors] = useState({});
-  
+  const [usuarioActual, setUsuarioActual] = useState(null);
   const [stats, setStats] = useState({
     total: 0,
     activos: 0,
@@ -94,6 +94,55 @@ const [formData, setFormData] = useState({
 
   useEffect(() => {
     cargarDepartamentos();
+  }, []);
+
+useEffect(() => {
+  
+  try {
+    // Intentar TODAS las posibles claves
+    const posiblesClaves = [
+      '@datos_sesion',
+      'datos_sesion', 
+      '@user_session',
+      'user_data',
+      'currentUser'
+    ];
+    
+    let usuarioEncontrado = null;
+    
+    for (const clave of posiblesClaves) {
+      const data = localStorage.getItem(clave);
+      
+      if (data) {
+        try {
+          const parsed = JSON.parse(data);          
+          // Buscar el usuario en diferentes estructuras
+          if (parsed.usuario) {
+            usuarioEncontrado = parsed.usuario;
+            break;
+          } else if (parsed.user) {
+            usuarioEncontrado = parsed.user;
+            break;
+          } else if (parsed.id_usuario) {
+            usuarioEncontrado = parsed;
+            break;
+          }
+        } catch (e) {        }
+      }
+    }
+    
+    if (usuarioEncontrado) {
+      
+      setUsuarioActual(usuarioEncontrado);
+    } else {      
+      // Mostrar TODAS las claves
+      Object.keys(localStorage).forEach(key => {
+        const val = localStorage.getItem(key);
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error:', error);
+  }
   }, []);
 
   // ============ HELPERS ============
@@ -141,13 +190,10 @@ const [formData, setFormData] = useState({
 
 const cargarEstadisticas = async () => {
   try {
-    console.log('🔍 Intentando cargar estadísticas...');
     const data = await agenteService.getEstadisticasGenerales();
-    console.log('📦 Datos recibidos:', data);
     
     // Manejar diferentes estructuras de respuesta
     const statsData = data?.data || data;
-    console.log('📊 Stats procesadas:', statsData);
     
     if (statsData && statsData.total !== undefined) {
       const nuevasStats = {
@@ -156,22 +202,17 @@ const cargarEstadisticas = async () => {
         router: Number(statsData.router) || 0,
         especializados: Number(statsData.especializados) || 0,
       };
-      console.log('✅ Actualizando stats a:', nuevasStats);
       setStats(nuevasStats);
     } else {
-      console.log('⚠️ Formato no válido, usando fallback');
       throw new Error('Formato no válido');
     }
   } catch (err) {
     console.error('❌ Error al cargar estadísticas:', err);
     // Fallback: calcular desde todos los agentes
     try {
-      console.log('🔄 Intentando fallback...');
       const todosAgentes = await agenteService.getAll({});
-      console.log('📦 Agentes para calcular:', todosAgentes);
       
       const agentesArray = Array.isArray(todosAgentes) ? todosAgentes : (todosAgentes?.data || []);
-      console.log('📋 Array de agentes:', agentesArray.length);
       
       const calculadas = {
         total: agentesArray.length,
@@ -179,10 +220,8 @@ const cargarEstadisticas = async () => {
         router: agentesArray.filter(a => a.tipo_agente === 'router').length,
         especializados: agentesArray.filter(a => a.tipo_agente === 'especializado').length,
       };
-      console.log('✅ Estadísticas calculadas:', calculadas);
       setStats(calculadas);
     } catch (fallbackErr) {
-      console.error('❌ Error en fallback:', fallbackErr);
     }
   }
 };
@@ -230,19 +269,19 @@ const resetForm = () => {
     puede_ejecutar_acciones: false,
     acciones_disponibles: '',
     requiere_autenticacion: false,
+    creado_por: null,
+    actualizado_por: null,
   });
   setFormErrors({});
 };
 
   // Validar formulario
 // Validar formulario con SecurityValidator
-  const validateForm = () => {
-    console.log('🔍 Iniciando validación con SecurityValidator...');
-    
-    // Usar el validador de seguridad
-    const validation = SecurityValidator.validateAgenteForm(formData, formMode);
-    
-    console.log('📋 Resultado de validación:', {
+const validateForm = () => {
+  
+  // Usar el validador de seguridad
+  const validation = SecurityValidator.validateAgenteForm(formData, formMode);   
+    ({
       isValid: validation.isValid,
       errorsCount: Object.keys(validation.errors).length,
       errors: validation.errors
@@ -269,11 +308,9 @@ const resetForm = () => {
         validation.isValid = false;
       }
     }
-
     setFormErrors(validation.errors);
     
     if (!validation.isValid) {
-      console.log('❌ Validación falló. Errores:', validation.errors);
     } else {
       console.log('✅ Validación exitosa');
     }
@@ -343,21 +380,12 @@ const resetForm = () => {
 
   // Editar agente
 const handleEdit = (agente) => {
-  console.log('✏️ === INICIO handleEdit ===');
-  console.log('📦 Agente recibido:', agente);
-  console.log('📝 prompt_sistema original:', agente.prompt_sistema);
   
   setFormMode('edit');
   setSelectedAgente(agente);
   
   // ⭐ PARSEAR prompt_sistema para obtener los componentes
   const { prompt_mision, prompt_reglas, prompt_tono, prompt_especializado } = parsePromptSistema(agente.prompt_sistema);
-  
-  console.log('🔍 Datos parseados:');
-  console.log('   - Misión:', prompt_mision);
-  console.log('   - Reglas:', prompt_reglas);
-  console.log('   - Tono:', prompt_tono);
-  console.log('   - Especialización:', prompt_especializado);
   
   setFormData({
     nombre_agente: agente.nombre_agente || '',
@@ -368,7 +396,6 @@ const handleEdit = (agente) => {
     temperatura: agente.temperatura?.toString() || '0.7',
     max_tokens: agente.max_tokens?.toString() || '4000',
     
-    // ⭐ USAR LOS DATOS PARSEADOS
     prompt_mision: prompt_mision,
     prompt_reglas: prompt_reglas,
     prompt_tono: prompt_tono,
@@ -391,58 +418,42 @@ const handleEdit = (agente) => {
     puede_ejecutar_acciones: agente.puede_ejecutar_acciones || false,
     acciones_disponibles: agente.acciones_disponibles || '',
     requiere_autenticacion: agente.requiere_autenticacion || false,
+    creado_por: agente.creado_por || null,
+    actualizado_por: null,
   });
   
   setShowFormModal(true);
-  console.log('✅ Modal abierto con datos parseados');
-  console.log('✏️ === FIN handleEdit ===');
 };
 
 
 // Función para obtener departamentos disponibles
 const getDepartamentosDisponibles = () => {
-  console.log('🔍 === DIAGNÓSTICO getDepartamentosDisponibles ===');
-  console.log('📌 Modo:', formMode);
-  console.log('📌 SelectedAgente:', selectedAgente);
-  console.log('📌 Total Departamentos:', departamentos.length);
-  console.log('📌 Total Agentes:', agentes.length);
   
   // Si estamos editando y el agente ya tiene departamento asignado
   if (formMode === 'edit' && selectedAgente?.id_departamento) {
-    console.log('✏️ MODO EDICIÓN - Departamento actual:', selectedAgente.id_departamento);
     const deptAsignado = departamentos.find(d => 
       d.id_departamento.toString() === selectedAgente.id_departamento.toString()
     );
-    console.log('✅ Departamento encontrado:', deptAsignado);
     return deptAsignado ? [deptAsignado] : [];
   }
   
-  console.log('➕ MODO CREACIÓN - Filtrando departamentos ocupados...');
   
   // Obtener IDs de departamentos ocupados
   const departamentosOcupados = agentes
     .filter(a => {
       const tieneDepto = a.id_departamento != null && a.id_departamento !== '';
       if (tieneDepto) {
-        console.log(`   🔒 Agente "${a.nombre_agente}" ocupa departamento ID: ${a.id_departamento}`);
       }
       return tieneDepto;
     })
     .map(a => a.id_departamento.toString());
-  
-  console.log('📋 IDs Ocupados:', departamentosOcupados);
-  
+    
   // Filtrar departamentos disponibles
   const disponibles = departamentos.filter(d => {
     const deptId = d.id_departamento.toString();
     const estaOcupado = departamentosOcupados.includes(deptId);
-    console.log(`   ${estaOcupado ? '❌' : '✅'} Departamento "${d.nombre}" (ID: ${deptId}) - ${estaOcupado ? 'OCUPADO' : 'DISPONIBLE'}`);
     return !estaOcupado;
   });
-  
-  console.log('✅ Total Disponibles:', disponibles.length);
-  console.log('🎯 Departamentos Disponibles:', disponibles.map(d => `${d.nombre} (ID: ${d.id_departamento})`));
-  console.log('🔍 === FIN DIAGNÓSTICO ===\n');
   
   return disponibles;
 };
@@ -450,102 +461,96 @@ const getDepartamentosDisponibles = () => {
 
   // Guardar agente (crear o actualizar)
   const handleSaveForm = async () => {
-    console.log('🔵 === INICIO handleSaveForm ===');
-    console.log('📋 FormData actual:', formData);
-    console.log('🎯 Modo:', formMode);
-    console.log('👤 Agente seleccionado:', selectedAgente);
     
     if (!validateForm()) {
-      console.log('❌ Validación falló');
-      console.log('🚫 Errores:', formErrors);
       Alert.alert('Error de validación', 'Por favor, corrige los errores en el formulario');
       return;
     }
     
-    console.log('✅ Validación exitosa');
+    // Verificar que hay un usuario logueado
+  let usuarioParaGuardar = usuarioActual;
 
+  if (!usuarioActual || !usuarioActual.id_usuario) {
+    console.warn('⚠️ No se encontró usuario en state, usando HARDCODE temporal');
+    
+    // HARDCODE: Cambia este ID por el tuyo
+    usuarioParaGuardar = {
+      id_usuario: decoded.id_usuario,  
+      nombre: decoded.nombre,          
+      username: decoded.sub           
+    };
+  }
     try {
-      // ⭐ CONSTRUIR EL PROMPT_SISTEMA AQUÍ DENTRO
+      
+      // CONSTRUIR EL PROMPT_SISTEMA 
       const { nombre_agente, area_especialidad, prompt_mision, prompt_reglas, prompt_tono, prompt_especializado } = formData;
 
-      // Construir el contexto base
       const contextoBase = `Eres ${nombre_agente} del TEC AZUAY, especializado en ${area_especialidad}.`;
-
-      // Construir la misión
       const misionTexto = `\n\nMISIÓN:\n${prompt_mision}`;
-
-      // Construir especialización (si existe)
       const especializacionTexto = prompt_especializado 
         ? `\n\nESPECIALIZACIÓN:\n${prompt_especializado}`
         : '';
-
-      // Construir las reglas (filtrar vacías)
       const reglasLimpias = prompt_reglas.filter(r => r.trim() !== '');
       const reglasTexto = reglasLimpias.length > 0 
         ? `\n\nREGLAS:\n${reglasLimpias.map(r => `- ${r}`).join('\n')}`
         : '';
-
-      // Construir el tono
       const tonoMap = {
         formal: 'Sé formal, profesional y preciso en tus respuestas.',
         amigable: 'Sé amigable, cercano y empático, pero mantén profesionalismo.',
         tecnico: 'Usa lenguaje técnico claro y preciso, enfócate en soluciones concretas.'
       };
       const tonoTexto = `\n\nTONO:\n${tonoMap[prompt_tono] || tonoMap.amigable}`;
-
-      // UNIR TODO EN prompt_sistema
       const prompt_sistema_final = `${contextoBase}${misionTexto}${especializacionTexto}${reglasTexto}${tonoTexto}`;
 
-      console.log('📝 Prompt sistema construido:', prompt_sistema_final);
-
-      // Actualizar formData con el prompt construido
-      const dataConPrompt = {
+      // Preparar datos ANTES de sanitizar
+      const dataPreSanitizar = {
         ...formData,
         prompt_sistema: prompt_sistema_final
       };
-      
-      // Sanitizar y validar datos con SecurityValidator
-      const dataToSave = SecurityValidator.sanitizeAgenteData(dataConPrompt);
-      
-      console.log('🧹 Datos sanitizados:', dataToSave);
-      console.log('📦 Datos a enviar:', dataToSave);
 
+    // ⭐ ESTABLECER CAMPOS DE AUDITORÍA ANTES DE SANITIZAR
+    if (formMode === 'create') {
+      dataPreSanitizar.creado_por = usuarioParaGuardar.id_usuario;
+      console.log('➕ MODO CREAR - Estableciendo creado_por PRE-sanitizar:', dataPreSanitizar.creado_por);
+    } else {
+      dataPreSanitizar.actualizado_por = usuarioParaGuardar.id_usuario;
+      console.log('✏️ MODO EDITAR - Estableciendo actualizado_por PRE-sanitizar:', dataPreSanitizar.actualizado_por);
+    }
+      
+      console.log('📦 Datos PRE-sanitizar:', dataPreSanitizar);
+      
+      // Sanitizar
+      const dataToSave = SecurityValidator.sanitizeAgenteData(dataPreSanitizar);
+      
+
+      // ENVIAR AL BACKEND
+      let response;
       if (formMode === 'create') {
-        console.log('➕ Creando nuevo agente...');
-        const response = await agenteService.create(dataToSave);
-        console.log('✅ Respuesta del servidor:', response);
-        setSuccessMessage('✅ Agente creado correctamente');
+        response = await agenteService.create(dataToSave);
       } else {
-        console.log('✏️ Actualizando agente ID:', selectedAgente.id_agente);
-        const response = await agenteService.update(selectedAgente.id_agente, dataToSave);
-        console.log('✅ Respuesta del servidor:', response);
-        setSuccessMessage('✅ Agente actualizado correctamente');
+        response = await agenteService.update(selectedAgente.id_agente, dataToSave);
       }
 
-      console.log('🎉 Guardado exitoso');
+      // Éxito
+      setSuccessMessage(formMode === 'create' ? '✅ Agente creado correctamente' : '✅ Agente actualizado correctamente');
       setShowSuccessMessage(true);
       setShowFormModal(false);
       
-      console.log('🔄 Recargando agentes...');
       await cargarAgentes();
       await cargarEstadisticas();
-      
       resetForm();
 
       setTimeout(() => {
         setShowSuccessMessage(false);
       }, 3000);
       
-      console.log('🔵 === FIN handleSaveForm ===');
     } catch (err) {
-      console.error('❌ ERROR AL GUARDAR:', err);
-      console.error('📄 Detalles del error:', {
-        message: err?.message,
-        response: err?.response?.data,
-        status: err?.response?.status,
-        stack: err?.stack
-      });
-      Alert.alert('Error', err?.message || 'No se pudo guardar el agente');
+
+      
+      Alert.alert(
+        'Error al guardar', 
+        `No se pudo guardar el agente.\n\nDetalles: ${err?.response?.data?.message || err?.message || 'Error desconocido'}`
+      );
     }
   };
 
@@ -576,7 +581,6 @@ const getDepartamentosDisponibles = () => {
                 setShowSuccessMessage(false);
               }, 3000);
             } catch (err) {
-              console.error('Error al eliminar:', err);
               Alert.alert('Error', err?.message || 'No se pudo eliminar el agente');
             }
           },
@@ -604,7 +608,6 @@ const getDepartamentosDisponibles = () => {
         setShowSuccessMessage(false);
       }, 3000);
     } catch (err) {
-      console.error('Error al cambiar estado:', err);
       Alert.alert('Error', 'No se pudo cambiar el estado del agente');
     }
   };
@@ -3176,30 +3179,67 @@ const getDepartamentosDisponibles = () => {
                 </View>
               </View>
 
-                  {/* Estadísticas */}
-                  <View style={modalStyles.detailSection}>
-                    <Text style={modalStyles.detailSectionTitle}>📊 Estadísticas</Text>
-                    <View style={modalStyles.detailGrid}>
-                      <View style={modalStyles.detailItem}>
-                        <Ionicons name="chatbubbles" size={16} color="#667eea" />
-                        <View style={{ flex: 1 }}>
-                          <Text style={modalStyles.detailLabel}>Conversaciones</Text>
-                          <Text style={modalStyles.detailValue}>
-                            {selectedAgente.total_conversaciones || 0}
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={modalStyles.detailItem}>
-                        <Ionicons name="calendar" size={16} color="#667eea" />
-                        <View style={{ flex: 1 }}>
-                          <Text style={modalStyles.detailLabel}>Creado</Text>
-                          <Text style={modalStyles.detailValue}>
-                            {formatDate(selectedAgente.fecha_creacion)}
-                          </Text>
-                        </View>
-                      </View>
+              {/* Estadísticas */}
+              <View style={modalStyles.detailSection}>
+                <Text style={modalStyles.detailSectionTitle}>📊 Estadísticas y Auditoría</Text>
+                <View style={modalStyles.detailGrid}>
+                  <View style={modalStyles.detailItem}>
+                    <Ionicons name="chatbubbles" size={16} color="#667eea" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={modalStyles.detailLabel}>Conversaciones</Text>
+                      <Text style={modalStyles.detailValue}>
+                        {selectedAgente.total_conversaciones || 0}
+                      </Text>
                     </View>
                   </View>
+                  
+                  {/* ⭐ NUEVO: Creado por */}
+                  <View style={modalStyles.detailItem}>
+                    <Ionicons name="person-add" size={16} color="#22c55e" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={modalStyles.detailLabel}>Creado por</Text>
+                      <Text style={modalStyles.detailValue}>
+                        {selectedAgente.creador_nombre || 'N/A'}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <View style={modalStyles.detailItem}>
+                    <Ionicons name="calendar" size={16} color="#667eea" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={modalStyles.detailLabel}>Fecha de creación</Text>
+                      <Text style={modalStyles.detailValue}>
+                        {formatDate(selectedAgente.fecha_creacion)}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  {/* ⭐ NUEVO: Última actualización */}
+                  {selectedAgente.actualizado_por && (
+                    <>
+                      <View style={modalStyles.detailItem}>
+                        <Ionicons name="create" size={16} color="#fb923c" />
+                        <View style={{ flex: 1 }}>
+                          <Text style={modalStyles.detailLabel}>Actualizado por</Text>
+                          <Text style={modalStyles.detailValue}>
+                            {selectedAgente.actualizador_nombre || 'N/A'}
+                          </Text>
+                        </View>
+                      </View>
+                      
+                      <View style={modalStyles.detailItem}>
+                        <Ionicons name="time" size={16} color="#667eea" />
+                        <View style={{ flex: 1 }}>
+                          <Text style={modalStyles.detailLabel}>Última actualización</Text>
+                          <Text style={modalStyles.detailValue}>
+                            {formatDate(selectedAgente.fecha_actualizacion)}
+                          </Text>
+                        </View>
+                      </View>
+                    </>
+                  )}
+                </View>
+              </View>
 
                   {/* Prompt del Sistema */}
                   {selectedAgente.prompt_sistema && (

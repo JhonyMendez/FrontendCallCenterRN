@@ -499,6 +499,9 @@ class SecurityValidator {
       zona_horaria: 'America/Guayaquil',
       icono: formData.icono || '🤖',
       herramientas_disponibles: formData.herramientas_disponibles || '',
+
+      creado_por: formData.creado_por ? parseInt(formData.creado_por) : null,
+      actualizado_por: formData.actualizado_por ? parseInt(formData.actualizado_por) : null,
     };
   }
 
