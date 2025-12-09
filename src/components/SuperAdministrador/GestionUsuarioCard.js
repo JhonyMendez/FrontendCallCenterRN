@@ -15,6 +15,7 @@ import { usuarioRolService } from '../../api/services/usuarioRolService';
 import { usuarioService } from '../../api/services/usuarioService';
 
 import { cedulaService } from '../../api/services/cedulaService';
+import { getUserIdFromToken } from '../../components/utils/authHelper';
 import SecurityValidator from '../../components/utils/SecurityValidator';
 import { styles } from '../../styles/GestionUsuariosStyles';
 import DateInput from '../common/DateInput';
@@ -317,6 +318,8 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
 
 const crearUsuario = async () => {
   try {
+    const idUsuario = await getUserIdFromToken();
+
     const cedulaLimpia = SecurityValidator.sanitizeText(cedula).replace(/[-\s]/g, '');
     const telefonoLimpio = telefono ? 
       SecurityValidator.sanitizeText(telefono).replace(/[-\s()]/g, '') : null;
@@ -340,6 +343,7 @@ const crearUsuario = async () => {
       email: emailLimpio,
       password: password, // NO sanitizar passwords
       estado: estado,
+      creado_por: idUsuario,
       persona: {
         cedula: cedulaLimpia,
         nombre: nombreLimpio,
