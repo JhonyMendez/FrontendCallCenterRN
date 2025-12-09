@@ -25,7 +25,9 @@ import UsuarioCard from '../../components/SuperAdministrador/UsuarioCard';
 
 import SuperAdminSidebar from '../../components/Sidebar/sidebarSuperAdmin';
 import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles';
+import SecurityValidator from '../../components/utils/SecurityValidator';
 import { styles } from '../../styles/GestionUsuariosStyles';
+
 
 const GestionUsuarioPage = () => {
   // ==================== ESTADOS ====================
@@ -47,6 +49,9 @@ const GestionUsuarioPage = () => {
 
   // ==================== ANIMACIONES ====================
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const rateLimiter = useRef(SecurityValidator.createRateLimiter()).current;
+
+  
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -70,28 +75,48 @@ const GestionUsuarioPage = () => {
     filtrarUsuarios();
   }, [usuarios, busqueda, filtroRol]);
 
+
+
   const filtrarUsuarios = () => {
+    const limiteCheck = rateLimiter.check(30); // 30 búsquedas por minuto
+    if (!limiteCheck.allowed) {
+      Alert.alert('Límite excedido', limiteCheck.message);
+      return;
+    }
+
     const lista = Array.isArray(usuarios) ? usuarios : [];
     let resultado = [...lista];
 
+
     // Filtrar por búsqueda
     if (busqueda.trim()) {
-      const busquedaLower = busqueda.toLowerCase();
-      resultado = resultado.filter(u => 
-        u.persona?.nombre?.toLowerCase().includes(busquedaLower) ||
-        u.persona?.apellido?.toLowerCase().includes(busquedaLower) ||
-        u.username?.toLowerCase().includes(busquedaLower) ||
-        u.email?.toLowerCase().includes(busquedaLower) ||
-        u.persona?.cedula?.includes(busqueda)
-      );
+      const busquedaLower = SecurityValidator.sanitizeText(busqueda).toLowerCase();
+      
+      resultado = resultado.filter(u => {
+        // Sanitizar cada campo antes de comparar
+        const nombre = SecurityValidator.sanitizeText(u.persona?.nombre || '').toLowerCase();
+        const apellido = SecurityValidator.sanitizeText(u.persona?.apellido || '').toLowerCase();
+        const username = SecurityValidator.sanitizeText(u.username || '').toLowerCase();
+        const email = SecurityValidator.sanitizeText(u.email || '').toLowerCase();
+        const cedula = SecurityValidator.sanitizeText(u.persona?.cedula || '');
+        
+        return nombre.includes(busquedaLower) ||
+              apellido.includes(busquedaLower) ||
+              username.includes(busquedaLower) ||
+              email.includes(busquedaLower) ||
+              cedula.includes(busqueda); // Cédula sin toLowerCase
+      });
     }
 
     // Filtrar por rol
     if (filtroRol !== 'todos') {
-      resultado = resultado.filter(u => 
-        Array.isArray(u.roles) &&
-        u.roles.some(r => r.id_rol === parseInt(filtroRol))
-      );
+      const rolIdSeguro = parseInt(filtroRol);
+      if (!isNaN(rolIdSeguro)) {
+        resultado = resultado.filter(u => 
+          Array.isArray(u.roles) &&
+          u.roles.some(r => r.id_rol === rolIdSeguro)
+        );
+      }
     }
 
     setUsuariosFiltrados(resultado);
@@ -115,13 +140,17 @@ const GestionUsuarioPage = () => {
 
   const cargarUsuarios = async () => {
     try {
+      // Validar skip y limit
+      const skipSeguro = Math.max(0, parseInt(skip) || 0);
+      const limitSeguro = Math.max(1, Math.min(200, parseInt(limit) || 50));
+      
       const response = await usuarioService.listarCompleto({
-        skip: skip,
-        limit: limit
+        skip: skipSeguro,
+        limit: limitSeguro
       });
 
-      const listaUsuarios = response.usuarios || [];
-      const total = response.total || 0;
+      const listaUsuarios = Array.isArray(response.usuarios) ? response.usuarios : [];
+      const total = parseInt(response.total) || 0;
 
       setUsuarios(listaUsuarios);
       setTotalUsuarios(total);
@@ -146,7 +175,12 @@ const GestionUsuarioPage = () => {
         listaRoles = response.data;
       }
 
-      setRoles(listaRoles);
+      // Validar que cada rol tenga id_rol válido
+      const rolesValidos = listaRoles.filter(rol => 
+        rol && typeof rol.id_rol === 'number' && rol.id_rol > 0
+      );
+
+      setRoles(rolesValidos);
     } catch (error) {
       console.error('Error cargando roles:', error);
       throw error;
@@ -172,21 +206,43 @@ const GestionUsuarioPage = () => {
   // ==================== FUNCIONES DE ACCIONES ====================
   const handleGuardado = async (exito) => {
     if (exito) {
-      Alert.alert(
-        'Éxito',
-        usuarioSeleccionado 
-          ? 'Usuario actualizado correctamente' 
-          : 'Usuario creado correctamente'
-      );
-      await cargarUsuarios();
+      // ✅ PRIMERO CERRAR EL FORMULARIO
+      cerrarFormulario();
+      
+      // ✅ LUEGO RECARGAR USUARIOS
+      setLoading(true);
+      try {
+        await cargarUsuarios();
+        
+        Alert.alert(
+          'Éxito',
+          usuarioSeleccionado 
+            ? 'Usuario actualizado correctamente' 
+            : 'Usuario creado correctamente'
+        );
+      } catch (error) {
+        console.error('Error recargando usuarios:', error);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Si falló, solo cerrar
       cerrarFormulario();
     }
   };
 
   const confirmarEliminar = (usuario) => {
+    // Validar que usuario tenga id válido
+    if (!usuario || !usuario.id_usuario) {
+      Alert.alert('Error', 'Usuario inválido');
+      return;
+    }
+
+    const usernameSeguro = SecurityValidator.sanitizeText(usuario.username || 'este usuario');
+    
     Alert.alert(
       'Confirmar Eliminación',
-      `¿Estás seguro de eliminar al usuario ${usuario.username}?`,
+      `¿Estás seguro de eliminar al usuario ${usernameSeguro}?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         { 
@@ -199,13 +255,23 @@ const GestionUsuarioPage = () => {
   };
 
   const eliminarUsuario = async (id_usuario) => {
+    // Validar ID
+    const idSeguro = parseInt(id_usuario);
+    if (isNaN(idSeguro) || idSeguro <= 0) {
+      Alert.alert('Error', 'ID de usuario inválido');
+      return;
+    }
+
     try {
-      await usuarioService.delete(id_usuario);
+      await usuarioService.delete(idSeguro);
       Alert.alert('Éxito', 'Usuario eliminado correctamente');
       await cargarUsuarios();
     } catch (error) {
       console.error('Error eliminando usuario:', error);
-      Alert.alert('Error', 'No se pudo eliminar el usuario');
+      const mensajeError = SecurityValidator.sanitizeText(
+        error.message || 'No se pudo eliminar el usuario'
+      );
+      Alert.alert('Error', mensajeError);
     }
   };
 
@@ -214,9 +280,13 @@ const GestionUsuarioPage = () => {
     const lista = Array.isArray(usuarios) ? usuarios : [];
     if (idRol === 'todos') return lista.length;
 
+    // Validar que idRol sea un número válido
+    const rolIdSeguro = parseInt(idRol);
+    if (isNaN(rolIdSeguro)) return 0;
+
     return lista.filter(u => 
       Array.isArray(u.roles) &&
-      u.roles.some(r => r.id_rol === parseInt(idRol))
+      u.roles.some(r => r.id_rol === rolIdSeguro)
     ).length;
   };
 
@@ -224,14 +294,25 @@ const GestionUsuarioPage = () => {
   const totalPaginas = Math.ceil(totalUsuarios / limit);
 
   const cambiarPagina = (nuevaPagina) => {
-    if (nuevaPagina < 1 || nuevaPagina > totalPaginas) return;
+    // Validar que sea un número positivo
+    const paginaSegura = parseInt(nuevaPagina);
+    if (isNaN(paginaSegura) || paginaSegura < 1 || paginaSegura > totalPaginas) {
+      return;
+    }
     
-    setPaginaActual(nuevaPagina);
-    setSkip((nuevaPagina - 1) * limit);
+    setPaginaActual(paginaSegura);
+    setSkip((paginaSegura - 1) * limit);
   };
 
   const cambiarLimit = (nuevoLimit) => {
-    setLimit(nuevoLimit);
+    // Validar rango (mínimo 10, máximo 200)
+    const limitSeguro = parseInt(nuevoLimit);
+    if (isNaN(limitSeguro) || limitSeguro < 10 || limitSeguro > 200) {
+      Alert.alert('Error', 'El límite debe estar entre 10 y 200');
+      return;
+    }
+    
+    setLimit(limitSeguro);
     setSkip(0);
     setPaginaActual(1);
   };
@@ -301,9 +382,9 @@ const GestionUsuarioPage = () => {
                     <Users size={32} color="#FFFFFF" />
                     <View>
                       <Text style={styles.headerTitle}>Gestión de Usuarios</Text>
-                      <Text style={styles.headerSubtitle}>
-                        {totalUsuarios} usuarios registrados
-                      </Text>
+                        <Text style={styles.headerSubtitle}>
+                          {parseInt(totalUsuarios) || 0} usuarios registrados
+                        </Text>
                     </View>
                   </View>
                   <TouchableOpacity 
@@ -325,7 +406,15 @@ const GestionUsuarioPage = () => {
                     placeholder="Buscar por nombre, usuario, email o cédula"
                     placeholderTextColor="#9CA3AF"
                     value={busqueda}
-                    onChangeText={setBusqueda}
+                    onChangeText={(text) => {
+                      // Sanitizar y truncar a 100 caracteres
+                      const busquedaLimpia = SecurityValidator.truncateText(
+                        SecurityValidator.sanitizeText(text),
+                        100
+                      );
+                      setBusqueda(busquedaLimpia);
+                    }}
+                    maxLength={100}
                   />
                   {busqueda.length > 0 && (
                     <TouchableOpacity onPress={() => setBusqueda('')}>
@@ -356,6 +445,8 @@ const GestionUsuarioPage = () => {
                     </Text>
                   </TouchableOpacity>
 
+
+
                   {roles.map(rol => (
                     <TouchableOpacity
                       key={rol.id_rol}
@@ -370,10 +461,12 @@ const GestionUsuarioPage = () => {
                         styles.filterChipText,
                         filtroRol === String(rol.id_rol) && styles.filterChipTextActive
                       ]}>
-                        {rol.nombre_rol} ({contarPorRol(rol.id_rol)})
+                        {SecurityValidator.sanitizeText(rol.nombre_rol || 'Sin nombre')} ({contarPorRol(rol.id_rol)})
                       </Text>
                     </TouchableOpacity>
                   ))}
+
+
                 </ScrollView>
               </View>
             </LinearGradient>

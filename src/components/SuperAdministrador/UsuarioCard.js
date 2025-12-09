@@ -12,6 +12,8 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import SecurityValidator from '../../components/utils/SecurityValidator';
+
 
 const UsuarioCard = ({ usuario, onEditar, onEliminar, index }) => {
   const [expanded, setExpanded] = useState(false);
@@ -45,7 +47,8 @@ const UsuarioCard = ({ usuario, onEditar, onEliminar, index }) => {
   const formatearFecha = (fecha) => {
     if (!fecha) return 'N/A';
     try {
-      return new Date(fecha).toLocaleDateString('es-ES', {
+      const fechaSegura = SecurityValidator.sanitizeText(String(fecha));
+      return new Date(fechaSegura).toLocaleDateString('es-ES', {
         year: 'numeric',
         month: 'short',
         day: 'numeric'
@@ -58,7 +61,8 @@ const UsuarioCard = ({ usuario, onEditar, onEliminar, index }) => {
   const formatearFechaCompleta = (fecha) => {
     if (!fecha) return 'Nunca';
     try {
-      return new Date(fecha).toLocaleString('es-ES', {
+      const fechaSegura = SecurityValidator.sanitizeText(String(fecha));
+      return new Date(fechaSegura).toLocaleString('es-ES', {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
@@ -69,7 +73,6 @@ const UsuarioCard = ({ usuario, onEditar, onEliminar, index }) => {
       return 'N/A';
     }
   };
-
   // ==================== RENDER ====================
   return (
     <View style={styles.card}>
@@ -88,15 +91,21 @@ const UsuarioCard = ({ usuario, onEditar, onEliminar, index }) => {
 
         <View style={styles.mainInfo}>
           <Text style={styles.nombreCompleto}>
-            {usuario.persona?.nombre} {usuario.persona?.apellido}
-          </Text>
-          <Text style={styles.username}>@{usuario.username}</Text>
-          <Text style={styles.email}>{usuario.email}</Text>
+          {SecurityValidator.sanitizeText(usuario.persona?.nombre || '')} {SecurityValidator.sanitizeText(usuario.persona?.apellido || '')}
+        </Text>
+        <Text style={styles.username}>
+          @{SecurityValidator.sanitizeText(usuario.username || '')}
+        </Text>
+        <Text style={styles.email}>
+          {SecurityValidator.sanitizeText(usuario.email || '')}
+        </Text>
         </View>
 
         <View style={styles.statusContainer}>
           <View style={[styles.estadoBadge, { backgroundColor: getEstadoColor(usuario.estado) }]}>
-            <Text style={styles.estadoText}>{usuario.estado}</Text>
+            <Text style={styles.estadoText}>
+              {SecurityValidator.sanitizeText(usuario.estado || 'N/A')}
+            </Text>
           </View>
         </View>
       </View>
@@ -115,7 +124,7 @@ const UsuarioCard = ({ usuario, onEditar, onEliminar, index }) => {
                 color={getNivelColor(rol.nivel_jerarquia)}
               />
               <Text style={[styles.rolText, { color: getNivelColor(rol.nivel_jerarquia) }]}>
-                {rol.nombre_rol}
+                {SecurityValidator.sanitizeText(rol.nombre_rol || 'Sin nombre')}
               </Text>
             </View>
           ))
@@ -142,63 +151,78 @@ const UsuarioCard = ({ usuario, onEditar, onEliminar, index }) => {
           {usuario.departamento && (
             <View style={styles.infoSection}>
               <Text style={styles.sectionTitle}>🏢 Departamento</Text>
-              <InfoRow icon="business" label="Nombre" value={usuario.departamento.nombre} />
-              <InfoRow icon="code-slash" label="Código" value={usuario.departamento.codigo} />
-              <InfoRow icon="school" label="Facultad" value={usuario.departamento.facultad} />
-              <InfoRow icon="location" label="Ubicación" value={usuario.departamento.ubicacion} />
+              <InfoRow 
+                icon="business" 
+                label="Nombre" 
+                value={SecurityValidator.sanitizeText(usuario.departamento.nombre || '')} 
+              />
+              <InfoRow 
+                icon="code-slash" 
+                label="Código" 
+                value={SecurityValidator.sanitizeText(usuario.departamento.codigo || '')} 
+              />
+              <InfoRow 
+                icon="school" 
+                label="Facultad" 
+                value={SecurityValidator.sanitizeText(usuario.departamento.facultad || '')} 
+              />
+              <InfoRow 
+                icon="location" 
+                label="Ubicación" 
+                value={SecurityValidator.sanitizeText(usuario.departamento.ubicacion || '')} 
+              />
             </View>
           )}
 
           {/* Detalles de Roles */}
-          {usuario.roles && usuario.roles.length > 0 && (
-            <View style={styles.infoSection}>
-              <Text style={styles.sectionTitle}>🎭 Detalles de Roles</Text>
-              {usuario.roles.map((rol) => (
-                <View key={rol.id_rol} style={styles.rolDetail}>
-                  <View style={styles.rolDetailHeader}>
-                    <Text style={styles.rolDetailName}>{rol.nombre_rol}</Text>
-                    <View style={[styles.nivelBadge, { backgroundColor: getNivelColor(rol.nivel_jerarquia) }]}>
-                      <Text style={styles.nivelText}>Nivel {rol.nivel_jerarquia}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.rolDetailDesc}>{rol.descripcion}</Text>
-                  <Text style={styles.rolDetailFecha}>
-                    📅 Asignado: {formatearFecha(rol.fecha_asignacion)}
-                  </Text>
-                  {rol.fecha_expiracion && (
-                    <Text style={styles.rolDetailExpira}>
-                      ⏰ Expira: {formatearFecha(rol.fecha_expiracion)}
-                    </Text>
-                  )}
+          {usuario.roles.map((rol) => (
+            <View key={rol.id_rol} style={styles.rolDetail}>
+              <View style={styles.rolDetailHeader}>
+                <Text style={styles.rolDetailName}>
+                  {SecurityValidator.sanitizeText(rol.nombre_rol || '')}
+                </Text>
+                <View style={[styles.nivelBadge, { backgroundColor: getNivelColor(rol.nivel_jerarquia) }]}>
+                  <Text style={styles.nivelText}>Nivel {rol.nivel_jerarquia}</Text>
                 </View>
-              ))}
+              </View>
+              <Text style={styles.rolDetailDesc}>
+                {SecurityValidator.sanitizeText(rol.descripcion || '')}
+              </Text>
+              <Text style={styles.rolDetailFecha}>
+                📅 Asignado: {formatearFecha(rol.fecha_asignacion)}
+              </Text>
+              {rol.fecha_expiracion && (
+                <Text style={styles.rolDetailExpira}>
+                  ⏰ Expira: {formatearFecha(rol.fecha_expiracion)}
+                </Text>
+              )}
             </View>
-          )}
+          ))}
 
           {/* Información de Sesión */}
-          <View style={styles.infoSection}>
-            <Text style={styles.sectionTitle}>📊 Información de Sesión</Text>
-            <InfoRow 
-              icon="time" 
-              label="Último acceso" 
-              value={formatearFechaCompleta(usuario.ultimo_acceso)} 
-            />
-            <InfoRow 
-              icon="alert-circle" 
-              label="Intentos fallidos" 
-              value={`${usuario.intentos_fallidos || 0}`} 
-            />
-            <InfoRow 
-              icon="globe" 
-              label="Última IP" 
-              value={usuario.ultimo_ip || 'N/A'} 
-            />
-            <InfoRow 
-              icon="calendar" 
-              label="Creado" 
-              value={formatearFecha(usuario.fecha_creacion)} 
-            />
-          </View>
+        <View style={styles.infoSection}>
+          <Text style={styles.sectionTitle}>📊 Información de Sesión</Text>
+          <InfoRow 
+            icon="time" 
+            label="Último acceso" 
+            value={formatearFechaCompleta(usuario.ultimo_acceso)} 
+          />
+          <InfoRow 
+            icon="alert-circle" 
+            label="Intentos fallidos" 
+            value={`${parseInt(usuario.intentos_fallidos) || 0}`} 
+          />
+          <InfoRow 
+            icon="globe" 
+            label="Última IP" 
+            value={SecurityValidator.sanitizeText(usuario.ultimo_ip || 'N/A')} 
+          />
+          <InfoRow 
+            icon="calendar" 
+            label="Creado" 
+            value={formatearFecha(usuario.fecha_creacion)} 
+          />
+        </View>
         </View>
       )}
 
@@ -245,13 +269,19 @@ const UsuarioCard = ({ usuario, onEditar, onEliminar, index }) => {
 const InfoRow = ({ icon, label, value }) => {
   if (!value || value === 'N/A') return null;
   
+  // Sanitizar tanto label como value
+  const labelSeguro = SecurityValidator.sanitizeText(String(label));
+  const valueSeguro = SecurityValidator.sanitizeText(String(value));
+  
   return (
     <View style={styles.infoRow}>
       <View style={styles.infoRowLabel}>
         <Ionicons name={icon} size={16} color="#6b7280" />
-        <Text style={styles.infoRowLabelText}>{label}:</Text>
+        <Text style={styles.infoRowLabelText}>{labelSeguro}:</Text>
       </View>
-      <Text style={styles.infoRowValue} numberOfLines={2}>{value}</Text>
+      <Text style={styles.infoRowValue} numberOfLines={2}>
+        {valueSeguro}
+      </Text>
     </View>
   );
 };

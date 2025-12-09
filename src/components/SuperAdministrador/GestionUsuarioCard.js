@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   ScrollView,
   Text,
@@ -13,6 +14,8 @@ import { personaService } from '../../api/services/personaService';
 import { usuarioRolService } from '../../api/services/usuarioRolService';
 import { usuarioService } from '../../api/services/usuarioService';
 
+import { cedulaService } from '../../api/services/cedulaService';
+import SecurityValidator from '../../components/utils/SecurityValidator';
 import { styles } from '../../styles/GestionUsuariosStyles';
 import DateInput from '../common/DateInput';
 import Toast from '../common/Toast';
@@ -27,6 +30,8 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
   
   // Al inicio del componente, después de los otros estados
   const [toast, setToast] = useState({ visible: false, message: '', type: 'error' });
+  const [consultandoCedula, setConsultandoCedula] = useState(false);
+  const [cedulaConsultada, setCedulaConsultada] = useState(false);
 
   const mostrarToast = (message, type = 'error') => {
     setToast({ visible: true, message, type });
@@ -106,28 +111,102 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
     }
   };
 
+
+  // ==================== CONSULTA DE CÉDULA ====================
+// ==================== CONSULTA DE CÉDULA ====================
+  const consultarCedula = async () => {
+    const cedulaLimpia = SecurityValidator.sanitizeText(cedula).replace(/[^0-9]/g, '');
+    
+    if (cedulaLimpia.length !== 10) {
+      mostrarToast('Ingresa los 10 dígitos de la cédula primero', 'warning');
+      return;
+    }
+
+    setConsultandoCedula(true);
+    
+    try {
+      // ✅ LLAMAR DIRECTAMENTE AL SERVICIO
+      const data = await cedulaService.consultarCedula(cedulaLimpia);
+      
+      if (!Array.isArray(data) || data.length === 0) {
+        throw new Error('No se encontró información para esta cédula');
+      }
+      
+      const persona = data[0];
+      
+      // ✅ CONCATENAR NOMBRES
+      const nombreCompleto = [
+        SecurityValidator.sanitizeText(persona.primer_nombre || ''),
+        SecurityValidator.sanitizeText(persona.segundo_nombre || '')
+      ].filter(Boolean).join(' ');
+      
+      // ✅ CONCATENAR APELLIDOS
+      const apellidoCompleto = [
+        SecurityValidator.sanitizeText(persona.primer_apellido || ''),
+        SecurityValidator.sanitizeText(persona.segundo_apellido || '')
+      ].filter(Boolean).join(' ');
+      
+      // Llenar campos
+      setNombre(nombreCompleto);
+      setApellido(apellidoCompleto);
+      setTelefono(SecurityValidator.sanitizeText(persona.celular || ''));
+      setDireccion(SecurityValidator.sanitizeText(persona.direccion || ''));
+      
+      if (persona.correo) {
+        setEmail(SecurityValidator.sanitizeText(persona.correo).toLowerCase());
+      }
+      
+      setCedulaConsultada(true);
+      mostrarToast('✅ Datos cargados correctamente', 'success');
+      setErrors({});
+      
+    } catch (error) {
+      console.error('Error consultando cédula:', error);
+      mostrarToast(error.message || 'Error al consultar la cédula', 'error');
+    } finally {
+      setConsultandoCedula(false);
+    }
+  };
   // ==================== VALIDACIÓN POR PASO ====================
   const validarPaso = (paso) => {
     const newErrors = {};
 
     if (paso === 1) {
-      // Validar cédula (10 dígitos)
-      const cedulaLimpia = cedula.trim().replace(/[-\s]/g, '');
+      // Sanitizar y truncar
+      const nombreLimpio = SecurityValidator.truncateText(
+        SecurityValidator.sanitizeText(nombre), 
+        100
+      );
+      const apellidoLimpio = SecurityValidator.truncateText(
+        SecurityValidator.sanitizeText(apellido), 
+        100
+      );
+      const cedulaLimpia = SecurityValidator.sanitizeText(cedula).replace(/[-\s]/g, '');
+      
+      // Validaciones existentes...
       if (!cedulaLimpia) {
         newErrors.cedula = 'La cédula es requerida';
       } else if (cedulaLimpia.length !== 10 || !/^\d{10}$/.test(cedulaLimpia)) {
         newErrors.cedula = 'La cédula debe tener exactamente 10 dígitos';
       }
       
-      if (!nombre.trim()) newErrors.nombre = 'El nombre es requerido';
-      if (!apellido.trim()) newErrors.apellido = 'El apellido es requerido';
+      if (!nombreLimpio.trim()) newErrors.nombre = 'El nombre es requerido';
+      if (nombreLimpio.length < 2) newErrors.nombre = 'Mínimo 2 caracteres';
       
-      // Validar teléfono si existe
+      if (!apellidoLimpio.trim()) newErrors.apellido = 'El apellido es requerido';
+      if (apellidoLimpio.length < 2) newErrors.apellido = 'Mínimo 2 caracteres';
+      
+      // Validar teléfono
       if (telefono.trim()) {
-        const telefonoLimpio = telefono.trim().replace(/[-\s()]/g, '');
+        const telefonoLimpio = SecurityValidator.sanitizeText(telefono).replace(/[-\s()]/g, '');
         if (telefonoLimpio.length < 7 || telefonoLimpio.length > 15 || !/^\d+$/.test(telefonoLimpio)) {
           newErrors.telefono = 'Teléfono inválido (7-15 dígitos)';
         }
+      }
+      
+      // Validar dirección si existe
+      if (direccion.trim() && direccion.length > 200) {
+        newErrors.direccion = 'Máximo 200 caracteres';
       }
     }
 
@@ -143,9 +222,20 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
     }
 
     if (paso === 3) {
-      if (!username.trim()) newErrors.username = 'El usuario es requerido';
-      if (!email.trim()) newErrors.email = 'El email es requerido';
-      if (!email.includes('@')) newErrors.email = 'Email inválido';
+      const usernameLimpio = SecurityValidator.truncateText(
+        SecurityValidator.sanitizeText(username), 
+        50
+      );
+      const emailLimpio = SecurityValidator.sanitizeText(email).toLowerCase().trim();
+      
+      if (!usernameLimpio.trim()) newErrors.username = 'El usuario es requerido';
+      if (usernameLimpio.length < 4) newErrors.username = 'Mínimo 4 caracteres';
+      
+      if (!emailLimpio.trim()) newErrors.email = 'El email es requerido';
+      if (!SecurityValidator.isValidEmail(emailLimpio)) {
+        newErrors.email = 'Email inválido';
+      }
+
       
       if (!usuario) {
         if (!password) {
@@ -227,23 +317,37 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
 
 const crearUsuario = async () => {
   try {
-    const cedulaLimpia = cedula.trim().replace(/[-\s]/g, '');
-    const telefonoLimpio = telefono ? telefono.trim().replace(/[-\s()]/g, '') : null;
+    const cedulaLimpia = SecurityValidator.sanitizeText(cedula).replace(/[-\s]/g, '');
+    const telefonoLimpio = telefono ? 
+      SecurityValidator.sanitizeText(telefono).replace(/[-\s()]/g, '') : null;
+    const nombreLimpio = SecurityValidator.truncateText(
+      SecurityValidator.sanitizeText(nombre), 100
+    );
+    const apellidoLimpio = SecurityValidator.truncateText(
+      SecurityValidator.sanitizeText(apellido), 100
+    );
+    const direccionLimpia = direccion ? 
+      SecurityValidator.truncateText(SecurityValidator.sanitizeText(direccion), 200) : null;
+    const usernameLimpio = SecurityValidator.truncateText(
+      SecurityValidator.sanitizeText(username), 50
+    );
+    const emailLimpio = SecurityValidator.sanitizeText(email).toLowerCase().trim();
+
 
     // ✅ USAR createCompleto (transacción atómica)
     const usuarioCompletoData = {
-      username: username.trim(),
-      email: email.trim().toLowerCase(),
-      password: password,
+      username: usernameLimpio,
+      email: emailLimpio,
+      password: password, // NO sanitizar passwords
       estado: estado,
       persona: {
         cedula: cedulaLimpia,
-        nombre: nombre.trim(),
-        apellido: apellido.trim(),
+        nombre: nombreLimpio,
+        apellido: apellidoLimpio,
         fecha_nacimiento: fechaNacimiento || null,
         genero: genero ? genero.toLowerCase() : null,
         telefono: telefonoLimpio,
-        direccion: direccion.trim() || null,
+        direccion: direccionLimpia,
         tipo_persona: tipoPersona.toLowerCase(),
         celular: null,
         email_personal: email.trim().toLowerCase(),
@@ -291,13 +395,24 @@ const actualizarUsuario = async () => {
   try {
     // ========== 1. ACTUALIZAR PERSONA ==========
     if (usuario.id_persona) {
+      const cedulaLimpia = SecurityValidator.sanitizeText(cedula).replace(/[-\s]/g, '');
+      const telefonoLimpio = telefono ? 
+        SecurityValidator.sanitizeText(telefono).replace(/[-\s()]/g, '') : null;
+      const nombreLimpio = SecurityValidator.truncateText(
+        SecurityValidator.sanitizeText(nombre), 100
+      );
+      const apellidoLimpio = SecurityValidator.truncateText(
+        SecurityValidator.sanitizeText(apellido), 100
+      );
+      const direccionLimpia = direccion ? 
+        SecurityValidator.truncateText(SecurityValidator.sanitizeText(direccion), 200) : null;
+
       const personaData = {
-        nombre: nombre.trim(),
-        apellido: apellido.trim(),
-        cedula: cedula.trim(),
-        telefono: telefono.trim() || null,
-        direccion: direccion.trim() || null,
-        // ✅ AGREGAR ESTOS CAMPOS
+        nombre: nombreLimpio,
+        apellido: apellidoLimpio,
+        cedula: cedulaLimpia,
+        telefono: telefonoLimpio,
+        direccion: direccionLimpia,
         fecha_nacimiento: fechaNacimiento || null,
         genero: genero ? genero.toLowerCase() : null,
         tipo_persona: tipoPersona ? tipoPersona.toLowerCase() : null
@@ -307,13 +422,20 @@ const actualizarUsuario = async () => {
     }
 
     // ========== 2. ACTUALIZAR USUARIO ==========
+    const usernameLimpio = SecurityValidator.truncateText(
+      SecurityValidator.sanitizeText(username), 50
+    );
+    const emailLimpio = SecurityValidator.sanitizeText(email).toLowerCase().trim();
+    
+
     const usuarioData = {
-      username: username.trim(),
-      email: email.trim(),
+      username: usernameLimpio,
+      email: emailLimpio,
       estado: estado
     };
     
-    if (password) {
+    // Solo incluir password si se cambió
+    if (password && password.trim()) {
       usuarioData.password = password;
     }
 
@@ -324,17 +446,18 @@ const actualizarUsuario = async () => {
     const rolesAEliminar = rolesActuales.filter(r => !rolesSeleccionados.includes(r));
     const rolesAAgregar = rolesSeleccionados.filter(r => !rolesActuales.includes(r));
 
+    // Revocar roles que ya no están seleccionados
     for (const id_rol of rolesAEliminar) {
       await usuarioRolService.revocarRol(usuario.id_usuario, id_rol);
     }
 
+    // Asignar nuevos roles
     for (const id_rol of rolesAAgregar) {
-      await usuarioRolService.asignarRolAUsuario(usuario.id_usuario, {
-        id_rol: id_rol
-      });
+      await usuarioRolService.asignarRol(usuario.id_usuario, id_rol);
     }
 
   } catch (error) {
+    // Extraer mensaje del backend
     let mensajeError = 'Error al actualizar usuario';
     
     if (error.data?.details && Array.isArray(error.data.details) && error.data.details.length > 0) {
@@ -356,7 +479,6 @@ const actualizarUsuario = async () => {
 };
 
 
-
   const toggleRol = (rolId) => {
     if (rolesSeleccionados.includes(rolId)) {
       setRolesSeleccionados(rolesSeleccionados.filter(r => r !== rolId));
@@ -375,28 +497,96 @@ const actualizarUsuario = async () => {
       <Text style={styles.sectionTitle}>📋 Información Personal Básica</Text>
 
       <View style={styles.formRow}>
-        <View style={styles.formColumn}>
-          <Text style={styles.label}>
-            CÉDULA <Text style={styles.labelRequired}>*</Text>
-          </Text>
-          <View style={[styles.inputContainer, errors.cedula && styles.inputError]}>
-            <Ionicons name="card-outline" size={20} color="#667eea" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="10 dígitos (ej: 0102417144)"
-              placeholderTextColor="#9CA3AF"
-              value={cedula}
-              onChangeText={(text) => {
-                const limpio = text.replace(/[^0-9]/g, '');
-                setCedula(limpio);
-                if (errors.cedula) setErrors({...errors, cedula: undefined});
-              }}
-              keyboardType="numeric"
-              maxLength={10}
-            />
-          </View>
-          {errors.cedula && <Text style={styles.errorText}>{errors.cedula}</Text>}
+
+
+
+    <View style={styles.formColumn}>
+      <Text style={styles.label}>
+        CÉDULA <Text style={styles.labelRequired}>*</Text>
+      </Text>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <View style={[
+          styles.inputContainer, 
+          errors.cedula && styles.inputError,
+          { flex: 1 }
+        ]}>
+          <Ionicons name="card-outline" size={20} color="#667eea" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="10 dígitos (ej: 0102417144)"
+            placeholderTextColor="#9CA3AF"
+            value={cedula}
+            onChangeText={(text) => {
+              const limpio = SecurityValidator.sanitizeText(text).replace(/[^0-9]/g, '');
+              setCedula(limpio);
+              setCedulaConsultada(false); // Reset al cambiar
+              if (errors.cedula) setErrors({...errors, cedula: undefined});
+            }}
+            keyboardType="numeric"
+            maxLength={10}
+            editable={!usuario} // Solo editable en modo crear
+          />
         </View>
+        
+        {/* ✅ BOTÓN DE CONSULTA */}
+        {!usuario && cedula.length === 10 && !cedulaConsultada && (
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#667eea',
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              borderRadius: 8,
+              justifyContent: 'center',
+              alignItems: 'center',
+              minWidth: 100,
+            }}
+            onPress={consultarCedula}
+            disabled={consultandoCedula}
+            activeOpacity={0.7}
+          >
+            {consultandoCedula ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 14 }}>
+                CONSULTAR
+              </Text>
+            )}
+          </TouchableOpacity>
+        )}
+        
+        {/* ✅ INDICADOR DE CONSULTADO */}
+        {cedulaConsultada && (
+          <View style={{
+            backgroundColor: '#10b981',
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            borderRadius: 8,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+            <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
+          </View>
+        )}
+      </View>
+      {errors.cedula && <Text style={styles.errorText}>{errors.cedula}</Text>}
+      
+      {/* ✅ MENSAJE INFORMATIVO */}
+      {!usuario && !cedulaConsultada && cedula.length === 10 && (
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginTop: 8,
+          padding: 8,
+          backgroundColor: '#EFF6FF',
+          borderRadius: 8,
+        }}>
+          <Ionicons name="information-circle" size={16} color="#667eea" />
+          <Text style={{ marginLeft: 6, fontSize: 12, color: '#667eea' }}>
+            Presiona CONSULTAR para cargar datos automáticamente
+          </Text>
+        </View>
+      )}
+    </View>
 
         <View style={styles.formColumn}>
           <Text style={styles.label}>FECHA NACIMIENTO</Text>
@@ -426,7 +616,8 @@ const actualizarUsuario = async () => {
               placeholderTextColor="#9CA3AF"
               value={nombre}
               onChangeText={(text) => {
-                const limpio = text.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+                const limpio = SecurityValidator.sanitizeText(text).replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+
                 setNombre(limpio);
                 if (errors.nombre) setErrors({...errors, nombre: undefined});
               }}
@@ -447,7 +638,8 @@ const actualizarUsuario = async () => {
               placeholderTextColor="#9CA3AF"
               value={apellido}
               onChangeText={(text) => {
-                const limpio = text.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+                const limpio = SecurityValidator.sanitizeText(text).replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+
                 setApellido(limpio);
                 if (errors.apellido) setErrors({...errors, apellido: undefined});
               }}
@@ -468,7 +660,7 @@ const actualizarUsuario = async () => {
               placeholderTextColor="#9CA3AF"
               value={telefono}
               onChangeText={(text) => {
-                const limpio = text.replace(/[^0-9]/g, '');
+                const limpio = SecurityValidator.sanitizeText(text).replace(/[^0-9]/g, '');
                 setTelefono(limpio);
               }}
               keyboardType="phone-pad"
@@ -486,7 +678,9 @@ const actualizarUsuario = async () => {
               placeholder="Calle principal #123"
               placeholderTextColor="#9CA3AF"
               value={direccion}
-              onChangeText={setDireccion}
+              onChangeText={(text) => {
+                setDireccion(SecurityValidator.sanitizeText(text));
+              }}
             />
           </View>
         </View>

@@ -130,6 +130,11 @@ export const ENDPOINTS = {
     MENSAJES: (id) => `/visitantes/${id}/mensajes`,
   },
 
+    CEDULAS: {
+    BASE: '/cedulas',
+    BY_CEDULA: (cedula) => `/cedulas/${cedula}`,
+  },
+
   // Usuario-Agente
   USUARIO_AGENTE: {
     BASE: '/usuario-agente',
