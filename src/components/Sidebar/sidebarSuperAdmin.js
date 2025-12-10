@@ -56,6 +56,7 @@ export default function SuperAdminSidebar({ isOpen }) {
       submenu: [
         { label: 'Agentes Inteligentes', route: '/superadmin/agente' },
         { label: 'Categoria', route: '/superadmin/categoria' },
+        { label: 'Unidad Contenido', route: '/superadmin/contenido' },
       ]
     },
     {

@@ -1,4 +1,4 @@
-import { jwtDecode } from "jwt-decode";
+import jwtDecode from "jwt-decode";
 import { apiClient } from "../../api/client"; // ← IMPORTAR ESTO
 
 export const getUserIdFromToken = async () => {

@@ -18,6 +18,7 @@ import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles'
 import GestionCategoriaCard from '../../components/SuperAdministrador/GestionCategoriaCard';
 import { styles } from '../../styles/gestionCategoriaStyles';
 
+
 export default function GestionCategoriaPage() {
   // ============ STATE ============
   const [categorias, setCategorias] = useState([]);
@@ -787,6 +788,180 @@ export default function GestionCategoriaPage() {
                         <Ionicons name="alert-circle" size={14} color="#ef4444" />
                         <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>
                           {errors.id_agente}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* ========== NUEVO: Selector de Categoría Padre ========== */}
+                  <View style={styles.formGroup}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                      <Ionicons name="git-branch" size={16} color="#667eea" />
+                      <Text style={styles.label}>
+                        Categoría Padre
+                        <Text style={{ fontSize: 11, fontWeight: '400', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'none' }}>
+                          {' '}(opcional - para subcategorías)
+                        </Text>
+                      </Text>
+                    </View>
+
+                    {/* Opción: Sin categoría padre (categoría principal) */}
+                    <TouchableOpacity
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: 14,
+                        borderRadius: 12,
+                        borderWidth: 2,
+                        borderColor: formData.id_categoria_padre === null 
+                          ? '#667eea' 
+                          : 'rgba(255, 255, 255, 0.15)',
+                        backgroundColor: formData.id_categoria_padre === null 
+                          ? 'rgba(102, 126, 234, 0.2)' 
+                          : 'rgba(255, 255, 255, 0.05)',
+                        marginBottom: 8,
+                      }}
+                      onPress={() => handleInputChange('id_categoria_padre', null)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 10,
+                        backgroundColor: 'rgba(102, 126, 234, 0.3)',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                      }}>
+                        <Ionicons name="home" size={22} color="#667eea" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{
+                          color: formData.id_categoria_padre === null ? '#667eea' : 'white',
+                          fontWeight: '700',
+                          fontSize: 15,
+                        }}>
+                          Categoría Principal
+                        </Text>
+                        <Text style={{
+                          color: 'rgba(255, 255, 255, 0.5)',
+                          fontSize: 12,
+                          marginTop: 2,
+                        }}>
+                          Sin categoría padre
+                        </Text>
+                      </View>
+                      {formData.id_categoria_padre === null && (
+                        <Ionicons name="checkmark-circle" size={24} color="#667eea" />
+                      )}
+                    </TouchableOpacity>
+
+                    {/* Lista de categorías disponibles como padre */}
+                    {categorias
+                      .filter(cat => {
+                        // Filtrar: solo categorías del mismo agente
+                        if (!formData.id_agente || cat.id_agente !== formData.id_agente) return false;
+                        
+                        // Filtrar: no puede ser padre de sí misma (al editar)
+                        if (editingCategoria && cat.id_categoria === editingCategoria.id_categoria) return false;
+                        
+                        // Filtrar: no mostrar categorías que ya son hijas de esta (evitar ciclos)
+                        if (editingCategoria && cat.id_categoria_padre === editingCategoria.id_categoria) return false;
+                        
+                        return true;
+                      })
+                      .map((cat) => (
+                        <TouchableOpacity
+                          key={cat.id_categoria}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 12,
+                            padding: 14,
+                            borderRadius: 12,
+                            borderWidth: 2,
+                            borderColor: formData.id_categoria_padre === cat.id_categoria 
+                              ? '#667eea' 
+                              : 'rgba(255, 255, 255, 0.15)',
+                            backgroundColor: formData.id_categoria_padre === cat.id_categoria 
+                              ? 'rgba(102, 126, 234, 0.2)' 
+                              : 'rgba(255, 255, 255, 0.05)',
+                            marginBottom: 8,
+                          }}
+                          onPress={() => handleInputChange('id_categoria_padre', cat.id_categoria)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 10,
+                            backgroundColor: cat.color || '#667eea',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                          }}>
+                            <Ionicons name={cat.icono || 'folder'} size={22} color="white" />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{
+                              color: formData.id_categoria_padre === cat.id_categoria ? '#667eea' : 'white',
+                              fontWeight: '700',
+                              fontSize: 15,
+                            }}>
+                              {cat.nombre}
+                            </Text>
+                            {cat.descripcion && (
+                              <Text 
+                                style={{
+                                  color: 'rgba(255, 255, 255, 0.5)',
+                                  fontSize: 12,
+                                  marginTop: 2,
+                                }}
+                                numberOfLines={1}
+                              >
+                                {cat.descripcion}
+                              </Text>
+                            )}
+                          </View>
+                          {formData.id_categoria_padre === cat.id_categoria && (
+                            <Ionicons name="checkmark-circle" size={24} color="#667eea" />
+                          )}
+                        </TouchableOpacity>
+                      ))
+                    }
+
+                    {/* Mensaje si no hay categorías disponibles */}
+                    {formData.id_agente && categorias.filter(cat => 
+                      cat.id_agente === formData.id_agente && 
+                      (!editingCategoria || cat.id_categoria !== editingCategoria.id_categoria)
+                    ).length === 0 && (
+                      <View style={{
+                        padding: 16,
+                        alignItems: 'center',
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        borderRadius: 12,
+                        marginTop: 8,
+                      }}>
+                        <Ionicons name="information-circle" size={32} color="rgba(255, 255, 255, 0.3)" />
+                        <Text style={{ color: 'rgba(255, 255, 255, 0.5)', marginTop: 8, fontSize: 13, textAlign: 'center' }}>
+                          No hay categorías disponibles del agente seleccionado
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Mensaje si no se ha seleccionado agente */}
+                    {!formData.id_agente && (
+                      <View style={{
+                        padding: 16,
+                        alignItems: 'center',
+                        backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: 'rgba(251, 191, 36, 0.3)',
+                        marginTop: 8,
+                      }}>
+                        <Ionicons name="alert-circle" size={32} color="#fbbf24" />
+                        <Text style={{ color: '#fbbf24', marginTop: 8, fontSize: 13, textAlign: 'center', fontWeight: '600' }}>
+                          Primero selecciona un agente para ver categorías disponibles
                         </Text>
                       </View>
                     )}

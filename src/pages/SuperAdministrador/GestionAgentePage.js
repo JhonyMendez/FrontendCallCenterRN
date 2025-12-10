@@ -1,6 +1,4 @@
 // UBICACIÓN: src/pages/SuperAdministrador/GestionAgentePage.js
-// REEMPLAZA COMPLETAMENTE el archivo GestionAgentePage.js existente con este código
-
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
@@ -61,7 +59,6 @@ const [formData, setFormData] = useState({
   activo: true,
   icono: '🤖',
   id_departamento: '',
-  // ⭐ NUEVOS CAMPOS
   avatar_url: '',
   color_tema: '#667eea',
   mensaje_bienvenida: '',

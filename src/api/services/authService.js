@@ -1,22 +1,13 @@
-// ==================================================================================
 // src/api/services/authService.js
-// Servicio UNIVERSAL de autenticación (React Web + React Native)
-// ==================================================================================
-
 import { Platform } from 'react-native';
 
-// Detectar plataforma
 const isWeb = Platform.OS === 'web';
 
-// Importación condicional de AsyncStorage
 let AsyncStorage;
 if (!isWeb) {
   AsyncStorage = require('@react-native-async-storage/async-storage').default;
 }
 
-// ==================================================================================
-// STORAGE UNIVERSAL (localStorage para web, AsyncStorage para móvil)
-// ==================================================================================
 const storage = {
   async getItem(key) {
     if (isWeb) {
@@ -42,171 +33,140 @@ const storage = {
     }
   },
 
-  async multiSet(pairs) {
-    if (isWeb) {
-      // En web, hacemos setItem uno por uno
-      pairs.forEach(([key, value]) => {
-        localStorage.setItem(key, value);
-      });
-    } else {
-      await AsyncStorage.multiSet(pairs);
-    }
-  },
-
   async multiRemove(keys) {
     if (isWeb) {
-      keys.forEach(key => {
-        localStorage.removeItem(key);
-      });
+      keys.forEach(key => localStorage.removeItem(key));
     } else {
       await AsyncStorage.multiRemove(keys);
     }
   }
 };
 
-// ==================================================================================
-// CONSTANTES DE ROLES
-// ==================================================================================
-export const ROLES = {
-  SUPER_ADMIN: 1,
-  ADMIN: 2,
-  FUNCIONARIO: 3
-};
-
-// ==================================================================================
-// SERVICIO DE AUTENTICACIÓN
-// ==================================================================================
 const authService = {
+  procesarLogin: async (usuario) => {
+    try {
+      console.log('🔐 [authService] Procesando login para:', usuario.username);
+      
+      // ✅ GUARDAR ID DEL USUARIO
+      await storage.setItem('@usuario_id', usuario.id_usuario.toString());
+      await storage.setItem('@usuario_username', usuario.username);
+      await storage.setItem('@usuario_email', usuario.email || '');
+      await storage.setItem('@usuario_nombre_completo', usuario.nombre_completo || usuario.username);
+      
+      // Guardar flags de administrador
+      await storage.setItem('@usuario_es_admin', usuario.es_admin ? 'true' : 'false');
+      await storage.setItem('@usuario_es_superadmin', usuario.es_superadmin ? 'true' : 'false');
 
-  // ==================== OBTENER RUTA POR ROL ====================
-  getRutaPorRol: function(idRol) {
+      // Procesar roles
+      const roles = usuario.roles || [];
+      
+      if (!roles || roles.length === 0) {
+        throw new Error('Usuario sin roles asignados. Contacta al administrador');
+      }
+
+      // Determinar rol principal (el de mayor jerarquía)
+      let rolPrincipal = null;
+      
+      if (roles.some(r => r.id_rol === 1)) {
+        rolPrincipal = roles.find(r => r.id_rol === 1);
+      } else if (roles.some(r => r.id_rol === 2)) {
+        rolPrincipal = roles.find(r => r.id_rol === 2);
+      } else if (roles.some(r => r.id_rol === 3)) {
+        rolPrincipal = roles.find(r => r.id_rol === 3);
+      } else {
+        rolPrincipal = roles[0];
+      }
+
+      // Guardar rol principal
+      await storage.setItem('@rol_principal_id', rolPrincipal.id_rol.toString());
+      await storage.setItem('@rol_principal_nombre', rolPrincipal.nombre_rol);
+
+      // Determinar ruta según el rol
+      const ruta = authService.getRutaPorRol(rolPrincipal.id_rol);
+
+      return {
+        success: true,
+        usuario: usuario.username,
+        rolPrincipal: rolPrincipal.nombre_rol,
+        ruta
+      };
+      
+    } catch (error) {
+      console.error('❌ [authService] Error procesando login:', error);
+      throw error;
+    }
+  },
+
+  getRutaPorRol: (idRol) => {
+    const isWeb = Platform.OS === 'web';
+    
     switch (idRol) {
-      case ROLES.SUPER_ADMIN:
-        return isWeb ? '/superadmin/dashboard' : '/(superadmin)/dashboard';
-      case ROLES.ADMIN:
-        return isWeb ? '/admin/dashboard' : '/(admin)/dashboard';
-      case ROLES.FUNCIONARIO:
-        return isWeb ? '/funcionario/dashboard' : '/(funcionario)/dashboard';
+      case 1: // Super Admin
+        return isWeb ? '/superadmin/dashboard' : '/superadmin/dashboard';
+      case 2: // Admin
+        return isWeb ? '/admin/dashboard' : '/admin/dashboard';
+      case 3: // Funcionario
+        return isWeb ? '/funcionario/dashboard' : '/funcionario/dashboard';
       default:
         return '/login';
     }
   },
 
-  // ==================== PROCESO COMPLETO DE LOGIN ====================
-  procesarLogin: async function (usuario) {
+  limpiarSesion: async () => {
     try {
-      console.log('🔐 Iniciando proceso de autenticación...');
-      console.log('👤 Usuario:', usuario.username);
-
-      const roles = usuario.roles;
-
-      if (!roles || roles.length === 0) {
-        throw new Error('Usuario sin roles asignados. Contacta al administrador.');
-      }
-
-      console.log('✅ Roles obtenidos del login:', roles);
-
-      const rolPrincipal = usuario.rol_principal;
-
-      if (!rolPrincipal) {
-        throw new Error('No se pudo determinar el rol principal del usuario.');
-      }
-
-      console.log('👤 Rol principal:', rolPrincipal.nombre_rol);
-
-      const datosSesion = {
-        usuario: {
-          id_usuario: usuario.id_usuario,
-          username: usuario.username,
-          email: usuario.email,
-          estado: usuario.estado
-        },
-        roles: roles,
-        rolPrincipal: rolPrincipal,
-        permisos: usuario.permisos || {},
-        fechaSesion: new Date().toISOString()
-      };
-
-      // Guardar datos de sesión de forma universal
-      await storage.multiSet([
-        ['@usuario_id', usuario.id_usuario?.toString() || ''],
-        ['@usuario_username', usuario.username || ''],
-        ['@usuario_email', usuario.email || ''],
-        ['@rol_principal_id', rolPrincipal.id_rol?.toString() || ''],
-        ['@rol_principal_nombre', rolPrincipal.nombre_rol || ''],
-        ['@todos_roles', JSON.stringify(roles)],
-        ['@permisos', JSON.stringify(usuario.permisos || {})],
-        ['@datos_sesion', JSON.stringify(datosSesion)]
-      ]);
-
-      console.log('✅ Datos de sesión guardados correctamente');
-
-      const rutaDestino = this.getRutaPorRol(rolPrincipal.id_rol);
-
-      console.log('📍 Redirigiendo a:', rutaDestino);
-
-      return {
-        success: true,
-        ruta: rutaDestino,
-        rolPrincipal: rolPrincipal.nombre_rol,
-        usuario: usuario.username
-      };
-
-    } catch (error) {
-      console.error('❌ Error en proceso de login:', error);
-      throw error;
-    }
-  },
-
-  // ==================== OBTENER DATOS DE SESIÓN ====================
-  obtenerDatosSesion: async function() {
-    try {
-      const datosSesionStr = await storage.getItem('@datos_sesion');
-      
-      if (!datosSesionStr) {
-        return null;
-      }
-
-      return JSON.parse(datosSesionStr);
-    } catch (error) {
-      console.error('❌ Error obteniendo datos de sesión:', error);
-      return null;
-    }
-  },
-
-  // ==================== VERIFICAR SI ESTÁ AUTENTICADO ====================
-  estaAutenticado: async function() {
-    try {
-      const token = await storage.getItem('token');
-      const datosSesion = await this.obtenerDatosSesion();
-      
-      return !!(token && datosSesion);
-    } catch (error) {
-      console.error('❌ Error verificando autenticación:', error);
-      return false;
-    }
-  },
-
-  // ==================== LIMPIAR SESIÓN ====================
-  limpiarSesion: async function() {
-    try {
-      console.log('🧹 Limpiando sesión...');
-
       await storage.multiRemove([
         '@usuario_id',
         '@usuario_username',
         '@usuario_email',
+        '@usuario_nombre_completo',
+        '@usuario_es_admin',
+        '@usuario_es_superadmin',
         '@rol_principal_id',
         '@rol_principal_nombre',
         '@todos_roles',
         '@permisos',
         '@datos_sesion'
       ]);
-
-      console.log('🧼 Sesión eliminada correctamente');
-
+      console.log('✅ [authService] Sesión limpiada');
     } catch (error) {
-      console.error('❌ Error limpiando sesión:', error);
+      console.error('❌ [authService] Error limpiando sesión:', error);
+    }
+  },
+
+  // ✅ NUEVO: Método para obtener el id_usuario
+  getUsuarioId: async () => {
+    try {
+      const id = await storage.getItem('@usuario_id');
+      return id ? parseInt(id) : null;
+    } catch (error) {
+      console.error('❌ Error obteniendo usuario_id:', error);
+      return null;
+    }
+  },
+
+  // ✅ NUEVO: Método para obtener datos completos del usuario
+  getUsuarioActual: async () => {
+    try {
+      const [id, username, email, nombreCompleto] = await Promise.all([
+        storage.getItem('@usuario_id'),
+        storage.getItem('@usuario_username'),
+        storage.getItem('@usuario_email'),
+        storage.getItem('@usuario_nombre_completo')
+      ]);
+
+      if (!id || !username) {
+        return null;
+      }
+
+      return {
+        id_usuario: parseInt(id),
+        username,
+        email: email || '',
+        nombre_completo: nombreCompleto || username
+      };
+    } catch (error) {
+      console.error('❌ Error obteniendo usuario actual:', error);
+      return null;
     }
   }
 };
