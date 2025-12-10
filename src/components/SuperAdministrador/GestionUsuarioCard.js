@@ -397,19 +397,28 @@ const crearUsuario = async () => {
 
 const actualizarUsuario = async () => {
   try {
-    // ========== 1. ACTUALIZAR PERSONA ==========
-    if (usuario.id_persona) {
+    // 1. OBTENER ID DE PERSONA DESDE usuario.persona
+    const idPersona = usuario?.persona?.id_persona;
+
+    console.log("====== DEBUG PERSONA ======");
+    console.log("idPersona =>", idPersona);
+    console.log("===========================");
+
+    // 1. ACTUALIZAR PERSONA (solo si existe)
+    if (idPersona) {
       const cedulaLimpia = SecurityValidator.sanitizeText(cedula).replace(/[-\s]/g, '');
-      const telefonoLimpio = telefono ? 
-        SecurityValidator.sanitizeText(telefono).replace(/[-\s()]/g, '') : null;
+      const telefonoLimpio = telefono
+        ? SecurityValidator.sanitizeText(telefono).replace(/[-\s()]/g, '')
+        : null;
       const nombreLimpio = SecurityValidator.truncateText(
         SecurityValidator.sanitizeText(nombre), 100
       );
       const apellidoLimpio = SecurityValidator.truncateText(
         SecurityValidator.sanitizeText(apellido), 100
       );
-      const direccionLimpia = direccion ? 
-        SecurityValidator.truncateText(SecurityValidator.sanitizeText(direccion), 200) : null;
+      const direccionLimpia = direccion
+        ? SecurityValidator.truncateText(SecurityValidator.sanitizeText(direccion), 200)
+        : null;
 
       const personaData = {
         nombre: nombreLimpio,
@@ -419,49 +428,45 @@ const actualizarUsuario = async () => {
         direccion: direccionLimpia,
         fecha_nacimiento: fechaNacimiento || null,
         genero: genero ? genero.toLowerCase() : null,
-        tipo_persona: tipoPersona ? tipoPersona.toLowerCase() : null
+        tipo_persona: tipoPersona ? tipoPersona.toLowerCase() : null,
       };
-      
-      await personaService.update(usuario.id_persona, personaData);
+
+      // 👈 AQUÍ VA EL ID CORRECTO
+      await personaService.update(idPersona, personaData);
     }
 
-    // ========== 2. ACTUALIZAR USUARIO ==========
+    // 2. ACTUALIZAR USUARIO (esto ya lo tenías bien)
     const usernameLimpio = SecurityValidator.truncateText(
       SecurityValidator.sanitizeText(username), 50
     );
     const emailLimpio = SecurityValidator.sanitizeText(email).toLowerCase().trim();
-    
 
     const usuarioData = {
       username: usernameLimpio,
       email: emailLimpio,
-      estado: estado
+      estado: estado,
     };
-    
-    // Solo incluir password si se cambió
+
     if (password && password.trim()) {
       usuarioData.password = password;
     }
 
     await usuarioService.update(usuario.id_usuario, usuarioData);
 
-    // ========== 3. ACTUALIZAR ROLES ==========
+    // 3. ACTUALIZAR ROLES (como ya lo tienes)
     const rolesActuales = usuario.roles?.map(r => r.id_rol) || [];
     const rolesAEliminar = rolesActuales.filter(r => !rolesSeleccionados.includes(r));
     const rolesAAgregar = rolesSeleccionados.filter(r => !rolesActuales.includes(r));
 
-    // Revocar roles que ya no están seleccionados
     for (const id_rol of rolesAEliminar) {
       await usuarioRolService.revocarRol(usuario.id_usuario, id_rol);
     }
 
-    // Asignar nuevos roles
     for (const id_rol of rolesAAgregar) {
-      await usuarioRolService.asignarRol(usuario.id_usuario, id_rol);
+      await usuarioRolService.asignarRolAUsuario(usuario.id_usuario, { id_rol });
     }
 
   } catch (error) {
-    // Extraer mensaje del backend
     let mensajeError = 'Error al actualizar usuario';
     
     if (error.data?.details && Array.isArray(error.data.details) && error.data.details.length > 0) {
