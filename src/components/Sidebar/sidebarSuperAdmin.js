@@ -39,6 +39,7 @@ export default function SuperAdminSidebar({ isOpen }) {
       icon: 'people-outline',
       submenu: [
         { label: 'Gestión de Usuarios', route: '/superadmin/usuarios' },
+        { label: 'Asignacion de Usuarios', route: '/superadmin/DepartamentoUsuario' },
       ]
     },
     {
