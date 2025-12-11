@@ -44,6 +44,9 @@ export default function GestionAsignacionUsPage() {
   const [mostrarAsignacionSinDept, setMostrarAsignacionSinDept] = useState(false);
   const [usuariosSinDept, setUsuariosSinDept] = useState([]);
   const [loadingSinDept, setLoadingSinDept] = useState(false);
+
+  const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null);
+  const [mostrarDetalleUsuario, setMostrarDetalleUsuario] = useState(false);
   
 
   useEffect(() => {
@@ -368,6 +371,8 @@ useEffect(() => {
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
           }
         >
+
+
           
           {/* Header */}
           <View style={styles.header}>
@@ -759,58 +764,71 @@ useEffect(() => {
                     ) : (
                       <View style={styles.usuariosList}>
                         {usuariosFiltrados.map((usuario) => (
-                          <TouchableOpacity
-                            key={usuario.id_usuario}
-                            style={[
-                              styles.usuarioCard,
-                              selectedUsuarios.includes(usuario.id_usuario) && styles.usuarioCardSelected
-                            ]}
-                            onPress={() => mostrarCambioDept && toggleUsuario(usuario.id_usuario)}
-                            disabled={!mostrarCambioDept}
-                          >
-                            {/* Mostrar checkbox solo si está en modo cambio */}
-                            {mostrarCambioDept && (
-                              <Ionicons 
-                                name={selectedUsuarios.includes(usuario.id_usuario) ? "checkbox" : "square-outline"} 
-                                size={24} 
-                                color={selectedUsuarios.includes(usuario.id_usuario) ? "#3b82f6" : "#94a3b8"}
-                              />
-                            )}
-                            
-                            <View style={styles.avatar}>
-                              <Text style={styles.avatarText}>
-                                {usuario.persona?.nombre?.charAt(0)}{usuario.persona?.apellido?.charAt(0)}
-                              </Text>
-                            </View>
-                            
-                            <View style={styles.usuarioInfo}>
-                              <Text style={styles.usuarioNombre}>
-                                {usuario.persona?.nombre} {usuario.persona?.apellido}
-                              </Text>
-                              <View style={styles.usuarioMeta}>
-                                <View style={styles.metaItem}>
-                                  <Ionicons name="at" size={12} color="#64748b" />
-                                  <Text style={styles.metaText}>{usuario.username}</Text>
-                                </View>
-                                <Text style={styles.metaDot}>•</Text>
-                                <View style={styles.metaItem}>
-                                  <Ionicons name="mail" size={12} color="#64748b" />
-                                  <Text style={styles.metaText}>{usuario.email}</Text>
-                                </View>
-                              </View>
-                              {usuario.persona?.cargo && (
-                                <Text style={styles.usuarioCargo}>{usuario.persona.cargo}</Text>
-                              )}
-                            </View>
-                            
-                            {!mostrarCambioDept && (
-                              <Ionicons 
-                                name="chevron-forward" 
-                                size={20} 
-                                color="#cbd5e1" 
-                              />
-                            )}
-                          </TouchableOpacity>
+
+
+                    <TouchableOpacity
+                      key={usuario.id_usuario}
+                      style={[
+                        styles.usuarioCard,
+                        selectedUsuarios.includes(usuario.id_usuario) && styles.usuarioCardSelected
+                      ]}
+                      onPress={() => {
+                        if (mostrarCambioDept) {
+                          // Si está en modo cambio, seleccionar para mover
+                          toggleUsuario(usuario.id_usuario);
+                        } else {
+                          // Si no está en modo cambio, abrir detalle
+                          console.log('👤 Abriendo detalle de usuario:', usuario.id_usuario);
+                          setUsuarioSeleccionado(usuario);
+                          setMostrarDetalleUsuario(true);
+                        }
+                      }}
+                    >
+                      {/* Mostrar checkbox solo si está en modo cambio */}
+                      {mostrarCambioDept && (
+                        <Ionicons 
+                          name={selectedUsuarios.includes(usuario.id_usuario) ? "checkbox" : "square-outline"} 
+                          size={24} 
+                          color={selectedUsuarios.includes(usuario.id_usuario) ? "#3b82f6" : "#94a3b8"}
+                        />
+                      )}
+                      
+                      <View style={styles.avatar}>
+                        <Text style={styles.avatarText}>
+                          {usuario.persona?.nombre?.charAt(0)}{usuario.persona?.apellido?.charAt(0)}
+                        </Text>
+                      </View>
+                      
+                      <View style={styles.usuarioInfo}>
+                        <Text style={styles.usuarioNombre}>
+                          {usuario.persona?.nombre} {usuario.persona?.apellido}
+                        </Text>
+                        <View style={styles.usuarioMeta}>
+                          <View style={styles.metaItem}>
+                            <Ionicons name="at" size={12} color="#64748b" />
+                            <Text style={styles.metaText}>{usuario.username}</Text>
+                          </View>
+                          <Text style={styles.metaDot}>•</Text>
+                          <View style={styles.metaItem}>
+                            <Ionicons name="mail" size={12} color="#64748b" />
+                            <Text style={styles.metaText}>{usuario.email}</Text>
+                          </View>
+                        </View>
+                        {usuario.persona?.cargo && (
+                          <Text style={styles.usuarioCargo}>{usuario.persona.cargo}</Text>
+                        )}
+                      </View>
+                      
+                      {!mostrarCambioDept && (
+                        <Ionicons 
+                          name="chevron-forward" 
+                          size={20} 
+                          color="#cbd5e1" 
+                        />
+                      )}
+                    </TouchableOpacity>
+
+
                         ))}
                       </View>
                     )}
@@ -920,36 +938,302 @@ useEffect(() => {
 
                   </View>
 
-                    <TouchableOpacity
-                      style={[
-                        styles.confirmarButton,
-                        loading && { opacity: 0.5 }
-                      ]}
-                      onPress={() => {
-                        console.log('🔴 BOTÓN CONFIRMAR PRESIONADO');
-                        handleMoverUsuarios();
-                      }}
-                      disabled={loading}
-                      activeOpacity={0.7}
-                    >
-                      {loading ? (
-                        <ActivityIndicator size="small" color="#ffffff" />
-                      ) : (
-                        <>
-                          <Ionicons name="checkmark-circle" size={20} color="#ffffff" />
-                          <Text style={styles.confirmarButtonText}>
-                            Confirmar y Mover {selectedUsuarios.length} Usuario(s)
-                          </Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
+
                 </View>
               )}
             </>
           )}
 
         </ScrollView>
+
+
+
+{/* Modal de Detalle de Usuario */}
+{mostrarDetalleUsuario && usuarioSeleccionado && (
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalContent}>
+      <ScrollView style={styles.modalScroll}>
+        
+        {/* Header del Modal */}
+        <View style={styles.modalHeader}>
+          <View style={styles.modalHeaderLeft}>
+            <View style={styles.avatarLarge}>
+              <Text style={styles.avatarLargeText}>
+                {usuarioSeleccionado.persona?.nombre?.charAt(0)}
+                {usuarioSeleccionado.persona?.apellido?.charAt(0)}
+              </Text>
+            </View>
+            <View>
+              <Text style={styles.modalTitle}>
+                {usuarioSeleccionado.persona?.nombre} {usuarioSeleccionado.persona?.apellido}
+              </Text>
+              <Text style={styles.modalSubtitle}>
+                @{usuarioSeleccionado.username}
+              </Text>
+            </View>
+          </View>
+          
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => {
+              setMostrarDetalleUsuario(false);
+              setUsuarioSeleccionado(null);
+            }}
+          >
+            <Ionicons name="close" size={24} color="#64748b" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Información Personal */}
+        <View style={styles.modalSection}>
+          <View style={styles.modalSectionHeader}>
+            <Ionicons name="person" size={20} color="#3b82f6" />
+            <Text style={styles.modalSectionTitle}>Información Personal</Text>
+          </View>
+          
+          <View style={styles.infoGrid}>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>Cédula</Text>
+              <Text style={styles.infoValue}>
+                {usuarioSeleccionado.persona?.cedula || 'N/A'}
+              </Text>
+            </View>
+            
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>Email</Text>
+              <Text style={styles.infoValue}>{usuarioSeleccionado.email}</Text>
+            </View>
+            
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>Teléfono</Text>
+              <Text style={styles.infoValue}>
+                {usuarioSeleccionado.persona?.telefono || 'N/A'}
+              </Text>
+            </View>
+            
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>Cargo</Text>
+              <Text style={styles.infoValue}>
+                {usuarioSeleccionado.persona?.cargo || 'N/A'}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Información de Usuario */}
+        <View style={styles.modalSection}>
+          <View style={styles.modalSectionHeader}>
+            <Ionicons name="briefcase" size={20} color="#8b5cf6" />
+            <Text style={styles.modalSectionTitle}>Información de Usuario</Text>
+          </View>
+          
+          <View style={styles.infoGrid}>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>Departamento</Text>
+              <Text style={styles.infoValue}>
+                {usuarioSeleccionado.departamento?.nombre || 'Sin departamento'}
+              </Text>
+            </View>
+            
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>Estado</Text>
+              <View style={[
+                styles.estadoBadge,
+                usuarioSeleccionado.estado === 'activo' && styles.estadoActivo,
+                usuarioSeleccionado.estado === 'inactivo' && styles.estadoInactivo
+              ]}>
+                <Text style={styles.estadoBadgeText}>
+                  {usuarioSeleccionado.estado?.toUpperCase()}
+                </Text>
+              </View>
+            </View>
+            
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>Roles</Text>
+              <View style={styles.rolesContainer}>
+                {usuarioSeleccionado.roles && usuarioSeleccionado.roles.length > 0 ? (
+                  usuarioSeleccionado.roles.map((rol, index) => (
+                    <View key={index} style={styles.rolBadge}>
+                      <Ionicons name="shield-checkmark" size={12} color="#10b981" />
+                      <Text style={styles.rolBadgeText}>{rol.nombre}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.infoValue}>Sin roles asignados</Text>
+                )}
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Permisos */}
+        <View style={styles.modalSection}>
+          <View style={styles.modalSectionHeader}>
+            <Ionicons name="lock-closed" size={20} color="#ef4444" />
+            <Text style={styles.modalSectionTitle}>Permisos del Usuario</Text>
+          </View>
+          
+          <View style={styles.permisosGrid}>
+            {/* Permiso: Ver Contenido */}
+            <View style={styles.permisoItem}>
+              <View style={styles.permisoHeader}>
+                <Ionicons name="eye" size={18} color="#3b82f6" />
+                <Text style={styles.permisoLabel}>Ver Contenido</Text>
+              </View>
+              <View style={[styles.permisoToggle, styles.permisoTrue]}>
+                <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                <Text style={styles.permisoValueTrue}>TRUE</Text>
+              </View>
+            </View>
+
+            {/* Permiso: Crear Contenido */}
+            <View style={styles.permisoItem}>
+              <View style={styles.permisoHeader}>
+                <Ionicons name="add-circle" size={18} color="#10b981" />
+                <Text style={styles.permisoLabel}>Crear Contenido</Text>
+              </View>
+              <View style={[styles.permisoToggle, styles.permisoFalse]}>
+                <Ionicons name="close-circle" size={16} color="#ef4444" />
+                <Text style={styles.permisoValueFalse}>FALSE</Text>
+              </View>
+            </View>
+
+            {/* Permiso: Editar Contenido */}
+            <View style={styles.permisoItem}>
+              <View style={styles.permisoHeader}>
+                <Ionicons name="create" size={18} color="#f59e0b" />
+                <Text style={styles.permisoLabel}>Editar Contenido</Text>
+              </View>
+              <View style={[styles.permisoToggle, styles.permisoTrue]}>
+                <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                <Text style={styles.permisoValueTrue}>TRUE</Text>
+              </View>
+            </View>
+
+            {/* Permiso: Eliminar Contenido */}
+            <View style={styles.permisoItem}>
+              <View style={styles.permisoHeader}>
+                <Ionicons name="trash" size={18} color="#ef4444" />
+                <Text style={styles.permisoLabel}>Eliminar Contenido</Text>
+              </View>
+              <View style={[styles.permisoToggle, styles.permisoFalse]}>
+                <Ionicons name="close-circle" size={16} color="#ef4444" />
+                <Text style={styles.permisoValueFalse}>FALSE</Text>
+              </View>
+            </View>
+
+            {/* Permiso: Publicar Contenido */}
+            <View style={styles.permisoItem}>
+              <View style={styles.permisoHeader}>
+                <Ionicons name="paper-plane" size={18} color="#8b5cf6" />
+                <Text style={styles.permisoLabel}>Publicar Contenido</Text>
+              </View>
+              <View style={[styles.permisoToggle, styles.permisoTrue]}>
+                <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                <Text style={styles.permisoValueTrue}>TRUE</Text>
+              </View>
+            </View>
+
+            {/* Permiso: Ver Métricas */}
+            <View style={styles.permisoItem}>
+              <View style={styles.permisoHeader}>
+                <Ionicons name="stats-chart" size={18} color="#06b6d4" />
+                <Text style={styles.permisoLabel}>Ver Métricas</Text>
+              </View>
+              <View style={[styles.permisoToggle, styles.permisoFalse]}>
+                <Ionicons name="close-circle" size={16} color="#ef4444" />
+                <Text style={styles.permisoValueFalse}>FALSE</Text>
+              </View>
+            </View>
+
+            {/* Permiso: Exportar Datos */}
+            <View style={styles.permisoItem}>
+              <View style={styles.permisoHeader}>
+                <Ionicons name="download" size={18} color="#14b8a6" />
+                <Text style={styles.permisoLabel}>Exportar Datos</Text>
+              </View>
+              <View style={[styles.permisoToggle, styles.permisoTrue]}>
+                <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                <Text style={styles.permisoValueTrue}>TRUE</Text>
+              </View>
+            </View>
+
+            {/* Permiso: Configurar Agente */}
+            <View style={styles.permisoItem}>
+              <View style={styles.permisoHeader}>
+                <Ionicons name="settings" size={18} color="#6366f1" />
+                <Text style={styles.permisoLabel}>Configurar Agente</Text>
+              </View>
+              <View style={[styles.permisoToggle, styles.permisoFalse]}>
+                <Ionicons name="close-circle" size={16} color="#ef4444" />
+                <Text style={styles.permisoValueFalse}>FALSE</Text>
+              </View>
+            </View>
+
+            {/* Permiso: Gestionar Permisos */}
+            <View style={styles.permisoItem}>
+              <View style={styles.permisoHeader}>
+                <Ionicons name="key" size={18} color="#dc2626" />
+                <Text style={styles.permisoLabel}>Gestionar Permisos</Text>
+              </View>
+              <View style={[styles.permisoToggle, styles.permisoFalse]}>
+                <Ionicons name="close-circle" size={16} color="#ef4444" />
+                <Text style={styles.permisoValueFalse}>FALSE</Text>
+              </View>
+            </View>
+
+            {/* Permiso: Gestionar Categorías */}
+            <View style={styles.permisoItem}>
+              <View style={styles.permisoHeader}>
+                <Ionicons name="list" size={18} color="#f59e0b" />
+                <Text style={styles.permisoLabel}>Gestionar Categorías</Text>
+              </View>
+              <View style={[styles.permisoToggle, styles.permisoTrue]}>
+                <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                <Text style={styles.permisoValueTrue}>TRUE</Text>
+              </View>
+            </View>
+
+            {/* Permiso: Gestionar Widgets */}
+            <View style={styles.permisoItem}>
+              <View style={styles.permisoHeader}>
+                <Ionicons name="grid" size={18} color="#8b5cf6" />
+                <Text style={styles.permisoLabel}>Gestionar Widgets</Text>
+              </View>
+              <View style={[styles.permisoToggle, styles.permisoFalse]}>
+                <Ionicons name="close-circle" size={16} color="#ef4444" />
+                <Text style={styles.permisoValueFalse}>FALSE</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Notas */}
+          <View style={styles.notasContainer}>
+            <View style={styles.notasHeader}>
+              <Ionicons name="document-text" size={18} color="#64748b" />
+              <Text style={styles.notasLabel}>Notas sobre permisos</Text>
+            </View>
+            <View style={styles.notasBox}>
+              <Text style={styles.notasText}>
+                Este usuario tiene permisos básicos de visualización y edición.
+                No puede eliminar contenido ni gestionar configuraciones avanzadas.
+              </Text>
+            </View>
+          </View>
+        </View>
+
+      </ScrollView>
+    </View>
+  </View>
+)}
+
+
+
+
       </View>
+
+
+
 
     </View>
   );
@@ -1459,5 +1743,239 @@ noDeptBadgeText: {
   fontWeight: '600',
   color: '#d97706',
   textTransform: 'uppercase'
-}
+},
+
+
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 1000,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 900,
+    maxHeight: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10
+  },
+  modalScroll: {
+    padding: 24
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 24,
+    paddingBottom: 20,
+    borderBottomWidth: 2,
+    borderBottomColor: '#e2e8f0'
+  },
+  modalHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    flex: 1
+  },
+  avatarLarge: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#8b5cf6',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  avatarLargeText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#ffffff'
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1e293b'
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#64748b',
+    marginTop: 4
+  },
+  closeButton: {
+    padding: 8,
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0'
+  },
+  modalSection: {
+    marginBottom: 24
+  },
+  modalSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16
+  },
+  modalSectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1e293b'
+  },
+  infoGrid: {
+    gap: 16
+  },
+  infoItem: {
+    backgroundColor: '#f8fafc',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0'
+  },
+  infoLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    marginBottom: 6
+  },
+  infoValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1e293b'
+  },
+  estadoBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignSelf: 'flex-start'
+  },
+  estadoActivo: {
+    backgroundColor: '#d1fae5',
+    borderWidth: 1,
+    borderColor: '#86efac'
+  },
+  estadoInactivo: {
+    backgroundColor: '#fee2e2',
+    borderWidth: 1,
+    borderColor: '#fecaca'
+  },
+  estadoBadgeText: {
+    fontSize: 12,
+    fontWeight: '700'
+  },
+  rolesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4
+  },
+  rolBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#d1fae5',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#86efac'
+  },
+  rolBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#047857'
+  },
+  permisosGrid: {
+    gap: 12
+  },
+  permisoItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0'
+  },
+  permisoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1
+  },
+  permisoLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1e293b'
+  },
+  permisoToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 2
+  },
+  permisoTrue: {
+    backgroundColor: '#d1fae5',
+    borderColor: '#86efac'
+  },
+  permisoFalse: {
+    backgroundColor: '#fee2e2',
+    borderColor: '#fecaca'
+  },
+  permisoValueTrue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#047857'
+  },
+  permisoValueFalse: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#dc2626'
+  },
+  notasContainer: {
+    marginTop: 20,
+    backgroundColor: '#fffbeb',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#fef3c7'
+  },
+  notasHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8
+  },
+  notasLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#92400e'
+  },
+  notasBox: {
+    backgroundColor: '#ffffff',
+    padding: 12,
+    borderRadius: 8
+  },
+  notasText: {
+    fontSize: 13,
+    color: '#78716c',
+    lineHeight: 20
+  }
+
+
 };
