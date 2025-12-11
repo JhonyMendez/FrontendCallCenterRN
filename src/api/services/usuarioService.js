@@ -178,5 +178,40 @@ export const usuarioService = {
         'Error al remover rol'
       );
     }
+  },
+
+
+
+
+ /**
+   * 🏢 Cambiar departamento de un usuario
+   * @param {number} id_usuario - ID del usuario
+   * @param {object} data - { id_departamento: number | null, motivo?: string }
+   * @returns {Promise<object>} Respuesta con departamento anterior y nuevo
+   */
+  cambiarDepartamento: async (id_usuario, data) => {
+    try {
+      console.log(`📤 [usuarioService] Cambiando departamento del usuario ${id_usuario}`);
+      console.log('📤 [usuarioService] Data:', data);
+      
+      const response = await apiClient.put(
+        `/usuarios/${id_usuario}/cambiar-departamento`,
+        data
+      );
+      
+      console.log('✅ [usuarioService] Departamento cambiado exitosamente');
+      return response;
+    } catch (error) {
+      console.error('❌ [usuarioService] Error cambiando departamento:', error);
+      throw new Error(
+        error.data?.detail || 
+        error.message || 
+        'Error al cambiar departamento'
+      );
+    }
   }
+
+
+
+
 };
