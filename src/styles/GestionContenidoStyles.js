@@ -63,83 +63,125 @@ export const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // ============ FILTROS GLASSMORPHISM ============
+
+// ============ FILTROS MEJORADOS ============
   filtrosContainer: {
-    backgroundColor: 'rgba(26, 26, 46, 0.8)',
+    backgroundColor: '#16213e',
     padding: 20,
-    borderRadius: 16,
-    marginBottom: 28,
+    borderRadius: 12,
+    marginBottom: 24,
     marginHorizontal: 20,
-    shadowColor: '#667eea',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 6,
     borderWidth: 1,
-    borderColor: 'rgba(102, 126, 234, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
 
-  filtrosRow: {
+  filterContainer: {
     flexDirection: 'row',
-    gap: 18,
     flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 4,
   },
 
-  filtroItem: {
-    flex: 1,
-    minWidth: 220,
-  },
-
-  filtroLabel: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 8,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-
-  pickerContainer: {
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 16,
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    minWidth: 80,
   },
 
-  picker: {
-    height: 48,
-    paddingHorizontal: 12,
-    color: '#fff',
+  filterButtonActive: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+  },
+
+  filterText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+
+  filterTextActive: {
+    color: 'white',
     fontWeight: '600',
+  },
+
+  // ============ BOTÓN NUEVO MEJORADO ============
+  btnNuevo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#3b82f6',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.5)',
+  },
+
+  btnNuevoText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+
+  // ============ HEADER MEJORADO ============
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#16213e',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+  },
+
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.3,
+  },
+
+  headerSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.5)',
+    marginTop: 4,
+    fontWeight: '500',
   },
 
   // ============ BOTÓN NUEVO CON GRADIENTE ============
   btnNuevo: {
-    backgroundColor: '#667eea',
-    padding: 16,
-    borderRadius: 16,
-    marginTop: 20,
-    marginHorizontal: 20,
+    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#667eea',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
-    elevation: 10,
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#3b82f6',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(102, 126, 234, 0.3)',
+    borderColor: 'rgba(59, 130, 246, 0.5)',
+  },
+
+  btnNuevoIcon: {
+    fontSize: 20,
+    color: '#fff',
+    fontWeight: '700',
   },
 
   btnNuevoText: {
-    color: 'white',
-    fontWeight: '800',
-    fontSize: 16,
-    letterSpacing: 0.5,
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
 
   // ============ LISTA ============
@@ -199,6 +241,40 @@ export const styles = StyleSheet.create({
     color: '#fff',
     letterSpacing: -0.5,
   },
+
+// ============ FORMULARIO MEJORADO ============
+  formGroup: {
+    marginBottom: 20,
+  },
+
+  label: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  required: {
+    color: '#ef4444',
+    fontSize: 14,
+  },
+
+  input: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    padding: 14,
+    color: 'white',
+    fontSize: 14,
+  },
+
+  textArea: {
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+
 
   // ============ FORMULARIO ============
   formLabel: {

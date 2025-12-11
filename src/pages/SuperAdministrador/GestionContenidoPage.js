@@ -1,5 +1,5 @@
-import { Picker } from '@react-native-picker/picker';
-import React, { useEffect, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,11 +15,26 @@ import { agenteService } from '../../api/services/agenteService';
 import { categoriaService } from '../../api/services/categoriaService';
 import { contenidoService } from '../../api/services/contenidoService';
 import { departamentoService } from '../../api/services/departamentoService';
-import Sidebar from '../../components/Sidebar/sidebarSuperAdmin';
+import SuperAdminSidebar from '../../components/Sidebar/sidebarSuperAdmin';
+import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles';
 import GestionContenidoCard from '../../components/SuperAdministrador/GestionContenidoCard';
 import { styles } from '../../styles/GestionContenidoStyles';
 
 const ESTADOS = ['borrador', 'revision', 'activo', 'inactivo', 'archivado'];
+
+// 🔥 NUEVO: Información de prioridades
+const PRIORITY_LABELS = {
+  10: { label: '🔴 Crítico', desc: 'Máxima prioridad', color: '#ef4444' },
+  9:  { label: '🔴 Muy Alto', desc: 'Prioridad muy alta', color: '#f97316' },
+  8:  { label: '🟠 Alto', desc: 'Alta prioridad', color: '#f59e0b' },
+  7:  { label: '🟠 Moderado+', desc: 'Prioridad elevada', color: '#eab308' },
+  6:  { label: '🟡 Moderado', desc: 'Prioridad media-alta', color: '#84cc16' },
+  5:  { label: '🟡 Normal', desc: 'Prioridad estándar', color: '#22c55e' },
+  4:  { label: '🟢 Bajo', desc: 'Prioridad baja', color: '#10b981' },
+  3:  { label: '🟢 Muy Bajo', desc: 'Prioridad muy baja', color: '#14b8a6' },
+  2:  { label: '🔵 Mínimo', desc: 'Prioridad mínima', color: '#06b6d4' },
+  1:  { label: '🔵 Opcional', desc: 'Información complementaria', color: '#0ea5e9' }
+};
 
 const GestionContenidoPage = () => {
   const [contenidos, setContenidos] = useState([]);
@@ -34,6 +49,12 @@ const GestionContenidoPage = () => {
   const [filtroEstado, setFiltroEstado] = useState('');
   const [searchEstado, setSearchEstado] = useState('');
   const [searchAgente, setSearchAgente] = useState('');
+  const [searchCategoria, setSearchCategoria] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const scrollRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
 
   const [formData, setFormData] = useState({
     id_contenido: null,
@@ -68,20 +89,22 @@ const GestionContenidoPage = () => {
 });
 
 
-  useEffect(() => {
-    if (formData.id_categoria && categorias.length > 0) {
-      const categoriaSeleccionada = categorias.find(
-        cat => cat.id_categoria === formData.id_categoria
-      );
-      
-      if (categoriaSeleccionada && categoriaSeleccionada.id_agente) {
-        setFormData(prev => ({
-          ...prev,
-          id_agente: categoriaSeleccionada.id_agente
-        }));
-      }
+/*
+useEffect(() => {
+  if (formData.id_categoria && categorias.length > 0) {
+    const categoriaSeleccionada = categorias.find(
+      cat => cat.id_categoria === formData.id_categoria
+    );
+    
+    if (categoriaSeleccionada && categoriaSeleccionada.id_agente) {
+      setFormData(prev => ({
+        ...prev,
+        id_agente: categoriaSeleccionada.id_agente
+      }));
     }
-  }, [formData.id_categoria, categorias]);
+  }
+}, [formData.id_categoria, categorias]);
+*/
 
   useEffect(() => {
     cargarDatosIniciales();
@@ -103,10 +126,16 @@ const GestionContenidoPage = () => {
       setAgentes(agentesData);
       setDepartamentos(departamentosData);
       
+      // 🔥 Cargar TODAS las categorías de TODOS los agentes
       if (agentesData.length > 0) {
         setSelectedAgente(agentesData[0].id_agente);
-        const categoriasData = await categoriaService.getByAgente(agentesData[0].id_agente);
-        setCategorias(categoriasData);
+        
+        const todasLasCategorias = [];
+        for (const agente of agentesData) {
+          const cats = await categoriaService.getByAgente(agente.id_agente);
+          todasLasCategorias.push(...cats);
+        }
+        setCategorias(todasLasCategorias);
       }
     } catch (error) {
       console.error('Error cargando datos:', error);
@@ -116,16 +145,19 @@ const GestionContenidoPage = () => {
     }
   };
 
-  const cargarContenidos = async () => {
-    try {
-      const params = filtroEstado ? { estado: filtroEstado } : {};
-      const data = await contenidoService.getByAgente(selectedAgente, params);
-      setContenidos(data);
-    } catch (error) {
-      console.error('Error cargando contenidos:', error);
-      Alert.alert('Error', 'No se pudieron cargar los contenidos');
-    }
-  };
+const cargarContenidos = async () => {
+  try {
+    
+    const params = filtroEstado ? { estado: filtroEstado } : {};
+    const data = await contenidoService.getByAgente(selectedAgente, params);
+    
+    setContenidos(data);
+    
+  } catch (error) {
+    console.error('Error cargando contenidos:', error);
+    Alert.alert('Error', 'No se pudieron cargar los contenidos');
+  }
+};
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -143,9 +175,16 @@ const GestionContenidoPage = () => {
     }
   };
 
-  const abrirModal = (contenido = null) => {
-    if (contenido) {
-      setEditando(true);
+const abrirModal = async (contenido = null) => {
+  if (contenido) {
+    setEditando(true);
+    
+    // 🔥 PRIMERO: Cargar categorías del agente del contenido
+    try {
+      const categoriasData = await categoriaService.getByAgente(contenido.id_agente);
+      setCategorias(categoriasData);
+      
+      // 🔥 SEGUNDO: Después de cargar categorías, cargar el formulario
       setFormData({
         id_contenido: contenido.id_contenido,
         id_agente: contenido.id_agente,
@@ -159,82 +198,187 @@ const GestionContenidoPage = () => {
         prioridad: contenido.prioridad,
         estado: contenido.estado
       });
-    } else {
-      setEditando(false);
-      setFormData({
-        id_contenido: null,
-        id_agente: selectedAgente || '',
-        id_categoria: '',
-        id_departamento: '',
-        titulo: '',
-        contenido: '',
-        resumen: '',
-        palabras_clave: '',
-        etiquetas: '',
-        prioridad: 5,
-        estado: 'borrador'
-      });
+      
+      // 🔥 TERCERO: Abrir el modal DESPUÉS de cargar todo
+      setModalVisible(true);
+      
+    } catch (error) {
+      console.error('Error cargando categorías para edición:', error);
+      Alert.alert('Error', 'No se pudieron cargar las categorías del agente');
     }
+  } else {
+    // Crear nuevo contenido
+    setEditando(false);
+    setFormData({
+      id_contenido: null,
+      id_agente: selectedAgente || '',
+      id_categoria: '',
+      id_departamento: '',
+      titulo: '',
+      contenido: '',
+      resumen: '',
+      palabras_clave: '',
+      etiquetas: '',
+      prioridad: 5,
+      estado: 'borrador'
+    });
     setModalVisible(true);
-  };
+  }
+};
 
 const cerrarModal = () => {
     setModalVisible(false);
     setEditando(false);
     setSearchAgente('');
     setSearchEstado('');
+    setSearchCategoria('');
 };
 
   const guardarContenido = async () => {
-    // 🔥 Validaciones mejoradas
-    if (!formData.id_categoria) {
-      Alert.alert('Error', 'Debes seleccionar una categoría');
-      return;
-    }
+    console.log('🚀 ========== INICIO guardarContenido ==========');
+    console.log('📝 Estado editando:', editando);
+    console.log('📋 formData:', formData);
+    console.log('📁 categorias disponibles:', categorias);
+    
+    // 🔥 FUNCIÓN INTERNA para el guardado real
+    const guardarContenidoReal = async () => {
+      try {
+        // 🔥 Validación 1: Categoría
+        if (!formData.id_categoria) {
+          console.log('❌ Error: No hay categoría seleccionada');
+          Alert.alert('Error', 'Debes seleccionar una categoría');
+          return;
+        }
+        console.log('✅ Categoría seleccionada:', formData.id_categoria);
 
-    if (!formData.id_agente) {
-      Alert.alert('Error', 'No se pudo determinar el agente. Selecciona una categoría válida.');
-      return;
-    }
+        // 🔥 Validación 2: Obtener el agente desde la categoría seleccionada
+        const categoriaSeleccionada = categorias.find(
+          cat => cat.id_categoria === formData.id_categoria
+        );
+        console.log('🔍 Categoría encontrada:', categoriaSeleccionada);
+        
+        if (!categoriaSeleccionada) {
+          console.log('❌ Error: Categoría no encontrada en el array');
+          Alert.alert('Error', 'Categoría no válida');
+          return;
+        }
 
-    if (!formData.id_departamento) {
-      Alert.alert('Error', 'Debes seleccionar un departamento');
-      return;
-    }
+        if (!categoriaSeleccionada.id_agente) {
+          console.log('❌ Error: La categoría no tiene id_agente');
+          Alert.alert('Error', 'La categoría no tiene un agente asociado');
+          return;
+        }
+        console.log('✅ Agente de la categoría:', categoriaSeleccionada.id_agente);
 
-    if (!formData.titulo || !formData.contenido) {
-      Alert.alert('Error', 'Título y contenido son obligatorios');
-      return;
-    }
+        // 🔥 Validación 3: Departamento (ahora viene del agente)
+        const agenteSeleccionado = agentes.find(
+          ag => ag.id_agente === categoriaSeleccionada.id_agente
+        );
 
+        const id_departamento = agenteSeleccionado?.id_departamento || null;
+        console.log('✅ Departamento del agente:', id_departamento);
+
+        // 🔥 Validación 4: Campos obligatorios
+        if (!formData.titulo || !formData.contenido) {
+          console.log('❌ Error: Falta título o contenido');
+          Alert.alert('Error', 'Título y contenido son obligatorios');
+          return;
+        }
+        console.log('✅ Título y contenido presentes');
+
+        const dataToSend = {
+          id_agente: parseInt(categoriaSeleccionada.id_agente),
+          id_categoria: parseInt(formData.id_categoria),
+          id_departamento: id_departamento ? parseInt(id_departamento) : null,
+          titulo: formData.titulo,
+          contenido: formData.contenido,
+          resumen: formData.resumen,
+          palabras_clave: formData.palabras_clave,
+          etiquetas: formData.etiquetas,
+          prioridad: parseInt(formData.prioridad),
+          estado: formData.estado
+        };
+
+        console.log('📤 Datos a enviar:', JSON.stringify(dataToSend, null, 2));
+
+        if (editando) {
+          console.log('✏️ Modo EDICIÓN - ID:', formData.id_contenido);
+          const resultado = await contenidoService.update(formData.id_contenido, dataToSend);
+          console.log('✅ Resultado update:', resultado);
+          Alert.alert('Éxito', 'Contenido actualizado correctamente');
+        } else {
+          console.log('➕ Modo CREACIÓN');
+          const resultado = await contenidoService.create(dataToSend);
+          console.log('✅ Resultado create:', resultado);
+          Alert.alert('Éxito', 'Contenido creado correctamente');
+        }
+
+        console.log('🔄 Cerrando modal y recargando...');
+        cerrarModal();
+        await cargarContenidos();
+        console.log('✅ Contenidos recargados');
+        
+      } catch (error) {
+        console.log('❌ ========== ERROR CAPTURADO ==========');
+        console.error('❌ Error tipo:', error.name);
+        console.error('❌ Error mensaje:', error.message);
+        console.error('❌ Error stack:', error.stack);
+        console.error('❌ Error completo:', error);
+        Alert.alert('Error', error.message || 'No se pudo guardar el contenido');
+      }
+    };
+    
+    // 🔥 VALIDACIONES PREVIAS (antes de guardar)
     try {
-      const dataToSend = {
-        id_agente: parseInt(formData.id_agente),
-        id_categoria: parseInt(formData.id_categoria),
-        id_departamento: formData.id_departamento ? parseInt(formData.id_departamento) : null,
-        titulo: formData.titulo,
-        contenido: formData.contenido,
-        resumen: formData.resumen,
-        palabras_clave: formData.palabras_clave,
-        etiquetas: formData.etiquetas,
-        prioridad: parseInt(formData.prioridad),
-        estado: formData.estado
-      };
-
-      if (editando) {
-        await contenidoService.update(formData.id_contenido, dataToSend);
-        Alert.alert('Éxito', 'Contenido actualizado correctamente');
-      } else {
-        await contenidoService.create(dataToSend);
-        Alert.alert('Éxito', 'Contenido creado correctamente');
+      if (!formData.id_categoria) {
+        Alert.alert('Error', 'Debes seleccionar una categoría');
+        return;
+      }
+      
+      const categoriaSeleccionada = categorias.find(
+        cat => cat.id_categoria === formData.id_categoria
+      );
+      
+      if (!categoriaSeleccionada || !categoriaSeleccionada.id_agente) {
+        Alert.alert('Error', 'Categoría no válida');
+        return;
+      }
+      
+      if (!formData.titulo || !formData.contenido) {
+        Alert.alert('Error', 'Título y contenido son obligatorios');
+        return;
       }
 
-      cerrarModal();
-      cargarContenidos();
+      // 🔥 VALIDACIÓN DE PRIORIDAD ALTA (con diálogo)
+      if (formData.prioridad >= 8) {
+        const count = contenidos.filter(c => 
+          c.prioridad === formData.prioridad && 
+          c.estado === 'activo' &&
+          c.id_contenido !== formData.id_contenido
+        ).length;
+        
+        if (count >= 5) {
+          Alert.alert(
+            '⚠️ Muchos contenidos con esta prioridad',
+            `Ya tienes ${count} contenidos activos con prioridad ${formData.prioridad}. La prioridad será menos efectiva.\n\n¿Deseas continuar?`,
+            [
+              { text: 'Cambiar prioridad', style: 'cancel' },
+              { text: 'Continuar', onPress: guardarContenidoReal }
+            ]
+          );
+          return; // ⚠️ Detener aquí y esperar la decisión del usuario
+        }
+      }
+      
+      // Si no hay advertencia, guardar directamente
+      await guardarContenidoReal();
+      
     } catch (error) {
-      console.error('Error guardando contenido:', error);
-      Alert.alert('Error', error.message || 'No se pudo guardar el contenido');
+      console.error('Error en validación inicial:', error);
+      Alert.alert('Error', 'Error al validar los datos');
     }
+    
+    console.log('🏁 ========== FIN guardarContenido ==========');
   };
 
   const publicarContenido = async (id) => {
@@ -260,23 +404,56 @@ const cerrarModal = () => {
     );
   };
 
-  if (loading) {
+if (loading) {
     return (
-      <View style={styles.container}>
-        <Sidebar />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3498db" />
-          <Text style={styles.loadingText}>Cargando...</Text>
+      <View style={contentStyles.wrapper}>
+        <SuperAdminSidebar isOpen={sidebarOpen} />
+        <View style={[contentStyles.mainContent, sidebarOpen && contentStyles.mainContentWithSidebar]}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#3498db" />
+            <Text style={styles.loadingText}>Cargando...</Text>
+          </View>
         </View>
       </View>
     );
   }
 
-  return (
-    <View style={styles.container}>
-      <Sidebar />
+return (
+    <View style={contentStyles.wrapper}>
       
-      <View style={styles.content}>
+      {/* ============ SIDEBAR ============ */}
+      <SuperAdminSidebar 
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
+      />
+
+      {/* ============ BOTÓN TOGGLE SIDEBAR ============ */}
+      <TouchableOpacity
+        style={{
+          position: 'absolute',
+          top: 16,
+          left: sidebarOpen ? 296 : 16,
+          zIndex: 1001,
+          backgroundColor: '#1e1b4b',
+          padding: 12,
+          borderRadius: 12,
+          shadowColor: '#667eea',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.4,
+          shadowRadius: 8,
+          elevation: 8,
+        }}
+        onPress={() => setSidebarOpen(!sidebarOpen)}
+      >
+        <Ionicons name={sidebarOpen ? "close" : "menu"} size={24} color="#ffffff" />
+      </TouchableOpacity>
+
+      {/* ============ CONTENIDO PRINCIPAL ============ */}
+      <View style={[
+        contentStyles.mainContent, 
+        sidebarOpen && contentStyles.mainContentWithSidebar
+      ]}>
+        <View style={styles.container}>
         <ScrollView
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -292,284 +469,170 @@ const cerrarModal = () => {
             </View>
 
             {/* Filtros */}
-            <View style={styles.filtrosContainer}>
-              <View style={styles.filtrosRow}>
-                <View style={styles.filtroItem}>
-                <Text style={styles.filtroLabel}>Agente</Text>
-                
-                {/* Campo de búsqueda */}
-                <View style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 8,
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  marginBottom: 8,
-                  borderRadius: 8,
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255, 255, 255, 0.1)',
-                }}>
-                  <Text style={{ fontSize: 16 }}>🔍</Text>
-                  <TextInput
-                    style={{
-                      flex: 1,
-                      color: 'white',
-                      fontSize: 13,
-                      paddingVertical: 4,
-                    }}
-                    placeholder="Buscar agente..."
-                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                    value={searchAgente}
-                    onChangeText={(text) => setSearchAgente(sanitizeInput(text))}
-                  />
-                  {searchAgente.length > 0 && (
-                    <TouchableOpacity onPress={() => setSearchAgente('')}>
-                      <Text style={{ fontSize: 16 }}>❌</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* Lista de agentes filtrados */}
-                <ScrollView 
-                  style={{ maxHeight: 200 }}
-                  nestedScrollEnabled={true}
+          {/* ============ FILTROS ============ */}
+          <View style={styles.filtrosContainer}>
+            {/* Filtro por Estado */}
+            <View style={styles.filterContainer}>
+              {[
+                { key: '', label: 'Todos', icon: 'apps' },
+                { key: 'borrador', label: 'Borrador', icon: 'create' },
+                { key: 'revision', label: 'Revisión', icon: 'eye' },
+                { key: 'activo', label: 'Activo', icon: 'checkmark-circle' },
+                { key: 'inactivo', label: 'Inactivo', icon: 'close-circle' },
+                { key: 'archivado', label: 'Archivado', icon: 'archive' }
+              ].map((filter) => (
+                <TouchableOpacity
+                  key={filter.key}
+                  style={[
+                    styles.filterButton,
+                    filtroEstado === filter.key && styles.filterButtonActive,
+                  ]}
+                  onPress={() => setFiltroEstado(filter.key)}
+                  activeOpacity={0.7}
                 >
-                  {filteredAgentes.length === 0 ? (
-                    <View style={{
-                      padding: 16,
-                      alignItems: 'center',
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                      borderRadius: 8,
-                    }}>
-                      <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 13 }}>
-                        No se encontraron agentes
-                      </Text>
-                    </View>
-                  ) : (
-                    filteredAgentes.map((agente) => (
-                      <TouchableOpacity
-                        key={agente.id_agente}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 10,
-                          padding: 12,
-                          borderRadius: 8,
-                          borderWidth: 2,
-                          borderColor: selectedAgente === agente.id_agente 
-                            ? '#3498db' 
-                            : 'rgba(255, 255, 255, 0.1)',
-                          backgroundColor: selectedAgente === agente.id_agente 
-                            ? 'rgba(52, 152, 219, 0.2)' 
-                            : 'rgba(255, 255, 255, 0.05)',
-                          marginBottom: 8,
-                        }}
-                        onPress={() => handleAgenteChange(agente.id_agente)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: 8,
-                          backgroundColor: agente.color_tema || '#3498db',
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                        }}>
-                          <Text style={{ fontSize: 18 }}>👤</Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{
-                            color: selectedAgente === agente.id_agente ? '#3498db' : 'white',
-                            fontWeight: '600',
-                            fontSize: 14,
-                          }}>
-                            {agente.nombre}
-                          </Text>
-                          {agente.area_especialidad && (
-                            <Text style={{
-                              color: 'rgba(255, 255, 255, 0.5)',
-                              fontSize: 11,
-                              marginTop: 2,
-                            }}>
-                              {agente.area_especialidad}
-                            </Text>
-                          )}
-                        </View>
-                        {selectedAgente === agente.id_agente && (
-                          <Text style={{ fontSize: 20 }}>✅</Text>
-                        )}
-                      </TouchableOpacity>
-                    ))
-                  )}
-                </ScrollView>
-              </View>
-
-              <View style={styles.filtroItem}>
-                <Text style={styles.filtroLabel}>Estado</Text>
-                
-                {/* Campo de búsqueda */}
-                <View style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 8,
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  marginBottom: 8,
-                  borderRadius: 8,
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255, 255, 255, 0.1)',
-                }}>
-                  <Text style={{ fontSize: 16 }}>🔍</Text>
-                  <TextInput
-                    style={{
-                      flex: 1,
-                      color: 'white',
-                      fontSize: 13,
-                      paddingVertical: 4,
-                    }}
-                    placeholder="Buscar estado..."
-                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                    value={searchEstado}
-                    onChangeText={(text) => setSearchEstado(sanitizeInput(text))}
-                  />
-                  {searchEstado.length > 0 && (
-                    <TouchableOpacity onPress={() => setSearchEstado('')}>
-                      <Text style={{ fontSize: 16 }}>❌</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* Lista de estados filtrados */}
-                <ScrollView 
-                  style={{ maxHeight: 250 }}
-                  nestedScrollEnabled={true}
-                >
-                  {/* Opción "Todos" */}
-                  <TouchableOpacity
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: 12,
-                      borderRadius: 8,
-                      borderWidth: 2,
-                      borderColor: filtroEstado === '' 
-                        ? '#3498db' 
-                        : 'rgba(255, 255, 255, 0.1)',
-                      backgroundColor: filtroEstado === '' 
-                        ? 'rgba(52, 152, 219, 0.2)' 
-                        : 'rgba(255, 255, 255, 0.05)',
-                      marginBottom: 8,
-                    }}
-                    onPress={() => setFiltroEstado('')}
-                    activeOpacity={0.7}
-                  >
-                    <View style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 8,
-                      backgroundColor: '#3498db',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                    }}>
-                      <Text style={{ fontSize: 18 }}>🌐</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{
-                        color: filtroEstado === '' ? '#3498db' : 'white',
-                        fontWeight: '600',
-                        fontSize: 14,
-                      }}>
-                        Todos los estados
-                      </Text>
-                    </View>
-                    {filtroEstado === '' && (
-                      <Text style={{ fontSize: 20 }}>✅</Text>
-                    )}
-                  </TouchableOpacity>
-
-                  {filteredEstados.length === 0 ? (
-                    <View style={{
-                      padding: 16,
-                      alignItems: 'center',
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                      borderRadius: 8,
-                    }}>
-                      <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 13 }}>
-                        No se encontraron estados
-                      </Text>
-                    </View>
-                  ) : (
-                    filteredEstados.map((estado) => {
-                      const estadoColors = {
-                        borrador: { icon: '📝', color: '#9ca3af' },
-                        revision: { icon: '🔍', color: '#fbbf24' },
-                        activo: { icon: '✅', color: '#10b981' },
-                        inactivo: { icon: '❌', color: '#ef4444' },
-                        archivado: { icon: '📦', color: '#6b7280' },
-                      };
-                      const estadoInfo = estadoColors[estado] || { icon: '📄', color: '#667eea' };
-
-                      return (
-                        <TouchableOpacity
-                          key={estado}
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 10,
-                            padding: 12,
-                            borderRadius: 8,
-                            borderWidth: 2,
-                            borderColor: filtroEstado === estado 
-                              ? estadoInfo.color 
-                              : 'rgba(255, 255, 255, 0.1)',
-                            backgroundColor: filtroEstado === estado 
-                              ? `${estadoInfo.color}33` 
-                              : 'rgba(255, 255, 255, 0.05)',
-                            marginBottom: 8,
-                          }}
-                          onPress={() => setFiltroEstado(estado)}
-                          activeOpacity={0.7}
-                        >
-                          <View style={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: 8,
-                            backgroundColor: estadoInfo.color,
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                          }}>
-                            <Text style={{ fontSize: 18 }}>{estadoInfo.icon}</Text>
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={{
-                              color: filtroEstado === estado ? estadoInfo.color : 'white',
-                              fontWeight: '600',
-                              fontSize: 14,
-                            }}>
-                              {estado.charAt(0).toUpperCase() + estado.slice(1)}
-                            </Text>
-                          </View>
-                          {filtroEstado === estado && (
-                            <Text style={{ fontSize: 20 }}>✅</Text>
-                          )}
-                        </TouchableOpacity>
-                      );
-                    })
-                  )}
-                </ScrollView>
-              </View>
-              </View>
-
-              <TouchableOpacity
-                onPress={() => abrirModal()}
-                style={styles.btnNuevo}
-              >
-                <Text style={styles.btnNuevoText}>+ Nuevo Contenido</Text>
-              </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons 
+                      name={filter.icon} 
+                      size={14} 
+                      color={filtroEstado === filter.key ? 'white' : 'rgba(255, 255, 255, 0.6)'} 
+                    />
+                    <Text
+                      style={[
+                        styles.filterText,
+                        filtroEstado === filter.key && styles.filterTextActive,
+                      ]}
+                    >
+                      {filter.label}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
             </View>
+
+            {/* Filtro por Agente */}
+            <View style={{ marginTop: 12 }}>
+              {/* 🔍 Búsqueda compacta */}
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                marginBottom: 8,
+                borderRadius: 8,
+                backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.08)',
+              }}>
+                <Ionicons name="search" size={16} color="rgba(255, 255, 255, 0.4)" />
+                <TextInput
+                  style={{
+                    flex: 1,
+                    color: 'white',
+                    fontSize: 13,
+                    paddingVertical: 2,
+                  }}
+                  placeholder="Buscar agente..."
+                  placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                  value={searchAgente}
+                  onChangeText={(text) => setSearchAgente(sanitizeInput(text))}
+                />
+                {searchAgente.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchAgente('')}>
+                    <Ionicons name="close-circle" size={16} color="rgba(255, 255, 255, 0.4)" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+{/* Scroll horizontal de agentes con drag */}
+              <View
+                ref={scrollRef}
+                onStartShouldSetResponder={() => true}
+                style={{
+                  flexDirection: 'row',
+                  overflowX: 'scroll',
+                  overflowY: 'hidden',
+                  cursor: isDragging ? 'grabbing' : 'grab',
+                  userSelect: 'none',
+                  paddingHorizontal: 16,
+                  paddingVertical: 4,
+                  gap: 8,
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
+                }}
+                onMouseDown={(e) => {
+                  setIsDragging(true);
+                  setStartX(e.pageX - scrollRef.current.offsetLeft);
+                  setScrollLeft(scrollRef.current.scrollLeft);
+                }}
+                onMouseLeave={() => {
+                  setIsDragging(false);
+                }}
+                onMouseUp={() => {
+                  setIsDragging(false);
+                }}
+                onMouseMove={(e) => {
+                  if (!isDragging) return;
+                  e.preventDefault();
+                  const x = e.pageX - scrollRef.current.offsetLeft;
+                  const walk = (x - startX) * 2;
+                  scrollRef.current.scrollLeft = scrollLeft - walk;
+                }}
+              >
+                {filteredAgentes.length === 0 ? (
+                  <View style={{
+                    padding: 16,
+                    alignItems: 'center',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    borderRadius: 8,
+                    minWidth: 200,
+                  }}>
+                    <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 13 }}>
+                      No se encontraron agentes
+                    </Text>
+                  </View>
+                ) : (
+                  filteredAgentes.map((agente) => (
+                    <TouchableOpacity
+                      key={agente.id_agente}
+                      style={[
+                        styles.filterButton,
+                        selectedAgente === agente.id_agente && styles.filterButtonActive,
+                      ]}
+                      onPress={() => handleAgenteChange(agente.id_agente)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons 
+                          name="person" 
+                          size={14} 
+                          color={selectedAgente === agente.id_agente ? 'white' : 'rgba(255, 255, 255, 0.6)'} 
+                        />
+                        <Text
+                          style={[
+                            styles.filterText,
+                            selectedAgente === agente.id_agente && styles.filterTextActive,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {agente.nombre_agente}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))
+                )}
+              </View>
+            </View>
+
+            {/* Botón Nuevo */}
+            <TouchableOpacity
+              onPress={() => abrirModal()}
+              style={styles.btnNuevo}
+            >
+              <Ionicons name="add-circle" size={22} color="white" />
+              <Text style={styles.btnNuevoText}>Nuevo Contenido</Text>
+            </TouchableOpacity>
+          </View>
 
             {/* Lista de contenidos */}
             <View>
@@ -676,27 +739,131 @@ const cerrarModal = () => {
           <ScrollView showsVerticalScrollIndicator={false}>
 
           {/* ============ CATEGORÍA - AHORA ES LO PRIMERO ============ */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <Text style={{ fontSize: 18 }}>📁</Text>
-            <Text style={styles.formLabel}>
-              Categoría <Text style={{ color: '#ef4444' }}>*</Text>
-            </Text>
-          </View>
-          <View style={styles.formPickerContainer}>
-            <Picker
-              selectedValue={formData.id_categoria}
-              onValueChange={(value) => setFormData({ ...formData, id_categoria: value })}
-              style={styles.formPicker}
+          <View style={styles.formGroup}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <Ionicons name="folder" size={16} color="#667eea" />
+              <Text style={styles.label}>
+                Categoría <Text style={styles.required}>*</Text>
+              </Text>
+            </View>
+
+            {/* Campo de búsqueda */}
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              borderRadius: 10,
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.1)',
+              marginBottom: 12,
+            }}>
+              <Ionicons name="search" size={18} color="rgba(255, 255, 255, 0.5)" />
+              <TextInput
+                style={{
+                  flex: 1,
+                  color: 'white',
+                  fontSize: 14,
+                  paddingVertical: 4,
+                }}
+                placeholder="Buscar categoría..."
+                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                value={searchCategoria}
+                onChangeText={(text) => setSearchCategoria(sanitizeInput(text))}
+              />
+              {searchCategoria.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchCategoria('')}>
+                  <Ionicons name="close-circle" size={18} color="rgba(255, 255, 255, 0.5)" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Lista de categorías */}
+            <ScrollView 
+              style={{ maxHeight: 250 }}
+              nestedScrollEnabled={true}
             >
-              <Picker.Item label="Seleccionar categoría" value="" />
-              {categorias.map(cat => (
-                <Picker.Item 
-                  key={cat.id_categoria} 
-                  label={cat.nombre} 
-                  value={cat.id_categoria} 
-                />
-              ))}
-            </Picker>
+              {categorias
+                .filter(cat => {
+                  const search = searchCategoria.toLowerCase();
+                  return !search || cat.nombre.toLowerCase().includes(search);
+                })
+                .map((categoria) => (
+                  <TouchableOpacity
+                    key={categoria.id_categoria}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: 14,
+                      borderRadius: 12,
+                      borderWidth: 2,
+                      borderColor: formData.id_categoria === categoria.id_categoria 
+                        ? '#667eea' 
+                        : 'rgba(255, 255, 255, 0.15)',
+                      backgroundColor: formData.id_categoria === categoria.id_categoria 
+                        ? 'rgba(102, 126, 234, 0.2)' 
+                        : 'rgba(255, 255, 255, 0.05)',
+                      marginBottom: 10,
+                    }}
+                    onPress={() => setFormData({ ...formData, id_categoria: categoria.id_categoria })}
+                    activeOpacity={0.7}
+                  >
+                    <View style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 10,
+                      backgroundColor: '#667eea',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}>
+                      <Ionicons name="folder" size={22} color="white" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{
+                        color: formData.id_categoria === categoria.id_categoria ? '#667eea' : 'white',
+                        fontWeight: '700',
+                        fontSize: 15,
+                      }}>
+                        {categoria.nombre}
+                      </Text>
+                      {categoria.descripcion && (
+                        <Text style={{
+                          color: 'rgba(255, 255, 255, 0.5)',
+                          fontSize: 11,
+                          marginTop: 2,
+                        }}
+                        numberOfLines={1}
+                        >
+                          {categoria.descripcion}
+                        </Text>
+                      )}
+                    </View>
+                    {formData.id_categoria === categoria.id_categoria && (
+                      <Ionicons name="checkmark-circle" size={24} color="#667eea" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              
+              {categorias.filter(cat => {
+                const search = searchCategoria.toLowerCase();
+                return !search || cat.nombre.toLowerCase().includes(search);
+              }).length === 0 && (
+                <View style={{
+                  padding: 20,
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  borderRadius: 12,
+                }}>
+                  <Ionicons name="search-outline" size={40} color="rgba(255, 255, 255, 0.3)" />
+                  <Text style={{ color: 'rgba(255, 255, 255, 0.5)', marginTop: 8, fontSize: 13 }}>
+                    No se encontraron categorías
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
           </View>
 
           {/* ============ INFORMACIÓN DEL AGENTE (READONLY) ============ */}
@@ -746,7 +913,7 @@ const cerrarModal = () => {
                       fontWeight: '700',
                       fontSize: 16,
                     }}>
-                      {agenteSeleccionado.nombre}
+                      {agenteSeleccionado.nombre_agente}
                     </Text>
                     {agenteSeleccionado.area_especialidad && (
                       <Text style={{
@@ -763,40 +930,44 @@ const cerrarModal = () => {
             ) : null;
           })()}
 
-          {/* ============ DEPARTAMENTO ============ */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <Text style={{ fontSize: 18 }}>🏢</Text>
-            <Text style={styles.formLabel}>
-              Departamento <Text style={{ color: '#ef4444' }}>*</Text>
-            </Text>
-          </View>
-
-              <ScrollView style={{ maxHeight: 200, marginBottom: 16 }}>
-                {/* Opción "Sin departamento" */}
-                <TouchableOpacity
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 12,
-                    padding: 14,
-                    borderRadius: 12,
-                    borderWidth: 2,
-                    borderColor: formData.id_departamento === '' 
-                      ? '#3498db' 
-                      : 'rgba(255, 255, 255, 0.15)',
-                    backgroundColor: formData.id_departamento === '' 
-                      ? 'rgba(52, 152, 219, 0.2)' 
-                      : 'rgba(255, 255, 255, 0.05)',
-                    marginBottom: 8,
-                  }}
-                  onPress={() => setFormData({ ...formData, id_departamento: '' })}
-                  activeOpacity={0.7}
-                >
+          {/* ============ INFORMACIÓN DEL DEPARTAMENTO (READONLY) ============ */}
+          {formData.id_categoria && (() => {
+            const categoriaSeleccionada = categorias.find(
+              cat => cat.id_categoria === formData.id_categoria
+            );
+            const agenteSeleccionado = agentes.find(
+              ag => ag.id_agente === categoriaSeleccionada?.id_agente
+            );
+            const departamentoDelAgente = departamentos.find(
+              dept => dept.id_departamento === agenteSeleccionado?.id_departamento
+            );
+            
+            return departamentoDelAgente ? (
+              <View style={{
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                padding: 16,
+                borderRadius: 12,
+                marginBottom: 20,
+                borderWidth: 1,
+                borderColor: 'rgba(102, 126, 234, 0.3)',
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <Text style={{ fontSize: 18 }}>ℹ️</Text>
+                  <Text style={{
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    fontSize: 12,
+                    fontWeight: '600',
+                    textTransform: 'uppercase',
+                  }}>
+                    Departamento del agente (automático)
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                   <View style={{
                     width: 40,
                     height: 40,
                     borderRadius: 10,
-                    backgroundColor: '#3498db',
+                    backgroundColor: '#667eea',
                     justifyContent: 'center',
                     alignItems: 'center',
                   }}>
@@ -804,65 +975,17 @@ const cerrarModal = () => {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{
-                      color: formData.id_departamento === '' ? '#3498db' : 'white',
+                      color: '#667eea',
                       fontWeight: '700',
-                      fontSize: 15,
+                      fontSize: 16,
                     }}>
-                      Sin departamento
+                      {departamentoDelAgente.nombre}
                     </Text>
                   </View>
-                  {formData.id_departamento === '' && (
-                    <Text style={{ fontSize: 24 }}>✅</Text>
-                  )}
-                </TouchableOpacity>
-
-                {/* Lista de departamentos */}
-                {departamentos.map((dept) => (
-                  <TouchableOpacity
-                    key={dept.id_departamento}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 12,
-                      padding: 14,
-                      borderRadius: 12,
-                      borderWidth: 2,
-                      borderColor: formData.id_departamento === dept.id_departamento 
-                        ? '#3498db' 
-                        : 'rgba(255, 255, 255, 0.15)',
-                      backgroundColor: formData.id_departamento === dept.id_departamento 
-                        ? 'rgba(52, 152, 219, 0.2)' 
-                        : 'rgba(255, 255, 255, 0.05)',
-                      marginBottom: 8,
-                    }}
-                    onPress={() => setFormData({ ...formData, id_departamento: dept.id_departamento })}
-                    activeOpacity={0.7}
-                  >
-                    <View style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      backgroundColor: '#667eea',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                    }}>
-                      <Text style={{ fontSize: 22 }}>🏢</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{
-                        color: formData.id_departamento === dept.id_departamento ? '#3498db' : 'white',
-                        fontWeight: '700',
-                        fontSize: 15,
-                      }}>
-                        {dept.nombre}
-                      </Text>
-                    </View>
-                    {formData.id_departamento === dept.id_departamento && (
-                      <Text style={{ fontSize: 24 }}>✅</Text>
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+                </View>
+              </View>
+            ) : null;
+          })()}
 
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                 <Text style={{ fontSize: 18 }}>📝</Text>
@@ -927,46 +1050,214 @@ const cerrarModal = () => {
                 style={styles.formInput}
               />
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <Text style={{ fontSize: 18 }}>🚩</Text>
-                <Text style={styles.formLabel}>Prioridad</Text>
+              {/* 🔥 MEJORADO: Header de prioridad con info */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ fontSize: 18 }}>🚩</Text>
+                  <Text style={styles.formLabel}>Prioridad</Text>
+                </View>
+                
+                {/* Badge con prioridad seleccionada */}
+                {formData.prioridad && PRIORITY_LABELS[formData.prioridad] && (
+                  <View style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 8,
+                    backgroundColor: `${PRIORITY_LABELS[formData.prioridad].color}33`,
+                    borderWidth: 1,
+                    borderColor: PRIORITY_LABELS[formData.prioridad].color,
+                  }}>
+                    <Text style={{ 
+                      color: PRIORITY_LABELS[formData.prioridad].color, 
+                      fontSize: 11, 
+                      fontWeight: '700' 
+                    }}>
+                      {PRIORITY_LABELS[formData.prioridad].label}
+                    </Text>
+                  </View>
+                )}
               </View>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
-                {[1,2,3,4,5,6,7,8,9,10].map(num => {
-                  const getColor = (n) => {
-                    if (n >= 8) return '#ef4444';
-                    if (n >= 5) return '#fbbf24';
-                    return '#22c55e';
-                  };
-                  const color = getColor(num);
-                  
-                  return (
-                    <TouchableOpacity
-                      key={num}
-                      style={{
-                        width: 50,
-                        height: 50,
-                        borderRadius: 12,
-                        borderWidth: 2,
-                        borderColor: formData.prioridad === num ? color : 'rgba(255, 255, 255, 0.15)',
-                        backgroundColor: formData.prioridad === num ? `${color}33` : 'rgba(255, 255, 255, 0.05)',
+
+              {/* Descripción de la prioridad seleccionada */}
+              {formData.prioridad && PRIORITY_LABELS[formData.prioridad] && (
+                <View style={{
+                  padding: 10,
+                  marginBottom: 12,
+                  borderRadius: 8,
+                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                  borderLeftWidth: 3,
+                  borderLeftColor: PRIORITY_LABELS[formData.prioridad].color,
+                }}>
+                  <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12 }}>
+                    {PRIORITY_LABELS[formData.prioridad].desc}
+                  </Text>
+                </View>
+              )}
+              {/* 🔥 MEJORADO: Estadísticas de distribución */}
+            <View style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: 6,
+              padding: 10,
+              marginBottom: 12,
+              backgroundColor: 'rgba(255, 255, 255, 0.03)',
+              borderRadius: 8,
+            }}>
+              <Text style={{ 
+                width: '100%',
+                color: 'rgba(255, 255, 255, 0.5)', 
+                fontSize: 11,
+                marginBottom: 6,
+              }}>
+                Distribución actual (contenidos activos):
+              </Text>
+              {(() => {
+                // Calcular distribución
+                const distribution = contenidos
+                  .filter(c => c.estado === 'activo' && c.id_contenido !== formData.id_contenido)
+                  .reduce((acc, c) => {
+                    acc[c.prioridad] = (acc[c.prioridad] || 0) + 1;
+                    return acc;
+                  }, {});
+                
+                // Mostrar stats
+                return Object.entries(distribution)
+                  .sort(([a], [b]) => parseInt(b) - parseInt(a))
+                  .map(([priority, count]) => (
+                    <View key={priority} style={{
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                      borderRadius: 6,
+                      backgroundColor: `${PRIORITY_LABELS[priority]?.color || '#666'}22`,
+                      borderWidth: 1,
+                      borderColor: `${PRIORITY_LABELS[priority]?.color || '#666'}44`,
+                    }}>
+                      <Text style={{
+                        color: PRIORITY_LABELS[priority]?.color || '#999',
+                        fontSize: 10,
+                        fontWeight: '600',
+                      }}>
+                        P{priority}: {count}
+                      </Text>
+                    </View>
+                  ));
+              })()}
+              {contenidos.filter(c => c.estado === 'activo').length === 0 && (
+                <Text style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 10 }}>
+                  No hay contenidos activos
+                </Text>
+              )}
+            </View>
+
+            {/* 🔥 MEJORADO: Botones de prioridad con badges */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+              {[1,2,3,4,5,6,7,8,9,10].map(num => {
+                const info = PRIORITY_LABELS[num];
+                
+                // 🔥 Contar contenidos activos con esta prioridad
+                const countWithSamePriority = contenidos.filter(c => 
+                  c.prioridad === num && 
+                  c.estado === 'activo' &&
+                  c.id_contenido !== formData.id_contenido // Excluir el actual si es edición
+                ).length;
+                
+                return (
+                  <TouchableOpacity
+                    key={num}
+                    style={{
+                      width: 50,
+                      height: 50,
+                      borderRadius: 12,
+                      borderWidth: 2,
+                      borderColor: formData.prioridad === num ? info.color : 'rgba(255, 255, 255, 0.15)',
+                      backgroundColor: formData.prioridad === num ? `${info.color}33` : 'rgba(255, 255, 255, 0.05)',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      position: 'relative',
+                    }}
+                    onPress={() => setFormData({ ...formData, prioridad: num })}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{
+                      color: formData.prioridad === num ? info.color : 'white',
+                      fontWeight: '800',
+                      fontSize: 18,
+                    }}>
+                      {num}
+                    </Text>
+                    
+                    {/* 🔥 NUEVO: Badge con contador */}
+                    {countWithSamePriority > 0 && (
+                      <View style={{
+                        position: 'absolute',
+                        top: -6,
+                        right: -6,
+                        backgroundColor: info.color,
+                        borderRadius: 10,
+                        minWidth: 20,
+                        height: 20,
                         justifyContent: 'center',
                         alignItems: 'center',
-                      }}
-                      onPress={() => setFormData({ ...formData, prioridad: num })}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={{
-                        color: formData.prioridad === num ? color : 'white',
-                        fontWeight: '800',
-                        fontSize: 18,
+                        paddingHorizontal: 4,
+                        borderWidth: 2,
+                        borderColor: '#1a1a2e',
                       }}>
-                        {num}
+                        <Text style={{
+                          color: 'white',
+                          fontSize: 10,
+                          fontWeight: '700',
+                        }}>
+                          {countWithSamePriority}
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* 🔥 NUEVO: Advertencia si hay muchos con prioridad alta */}
+            {formData.prioridad >= 8 && (() => {
+              const count = contenidos.filter(c => 
+                c.prioridad === formData.prioridad && 
+                c.estado === 'activo' &&
+                c.id_contenido !== formData.id_contenido
+              ).length;
+              
+              if (count >= 5) {
+                return (
+                  <View style={{
+                    padding: 12,
+                    marginBottom: 16,
+                    borderRadius: 10,
+                    backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                    borderLeftWidth: 4,
+                    borderLeftColor: '#fbbf24',
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={{ fontSize: 20 }}>⚠️</Text>
+                      <Text style={{ 
+                        color: '#fbbf24', 
+                        fontWeight: '700', 
+                        fontSize: 13,
+                        flex: 1,
+                      }}>
+                        Ya tienes {count} contenidos activos con prioridad {formData.prioridad}
                       </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                    </View>
+                    <Text style={{ 
+                      color: 'rgba(255, 255, 255, 0.5)', 
+                      fontSize: 11, 
+                      marginTop: 4,
+                      marginLeft: 28,
+                    }}>
+                      Considera usar una prioridad diferente para mejor distribución
+                    </Text>
+                  </View>
+                );
+              }
+              return null;
+            })()}
 
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <Text style={{ fontSize: 18 }}>📊</Text>
@@ -1098,6 +1389,7 @@ const cerrarModal = () => {
           </View>
         </View>
       </Modal>
+      </View>
     </View>
   );
 };

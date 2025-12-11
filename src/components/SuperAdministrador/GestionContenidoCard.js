@@ -94,13 +94,15 @@ export default function GestionContenidoCard({ contenido, onEdit, onPublish, onV
           </Text>
         </View>
 
-        {/* Agente */}
-        {contenido?.agente_nombre && (
-          <View style={styles.agenteTag}>
-            <Ionicons name="person" size={14} color="#667eea" />
-            <Text style={styles.agenteText}>{contenido.agente_nombre}</Text>
-          </View>
-        )}
+      {/* Agente */}
+      {contenido?.agente_nombre && (
+        <View style={styles.agenteTag}>
+          <Ionicons name="person" size={14} color="#667eea" />
+          <Text style={styles.agenteText}>
+            {contenido.agente_nombre}
+          </Text>
+        </View>
+      )}
       </View>
 
       {/* Resumen */}
