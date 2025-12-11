@@ -938,6 +938,24 @@ useEffect(() => {
 
                   </View>
 
+                      <TouchableOpacity
+                          style={styles.confirmarButton}
+                          onPress={handleMoverUsuarios}
+                          disabled={loading}
+                          activeOpacity={0.7}
+                        >
+                          {loading ? (
+                            <ActivityIndicator size="small" color="#ffffff" />
+                          ) : (
+                            <>
+                              <Ionicons name="checkmark-circle" size={20} color="#ffffff" />
+                              <Text style={styles.confirmarButtonText}>
+                                Confirmar cambio de departamento
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+
 
                 </View>
               )}
