@@ -361,10 +361,7 @@ useEffect(() => {
       </TouchableOpacity>
 
       {/* Contenido Principal */}
-      <View style={[
-        styles.mainContent, 
-        sidebarOpen && styles.mainContentWithSidebar
-      ]}>
+      <View style={styles.mainContent}>
         <ScrollView 
           style={styles.container}
           refreshControl={
@@ -964,6 +961,8 @@ useEffect(() => {
 
         </ScrollView>
 
+        </View>
+
 
 
 {/* Modal de Detalle de Usuario */}
@@ -1248,7 +1247,7 @@ useEffect(() => {
 
 
 
-      </View>
+      
 
 
 
@@ -1260,6 +1259,7 @@ useEffect(() => {
 const styles = {
   wrapper: {
     flex: 1,
+    flexDirection: 'row',  // ✅ Agregar esto
     backgroundColor: '#f8fafc'
   },
   toggleButton: {
@@ -1276,12 +1276,9 @@ const styles = {
     elevation: 5
   },
   mainContent: {
-    flex: 1,
-    marginLeft: 0
+    flex: 1
   },
-  mainContentWithSidebar: {
-    marginLeft: 280
-  },
+
   container: {
     flex: 1,
     padding: 24
