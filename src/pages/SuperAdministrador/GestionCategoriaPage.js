@@ -44,6 +44,38 @@ export default function GestionCategoriaPage() {
 const [categoriaDetalle, setCategoriaDetalle] = useState(null);
 const [breadcrumb, setBreadcrumb] = useState([]);
     
+
+
+// Arrays de iconos y colores disponibles
+const iconosDisponibles = [
+  'folder', 'document', 'file-tray', 'archive', 'briefcase', 
+  'cart', 'cash', 'card', 'calculator', 'calendar',
+  'clipboard', 'bookmark', 'flag', 'star', 'heart',
+
+  'bulb'
+];
+
+const coloresDisponibles = [
+  { nombre: 'Púrpura', hex: '#667eea' },
+  { nombre: 'Azul', hex: '#3b82f6' },
+  { nombre: 'Cyan', hex: '#06b6d4' },
+  { nombre: 'Verde', hex: '#10b981' },
+  { nombre: 'Lima', hex: '#84cc16' },
+  { nombre: 'Amarillo', hex: '#fbbf24' },
+  { nombre: 'Naranja', hex: '#f97316' },
+  { nombre: 'Rojo', hex: '#ef4444' },
+  { nombre: 'Rosa', hex: '#ec4899' },
+  { nombre: 'Fucsia', hex: '#d946ef' },
+  { nombre: 'Índigo', hex: '#6366f1' },
+  { nombre: 'Violeta', hex: '#8b5cf6' },
+  { nombre: 'Gris', hex: '#6b7280' },
+
+
+  { nombre: 'Esmeralda', hex: '#059669' }
+];
+
+
+
   const [formData, setFormData] = useState({
   nombre: '',
   descripcion: '',
@@ -1041,36 +1073,174 @@ const [breadcrumb, setBreadcrumb] = useState([]);
                     </View>
                   </View>
 
-                    {/* Icono */}
-                    <View style={styles.formGroup}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                        <Ionicons name="star" size={16} color="#667eea" />
-                        <Text style={styles.label}>Icono</Text>
-                    </View>
-                    <TextInput
-                        style={styles.input}
-                        value={formData.icono}
-                        onChangeText={(text) => handleInputChange('icono', text)}
-                        placeholder="Ej: folder, document, star"
-                        placeholderTextColor="rgba(255, 255, 255, 0.3)"
-                    />
-                    </View>
+{/* Selector de Icono */}
+<View style={styles.formGroup}>
+  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+    <Ionicons name="star" size={16} color="#667eea" />
+    <Text style={styles.label}>Icono Seleccionado</Text>
+  </View>
+  
+  {/* Vista previa del icono seleccionado */}
+  <View style={{
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(102, 126, 234, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 0.3)',
+    marginBottom: 12,
+  }}>
+    <View style={{
+      width: 48,
+      height: 48,
+      borderRadius: 12,
+      backgroundColor: formData.color || '#667eea',
+      justifyContent: 'center',
+      alignItems: 'center',
+    }}>
+      <Ionicons name={formData.icono || 'folder'} size={28} color="white" />
+    </View>
+    <View>
+      <Text style={{ color: '#667eea', fontWeight: '700', fontSize: 15 }}>
+        {formData.icono || 'folder'}
+      </Text>
+      <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}>
+        Vista previa del icono
+      </Text>
+    </View>
+  </View>
 
-                    {/* Color */}
-                    <View style={styles.formGroup}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                        <Ionicons name="color-palette" size={16} color="#667eea" />
-                        <Text style={styles.label}>Color (Hex)</Text>
-                    </View>
-                    <TextInput
-                        style={styles.input}
-                        value={formData.color}
-                        onChangeText={(text) => handleInputChange('color', text)}
-                        placeholder="#667eea"
-                        placeholderTextColor="rgba(255, 255, 255, 0.3)"
-                        maxLength={7}
-                    />
-                    </View>
+  {/* Grid de iconos */}
+  <View style={{
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    maxHeight: 300,
+  }}>
+    <ScrollView 
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}
+    >
+      {iconosDisponibles.map((icono) => (
+        <TouchableOpacity
+          key={icono}
+          style={{
+            width: 52,
+            height: 52,
+            borderRadius: 12,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: formData.icono === icono 
+              ? 'rgba(102, 126, 234, 0.3)' 
+              : 'rgba(255, 255, 255, 0.05)',
+            borderWidth: 2,
+            borderColor: formData.icono === icono 
+              ? '#667eea' 
+              : 'transparent',
+          }}
+          onPress={() => handleInputChange('icono', icono)}
+          activeOpacity={0.7}
+        >
+          <Ionicons 
+            name={icono} 
+            size={24} 
+            color={formData.icono === icono ? '#667eea' : 'rgba(255, 255, 255, 0.6)'} 
+          />
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
+  </View>
+</View>
+
+                   
+
+
+
+{/* Selector de Color */}
+<View style={styles.formGroup}>
+  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+    <Ionicons name="color-palette" size={16} color="#667eea" />
+    <Text style={styles.label}>Color Seleccionado</Text>
+  </View>
+  
+  {/* Color actual */}
+  <View style={{
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    marginBottom: 12,
+  }}>
+    <View style={{
+      width: 48,
+      height: 48,
+      borderRadius: 12,
+      backgroundColor: formData.color || '#667eea',
+      borderWidth: 2,
+      borderColor: 'rgba(255, 255, 255, 0.2)',
+    }} />
+    <View>
+      <Text style={{ color: 'white', fontWeight: '700', fontSize: 15 }}>
+        {coloresDisponibles.find(c => c.hex === formData.color)?.nombre || 'Personalizado'}
+      </Text>
+      <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}>
+        {formData.color || '#667eea'}
+      </Text>
+    </View>
+  </View>
+
+  {/* Grid de colores */}
+  <View style={{
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  }}>
+    {coloresDisponibles.map((color) => (
+      <TouchableOpacity
+        key={color.hex}
+        style={{
+          width: 56,
+          height: 56,
+          borderRadius: 14,
+          backgroundColor: color.hex,
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderWidth: 3,
+          borderColor: formData.color === color.hex 
+            ? 'white' 
+            : 'transparent',
+          shadowColor: color.hex,
+          shadowOpacity: formData.color === color.hex ? 0.5 : 0.2,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: formData.color === color.hex ? 8 : 2,
+        }}
+        onPress={() => handleInputChange('color', color.hex)}
+        activeOpacity={0.8}
+      >
+        {formData.color === color.hex && (
+          <Ionicons name="checkmark" size={28} color="white" />
+        )}
+      </TouchableOpacity>
+    ))}
+  </View>
+</View>
 
                     {/* Orden */}
                     <View style={styles.formGroup}>
