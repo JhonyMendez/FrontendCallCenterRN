@@ -1,5 +1,6 @@
 // src/api/client.js
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 import { Platform } from 'react-native';
 import { API_CONFIG } from './config';
 
@@ -34,12 +35,103 @@ class ApiClient {
   constructor(config) {
     this.baseURL = config.BASE_URL;
     this.timeout = config.TIMEOUT;
-    this.headers = config.HEADERS;
     this.token = null;
     
-    console.log('🔧 [Client] ApiClient inicializado');
-    console.log('🔧 [Client] baseURL:', this.baseURL);
-    console.log('🔧 [Client] timeout:', this.timeout);
+    // Configurar instancia de axios
+    this.axiosInstance = axios.create({
+      baseURL: this.baseURL,
+      timeout: this.timeout,
+      headers: config.HEADERS,
+    });
+
+    // Interceptor para agregar token automáticamente
+    this.axiosInstance.interceptors.request.use(
+      async (config) => {
+        const token = await this.getToken();
+        if (token) {
+          config.headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        console.log('─────────────────────────────────────────────────');
+        console.log(`🌐 ${config.method.toUpperCase()} ${config.url}`);
+        console.log(`⏰ Hora: ${new Date().toLocaleTimeString()}`);
+        
+        return config;
+      },
+      (error) => {
+        console.error('❌ Error en request interceptor:', error);
+        return Promise.reject(error);
+      }
+    );
+
+    // Interceptor para manejar respuestas y errores
+    this.axiosInstance.interceptors.response.use(
+      (response) => {
+        console.log(`✅ Response status: ${response.status}`);
+        console.log('─────────────────────────────────────────────────');
+        return response;
+      },
+      (error) => {
+        console.log('─────────────────────────────────────────────────');
+        
+        if (error.code === 'ECONNABORTED') {
+          console.error('❌ TIMEOUT: El servidor tardó más de', this.timeout / 1000, 'segundos');
+          const timeoutError = new Error(`Tiempo de espera agotado (${this.timeout / 1000}s)`);
+          timeoutError.status = 408;
+          timeoutError.isTimeout = true;
+          return Promise.reject(timeoutError);
+        }
+
+        if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+          console.error('❌ NETWORK ERROR');
+          console.error('💡 POSIBLES CAUSAS:');
+          console.error('   1. Backend NO está corriendo en:', this.baseURL);
+          console.error('   2. Dispositivo NO está en la misma WiFi');
+          console.error('   3. Firewall bloqueando el puerto 8000');
+          console.error('   4. IP incorrecta (verifica con ipconfig)');
+          console.log('─────────────────────────────────────────────────');
+          
+          const networkError = new Error(
+            'No se puede conectar al servidor.\n\n' +
+            'Verifica que:\n' +
+            '1. El backend esté corriendo\n' +
+            '2. El móvil esté en la misma WiFi\n' +
+            '3. La IP sea correcta'
+          );
+          networkError.status = 0;
+          networkError.isNetworkError = true;
+          return Promise.reject(networkError);
+        }
+
+        if (error.response) {
+          // El servidor respondió con un código de error
+          console.error('❌ Error response:', error.response.status);
+          console.error('❌ Error data:', error.response.data);
+          console.log('─────────────────────────────────────────────────');
+          
+          const apiError = new Error(
+            error.response.data?.detail || 
+            error.response.data?.message || 
+            `Error ${error.response.status}`
+          );
+          apiError.status = error.response.status;
+          apiError.data = error.response.data;
+          return Promise.reject(apiError);
+        }
+
+        console.error('❌ Error desconocido:', error.message);
+        console.log('─────────────────────────────────────────────────');
+        return Promise.reject(error);
+      }
+    );
+    
+    console.log('═══════════════════════════════════════════════════');
+    console.log('🔧 API CLIENT INITIALIZED (AXIOS)');
+    console.log('═══════════════════════════════════════════════════');
+    console.log('📍 Base URL:', this.baseURL);
+    console.log('⏱️  Timeout:', this.timeout, 'ms');
+    console.log('📱 Platform:', Platform.OS);
+    console.log('═══════════════════════════════════════════════════');
   }
 
   async setToken(token) {
@@ -47,11 +139,13 @@ class ApiClient {
     try {
       if (token) {
         await Storage.setItem('auth_token', token);
+        console.log('✅ Token guardado correctamente');
       } else {
         await Storage.removeItem('auth_token');
+        console.log('🗑️ Token eliminado');
       }
     } catch (error) {
-      console.error('Error guardando token:', error);
+      console.error('❌ Error guardando token:', error);
     }
   }
 
@@ -60,134 +154,57 @@ class ApiClient {
       try {
         this.token = await Storage.getItem('auth_token');
       } catch (error) {
-        console.error('Error obteniendo token:', error);
+        console.error('❌ Error obteniendo token:', error);
       }
     }
     return this.token;
   }
 
   async removeToken() {
-    console.log('🧹 [Client] Removiendo token...');
+    console.log('🧹 Removiendo token...');
     await this.setToken(null);
     this.token = null;
   }
 
-  async buildHeaders(customHeaders = {}) {
-    const headers = { ...this.headers, ...customHeaders };
-    const token = await this.getToken();
-    
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-    
-    return headers;
-  }
-
-  async request(endpoint, options = {}) {
-    const url = `${this.baseURL}${endpoint}`;
-    
-    console.log(`🌐 [Client] ${options.method || 'GET'} ${url}`);
-    
-    const useTimeout = Platform.OS === 'web' && this.timeout && this.timeout > 0;
-
-    let controller = null;
-    let timeoutId = null;
-
+  // Métodos HTTP usando axios
+  async get(endpoint, options = {}) {
     try {
-      const headers = await this.buildHeaders(options.headers);
-      const fetchOptions = {
-        ...options,
-        headers,
-      };
-
-      if (useTimeout) {
-        controller = new AbortController();
-        timeoutId = setTimeout(() => controller.abort(), this.timeout);
-        fetchOptions.signal = controller.signal;
-      }
-
-      const response = await fetch(url, fetchOptions);
-
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-
-      console.log(`✅ [Client] Response status: ${response.status}`);
-
-      if (!response.ok) {
-        let errorData = {};
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          errorData = {};
-        }
-
-        console.error('❌ [Client] Error response:', errorData);
-        
-        // ✅ LANZAR ERROR EN FORMATO ESTRUCTURADO
-        const error = new Error(errorData.detail || errorData.message || `Error ${response.status}`);
-        error.status = response.status;
-        error.data = errorData; // ✅ Aquí está el errorData del backend
-        throw error;
-      }
-
-      if (response.status === 204) {
-        return null;
-      }
-
-      let data = null;
-      try {
-        data = await response.json();
-      } catch (e) {
-        data = null;
-      }
-
-      console.log('✅ [Client] Data received, length:', Array.isArray(data) ? data.length : 'N/A');
-      return data;
+      const response = await this.axiosInstance.get(endpoint, options);
+      return response.data;
     } catch (error) {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      
-      if (useTimeout && error.name === 'AbortError') {
-        console.error('❌ [Client] Timeout');
-        const timeoutError = new Error('Tiempo de espera agotado');
-        timeoutError.status = 408;
-        timeoutError.isTimeout = true;
-        throw timeoutError;
-      }
-      
-      console.error('❌ [Client] Request failed:', error);
-      throw error; // ✅ Ya es un Error con .data
+      throw error;
     }
   }
 
-  get(endpoint, options) {
-    return this.request(endpoint, { ...options, method: 'GET' });
+  async post(endpoint, data, options = {}) {
+    try {
+      const response = await this.axiosInstance.post(endpoint, data, options);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 
-  post(endpoint, data, options) {
-    return this.request(endpoint, {
-      ...options,
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
+  async put(endpoint, data, options = {}) {
+    try {
+      const response = await this.axiosInstance.put(endpoint, data, options);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 
-  put(endpoint, data, options) {
-    return this.request(endpoint, {
-      ...options,
-      method: 'PUT',
-      body: JSON.stringify(data)
-    });
-  }
-
-  delete(endpoint, options) {
-    return this.request(endpoint, { ...options, method: 'DELETE' });
+  async delete(endpoint, options = {}) {
+    try {
+      const response = await this.axiosInstance.delete(endpoint, options);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 
   async clearSession() {
-    console.log('🧹 [Client] Limpiando sesión...');
+    console.log('🧹 Limpiando sesión...');
     try {
       await this.removeToken();
     } catch (error) {
