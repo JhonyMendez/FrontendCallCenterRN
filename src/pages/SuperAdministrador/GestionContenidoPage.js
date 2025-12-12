@@ -55,6 +55,8 @@ const GestionContenidoPage = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
+  const [modalViewVisible, setModalViewVisible] = useState(false);
+const [contenidoView, setContenidoView] = useState(null);
 
   const [formData, setFormData] = useState({
     id_contenido: null,
@@ -83,6 +85,11 @@ const GestionContenidoPage = () => {
     prioridad: '',
     estado: ''
   });
+
+  const cerrarModalView = () => {
+    setModalViewVisible(false);
+    setContenidoView(null);
+  };
 
   const mostrarNotificacionExito = (mensaje) => {
     setSuccessMessage(mensaje);
@@ -700,7 +707,10 @@ return (
                     contenido={contenido}
                     onEdit={abrirModal}
                     onPublish={publicarContenido}
-                    onView={(cont) => console.log('Ver contenido:', cont)}
+                    onView={(cont) => {
+                      setContenidoView(cont);
+                      setModalViewVisible(true);
+                    }}
                   />
                 ))
               )}
@@ -1630,6 +1640,325 @@ return (
             </ScrollView>
           </View>
         </View>
+</Modal>
+
+
+{/* Modal de visualización */}
+<Modal
+  visible={modalViewVisible}
+  animationType="slide"
+  transparent={true}
+  onRequestClose={cerrarModalView}
+>
+  <View style={styles.modalOverlay}>
+    <View style={[styles.modalContent, { maxWidth: 800 }]}>
+      
+      {/* Header */}
+      <View style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 24,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(102, 126, 234, 0.2)',
+        backgroundColor: 'rgba(102, 126, 234, 0.05)',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        marginTop: -28,
+        marginHorizontal: -28,
+        marginBottom: 20,
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{
+            width: 48,
+            height: 48,
+            borderRadius: 14,
+            backgroundColor: 'rgba(52, 152, 219, 0.3)',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+            <Text style={{ fontSize: 28 }}>👁️</Text>
+          </View>
+          <View>
+            <Text style={{ fontSize: 22, fontWeight: '900', color: '#fff' }}>
+              Detalles del Contenido
+            </Text>
+            <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}>
+              Visualización completa
+            </Text>
+          </View>
+        </View>
+        <TouchableOpacity 
+          onPress={cerrarModalView}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: 'rgba(239, 68, 68, 0.3)',
+          }}
+        >
+          <Text style={{ fontSize: 22 }}>❌</Text>
+        </TouchableOpacity>
+      </View>
+
+      {contenidoView && (
+        <ScrollView showsVerticalScrollIndicator={false}>
+          
+          {/* Título */}
+          <View style={{ marginBottom: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <Text style={{ fontSize: 18 }}>✏️</Text>
+              <Text style={styles.formLabel}>Título</Text>
+            </View>
+            <View style={{
+              padding: 16,
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: 12,
+              borderLeftWidth: 3,
+              borderLeftColor: '#667eea',
+            }}>
+              <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
+                {contenidoView.titulo}
+              </Text>
+            </View>
+          </View>
+
+          {/* Agente y Categoría */}
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+            {/* Agente */}
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Text style={{ fontSize: 18 }}>👤</Text>
+                <Text style={styles.formLabel}>Agente</Text>
+              </View>
+              <View style={{
+                padding: 14,
+                backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: 'rgba(52, 152, 219, 0.3)',
+              }}>
+                <Text style={{ color: '#3498db', fontSize: 14, fontWeight: '600' }}>
+                  {agentes.find(a => a.id_agente === contenidoView.id_agente)?.nombre_agente || 'N/A'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Categoría */}
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Text style={{ fontSize: 18 }}>📁</Text>
+                <Text style={styles.formLabel}>Categoría</Text>
+              </View>
+              <View style={{
+                padding: 14,
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: 'rgba(102, 126, 234, 0.3)',
+              }}>
+                <Text style={{ color: '#667eea', fontSize: 14, fontWeight: '600' }}>
+                  {categorias.find(c => c.id_categoria === contenidoView.id_categoria)?.nombre || 'N/A'}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Resumen */}
+          <View style={{ marginBottom: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <Text style={{ fontSize: 18 }}>📋</Text>
+              <Text style={styles.formLabel}>Resumen</Text>
+            </View>
+            <View style={{
+              padding: 16,
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: 12,
+            }}>
+              <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 14, lineHeight: 20 }}>
+                {contenidoView.resumen || 'Sin resumen'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Contenido */}
+          <View style={{ marginBottom: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <Text style={{ fontSize: 18 }}>📄</Text>
+              <Text style={styles.formLabel}>Contenido</Text>
+            </View>
+            <View style={{
+              padding: 16,
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: 12,
+              maxHeight: 300,
+            }}>
+              <ScrollView nestedScrollEnabled={true}>
+                <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 14, lineHeight: 22 }}>
+                  {contenidoView.contenido}
+                </Text>
+              </ScrollView>
+            </View>
+          </View>
+
+          {/* Palabras clave y Etiquetas */}
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+            {/* Palabras clave */}
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Text style={{ fontSize: 18 }}>🔑</Text>
+                <Text style={styles.formLabel}>Palabras clave</Text>
+              </View>
+              <View style={{
+                padding: 12,
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                borderRadius: 12,
+              }}>
+                <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 13 }}>
+                  {contenidoView.palabras_clave || 'Sin palabras clave'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Etiquetas */}
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Text style={{ fontSize: 18 }}>🏷️</Text>
+                <Text style={styles.formLabel}>Etiquetas</Text>
+              </View>
+              <View style={{
+                padding: 12,
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                borderRadius: 12,
+              }}>
+                <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 13 }}>
+                  {contenidoView.etiquetas || 'Sin etiquetas'}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Prioridad y Estado */}
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+            {/* Prioridad */}
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Text style={{ fontSize: 18 }}>🚩</Text>
+                <Text style={styles.formLabel}>Prioridad</Text>
+              </View>
+              <View style={{
+                padding: 14,
+                backgroundColor: `${PRIORITY_LABELS[contenidoView.prioridad]?.color || '#666'}22`,
+                borderRadius: 12,
+                borderWidth: 2,
+                borderColor: PRIORITY_LABELS[contenidoView.prioridad]?.color || '#666',
+              }}>
+                <Text style={{ 
+                  color: PRIORITY_LABELS[contenidoView.prioridad]?.color || '#999',
+                  fontSize: 14, 
+                  fontWeight: '700' 
+                }}>
+                  {PRIORITY_LABELS[contenidoView.prioridad]?.label || `Prioridad ${contenidoView.prioridad}`}
+                </Text>
+              </View>
+            </View>
+
+            {/* Estado */}
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Text style={{ fontSize: 18 }}>📊</Text>
+                <Text style={styles.formLabel}>Estado</Text>
+              </View>
+              <View style={{
+                padding: 14,
+                backgroundColor: (() => {
+                  const colors = {
+                    borrador: '#9ca3af22',
+                    revision: '#fbbf2422',
+                    activo: '#10b98122',
+                    inactivo: '#ef444422',
+                    archivado: '#6b728022',
+                  };
+                  return colors[contenidoView.estado] || 'rgba(255, 255, 255, 0.1)';
+                })(),
+                borderRadius: 12,
+                borderWidth: 2,
+                borderColor: (() => {
+                  const colors = {
+                    borrador: '#9ca3af',
+                    revision: '#fbbf24',
+                    activo: '#10b981',
+                    inactivo: '#ef4444',
+                    archivado: '#6b7280',
+                  };
+                  return colors[contenidoView.estado] || '#666';
+                })(),
+              }}>
+                <Text style={{ 
+                  color: (() => {
+                    const colors = {
+                      borrador: '#9ca3af',
+                      revision: '#fbbf24',
+                      activo: '#10b981',
+                      inactivo: '#ef4444',
+                      archivado: '#6b7280',
+                    };
+                    return colors[contenidoView.estado] || '#999';
+                  })(),
+                  fontSize: 14, 
+                  fontWeight: '700',
+                  textTransform: 'capitalize'
+                }}>
+                  {contenidoView.estado}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Footer */}
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'flex-end',
+            gap: 12,
+            padding: 24,
+            borderTopWidth: 1,
+            borderTopColor: 'rgba(255, 255, 255, 0.1)',
+            marginHorizontal: -28,
+            marginBottom: -28,
+            marginTop: 20,
+          }}>
+            <TouchableOpacity
+              style={{
+                paddingHorizontal: 24,
+                paddingVertical: 14,
+                borderRadius: 16,
+                backgroundColor: '#667eea',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                shadowColor: '#667eea',
+                shadowOpacity: 0.6,
+                shadowRadius: 12,
+                elevation: 10,
+              }}
+              onPress={cerrarModalView}
+              activeOpacity={0.8}
+            >
+              <Text style={{ fontSize: 18 }}>✅</Text>
+              <Text style={{ color: 'white', fontWeight: '700', fontSize: 16 }}>
+                Cerrar
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+        </ScrollView>
+      )}
+    </View>
+  </View>
 </Modal>
 
       {/* 🔥 NUEVO: Notificación de éxito flotante */}
