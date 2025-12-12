@@ -392,8 +392,15 @@ const handleEdit = (agente) => {
     area_especialidad: agente.area_especialidad || '',
     descripcion: agente.descripcion || '',
     modelo_ia: 'llama3:8b', 
-    temperatura: agente.temperatura?.toString() || '0.7',
-    max_tokens: agente.max_tokens?.toString() || '4000',
+    temperatura: (() => {
+      const temp = agente.temperatura?.toString() || '0.7';
+      // Normalizar a las opciones disponibles: '0.6', '0.9', '1.2'
+      if (temp === '0.6' || temp === '0.9' || temp === '1.2') {
+        return temp;
+      }
+      // Si es 0.7 o cualquier otro valor, usar 0.6 (balanceado por defecto)
+      return '0.6';
+    })(),    max_tokens: agente.max_tokens?.toString() || '4000',
     
     prompt_mision: prompt_mision,
     prompt_reglas: prompt_reglas,
