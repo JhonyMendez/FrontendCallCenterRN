@@ -70,6 +70,29 @@ const GestionContenidoPage = () => {
     estado: 'borrador'
   });
 
+  const [showSuccessNotification, setShowSuccessNotification] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
+  const [errores, setErrores] = useState({
+    id_categoria: '',
+    titulo: '',
+    contenido: '',
+    resumen: '',
+    palabras_clave: '',
+    etiquetas: '',
+    prioridad: '',
+    estado: ''
+  });
+
+  const mostrarNotificacionExito = (mensaje) => {
+    setSuccessMessage(mensaje);
+    setShowSuccessNotification(true);
+    
+    setTimeout(() => {
+      setShowSuccessNotification(false);
+    }, 3000);
+  };
+
   const sanitizeInput = (text) => {
     return text
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
@@ -226,72 +249,122 @@ const abrirModal = async (contenido = null) => {
   }
 };
 
-const cerrarModal = () => {
+  const cerrarModal = () => {
     setModalVisible(false);
     setEditando(false);
     setSearchAgente('');
     setSearchEstado('');
     setSearchCategoria('');
-};
+    setErrores({ 
+      id_categoria: '', 
+      titulo: '', 
+      contenido: '',
+      resumen: '',
+      palabras_clave: '',
+      etiquetas: '',
+      prioridad: '',
+      estado: ''
+    });
+  };
 
   const guardarContenido = async () => {
     console.log('🚀 ========== INICIO guardarContenido ==========');
-    console.log('📝 Estado editando:', editando);
-    console.log('📋 formData:', formData);
-    console.log('📁 categorias disponibles:', categorias);
+    
+    // 🔥 NUEVA: Función de validación con mensajes
+  const validarFormulario = () => {
+    const nuevosErrores = {
+      id_categoria: '',
+      titulo: '',
+      contenido: '',
+      resumen: '',
+      palabras_clave: '',
+      etiquetas: '',
+      prioridad: '',
+      estado: ''
+    };
+    
+    let hayErrores = false;
+    
+    // Validar categoría
+    if (!formData.id_categoria) {
+      nuevosErrores.id_categoria = '⚠️ Debes seleccionar una categoría';
+      hayErrores = true;
+    }
+    
+    // Validar título
+    if (!formData.titulo || formData.titulo.trim() === '') {
+      nuevosErrores.titulo = '⚠️ El título es obligatorio';
+      hayErrores = true;
+    } else if (formData.titulo.trim().length < 5) {
+      nuevosErrores.titulo = `⚠️ El título debe tener al menos 5 caracteres (actual: ${formData.titulo.trim().length})`;
+      hayErrores = true;
+    }
+    
+    // 🔥 NUEVA: Validar contenido con longitud mínima
+    if (!formData.contenido || formData.contenido.trim() === '') {
+      nuevosErrores.contenido = '⚠️ El contenido es obligatorio';
+      hayErrores = true;
+    } else if (formData.contenido.trim().length < 50) {
+      nuevosErrores.contenido = `⚠️ El contenido debe tener al menos 50 caracteres (actual: ${formData.contenido.trim().length})`;
+      hayErrores = true;
+    }
+    
+    // Validar resumen
+    if (!formData.resumen || formData.resumen.trim() === '') {
+      nuevosErrores.resumen = '⚠️ El resumen es obligatorio';
+      hayErrores = true;
+    } else if (formData.resumen.trim().length < 10) {
+      nuevosErrores.resumen = `⚠️ El resumen debe tener al menos 10 caracteres (actual: ${formData.resumen.trim().length})`;
+      hayErrores = true;
+    }
+    
+    // Validar palabras clave
+    if (!formData.palabras_clave || formData.palabras_clave.trim() === '') {
+      nuevosErrores.palabras_clave = '⚠️ Las palabras clave son obligatorias';
+      hayErrores = true;
+    }
+    
+    // Validar etiquetas
+    if (!formData.etiquetas || formData.etiquetas.trim() === '') {
+      nuevosErrores.etiquetas = '⚠️ Las etiquetas son obligatorias';
+      hayErrores = true;
+    }
+    
+    // Validar prioridad
+    if (!formData.prioridad || formData.prioridad < 1 || formData.prioridad > 10) {
+      nuevosErrores.prioridad = '⚠️ Selecciona una prioridad válida (1-10)';
+      hayErrores = true;
+    }
+    
+    // Validar estado
+    if (!formData.estado) {
+      nuevosErrores.estado = '⚠️ Debes seleccionar un estado';
+      hayErrores = true;
+    }
+    
+    setErrores(nuevosErrores);
+    return !hayErrores;
+  };
     
     // 🔥 FUNCIÓN INTERNA para el guardado real
     const guardarContenidoReal = async () => {
       try {
-        // 🔥 Validación 1: Categoría
-        if (!formData.id_categoria) {
-          console.log('❌ Error: No hay categoría seleccionada');
-          Alert.alert('Error', 'Debes seleccionar una categoría');
-          return;
-        }
-        console.log('✅ Categoría seleccionada:', formData.id_categoria);
-
-        // 🔥 Validación 2: Obtener el agente desde la categoría seleccionada
         const categoriaSeleccionada = categorias.find(
           cat => cat.id_categoria === formData.id_categoria
         );
-        console.log('🔍 Categoría encontrada:', categoriaSeleccionada);
         
-        if (!categoriaSeleccionada) {
-          console.log('❌ Error: Categoría no encontrada en el array');
-          Alert.alert('Error', 'Categoría no válida');
-          return;
-        }
-
-        if (!categoriaSeleccionada.id_agente) {
-          console.log('❌ Error: La categoría no tiene id_agente');
-          Alert.alert('Error', 'La categoría no tiene un agente asociado');
-          return;
-        }
-        console.log('✅ Agente de la categoría:', categoriaSeleccionada.id_agente);
-
-        // 🔥 Validación 3: Departamento (ahora viene del agente)
         const agenteSeleccionado = agentes.find(
-          ag => ag.id_agente === categoriaSeleccionada.id_agente
+          ag => ag.id_agente === categoriaSeleccionada?.id_agente
         );
 
         const id_departamento = agenteSeleccionado?.id_departamento || null;
-        console.log('✅ Departamento del agente:', id_departamento);
-
-        // 🔥 Validación 4: Campos obligatorios
-        if (!formData.titulo || !formData.contenido) {
-          console.log('❌ Error: Falta título o contenido');
-          Alert.alert('Error', 'Título y contenido son obligatorios');
-          return;
-        }
-        console.log('✅ Título y contenido presentes');
 
         const dataToSend = {
           id_agente: parseInt(categoriaSeleccionada.id_agente),
           id_categoria: parseInt(formData.id_categoria),
           id_departamento: id_departamento ? parseInt(id_departamento) : null,
-          titulo: formData.titulo,
-          contenido: formData.contenido,
+          titulo: formData.titulo.trim(),
+          contenido: formData.contenido.trim(),
           resumen: formData.resumen,
           palabras_clave: formData.palabras_clave,
           etiquetas: formData.etiquetas,
@@ -303,14 +376,12 @@ const cerrarModal = () => {
 
         if (editando) {
           console.log('✏️ Modo EDICIÓN - ID:', formData.id_contenido);
-          const resultado = await contenidoService.update(formData.id_contenido, dataToSend);
-          console.log('✅ Resultado update:', resultado);
-          Alert.alert('Éxito', 'Contenido actualizado correctamente');
+          await contenidoService.update(formData.id_contenido, dataToSend);
+          mostrarNotificacionExito(' Contenido actualizado correctamente');
         } else {
           console.log('➕ Modo CREACIÓN');
-          const resultado = await contenidoService.create(dataToSend);
-          console.log('✅ Resultado create:', resultado);
-          Alert.alert('Éxito', 'Contenido creado correctamente');
+          await contenidoService.create(dataToSend);
+          mostrarNotificacionExito('Contenido creado correctamente');
         }
 
         console.log('🔄 Cerrando modal y recargando...');
@@ -319,64 +390,40 @@ const cerrarModal = () => {
         console.log('✅ Contenidos recargados');
         
       } catch (error) {
-        console.log('❌ ========== ERROR CAPTURADO ==========');
-        console.error('❌ Error tipo:', error.name);
-        console.error('❌ Error mensaje:', error.message);
-        console.error('❌ Error stack:', error.stack);
-        console.error('❌ Error completo:', error);
+        console.error('❌ Error:', error);
         Alert.alert('Error', error.message || 'No se pudo guardar el contenido');
       }
     };
     
-    // 🔥 VALIDACIONES PREVIAS (antes de guardar)
-    try {
-      if (!formData.id_categoria) {
-        Alert.alert('Error', 'Debes seleccionar una categoría');
-        return;
-      }
-      
-      const categoriaSeleccionada = categorias.find(
-        cat => cat.id_categoria === formData.id_categoria
-      );
-      
-      if (!categoriaSeleccionada || !categoriaSeleccionada.id_agente) {
-        Alert.alert('Error', 'Categoría no válida');
-        return;
-      }
-      
-      if (!formData.titulo || !formData.contenido) {
-        Alert.alert('Error', 'Título y contenido son obligatorios');
-        return;
-      }
-
-      // 🔥 VALIDACIÓN DE PRIORIDAD ALTA (con diálogo)
-      if (formData.prioridad >= 8) {
-        const count = contenidos.filter(c => 
-          c.prioridad === formData.prioridad && 
-          c.estado === 'activo' &&
-          c.id_contenido !== formData.id_contenido
-        ).length;
-        
-        if (count >= 5) {
-          Alert.alert(
-            '⚠️ Muchos contenidos con esta prioridad',
-            `Ya tienes ${count} contenidos activos con prioridad ${formData.prioridad}. La prioridad será menos efectiva.\n\n¿Deseas continuar?`,
-            [
-              { text: 'Cambiar prioridad', style: 'cancel' },
-              { text: 'Continuar', onPress: guardarContenidoReal }
-            ]
-          );
-          return; // ⚠️ Detener aquí y esperar la decisión del usuario
-        }
-      }
-      
-      // Si no hay advertencia, guardar directamente
-      await guardarContenidoReal();
-      
-    } catch (error) {
-      console.error('Error en validación inicial:', error);
-      Alert.alert('Error', 'Error al validar los datos');
+    // 🔥 VALIDAR PRIMERO
+    if (!validarFormulario()) {
+      Alert.alert('Campos incompletos', 'Por favor completa todos los campos obligatorios marcados en rojo');
+      return;
     }
+    
+    // 🔥 VALIDACIÓN DE PRIORIDAD ALTA
+    if (formData.prioridad >= 8) {
+      const count = contenidos.filter(c => 
+        c.prioridad === formData.prioridad && 
+        c.estado === 'activo' &&
+        c.id_contenido !== formData.id_contenido
+      ).length;
+      
+      if (count >= 5) {
+        Alert.alert(
+          '⚠️ Muchos contenidos con esta prioridad',
+          `Ya tienes ${count} contenidos activos con prioridad ${formData.prioridad}. La prioridad será menos efectiva.\n\n¿Deseas continuar?`,
+          [
+            { text: 'Cambiar prioridad', style: 'cancel' },
+            { text: 'Continuar', onPress: guardarContenidoReal }
+          ]
+        );
+        return;
+      }
+    }
+    
+    // Si todo está bien, guardar
+    await guardarContenidoReal();
     
     console.log('🏁 ========== FIN guardarContenido ==========');
   };
@@ -660,6 +707,8 @@ return (
             </View>
           </View>
         </ScrollView>
+         
+
       </View>
 
       {/* Modal de creación/edición */}
@@ -864,7 +913,27 @@ return (
                 </View>
               )}
             </ScrollView>
-          </View>
+
+             {/* 🔥 MENSAJE DE ERROR DE CATEGORÍA - AHORA SÍ DENTRO DEL MODAL */}
+              {errores.id_categoria && (
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: 10,
+                  marginTop: 8,
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  borderRadius: 8,
+                  borderLeftWidth: 3,
+                  borderLeftColor: '#ef4444',
+                }}>
+                  <Ionicons name="alert-circle" size={16} color="#ef4444" />
+                  <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>
+                    {errores.id_categoria}
+                  </Text>
+                </View>
+              )}
+            </View>
 
           {/* ============ INFORMACIÓN DEL AGENTE (READONLY) ============ */}
           {formData.id_categoria && (() => {
@@ -987,18 +1056,83 @@ return (
             ) : null;
           })()}
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <Text style={{ fontSize: 18 }}>📝</Text>
-                <Text style={styles.formLabel}>
-                  Título <Text style={{ color: '#ef4444' }}>*</Text>
+           {/* ============ TÍTULO ============ */}
+          <View style={styles.formGroup}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <Text style={{ fontSize: 18 }}>✏️</Text>
+              <Text style={styles.formLabel}>
+                Título <Text style={{ color: '#ef4444' }}>*</Text>
+              </Text>
+            </View>
+            <TextInput
+              value={formData.titulo}
+              onChangeText={(text) => {
+                setFormData({ ...formData, titulo: text });
+                if (text.trim()) setErrores({ ...errores, titulo: '' });
+              }}
+              placeholder="Título del contenido"
+              placeholderTextColor="rgba(255, 255, 255, 0.4)"
+              style={styles.formInput}
+            />
+            
+            {/* Mensaje de error */}
+            {errores.titulo && (
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                padding: 10,
+                marginTop: 8,
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                borderRadius: 8,
+                borderLeftWidth: 3,
+                borderLeftColor: '#ef4444',
+              }}>
+                <Ionicons name="alert-circle" size={16} color="#ef4444" />
+                <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>
+                  {errores.titulo}
                 </Text>
               </View>
-              <TextInput
-                value={formData.titulo}
-                onChangeText={(text) => setFormData({ ...formData, titulo: text })}
-                placeholder="Título del contenido"
-                style={styles.formInput}
-              />
+            )}
+          </View>
+
+             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <Text style={{ fontSize: 18 }}>📋</Text>
+              <Text style={styles.formLabel}>Resumen <Text style={{ color: '#ef4444' }}>*</Text></Text>
+            </View>
+            <TextInput
+              value={formData.resumen}
+              onChangeText={(text) => {
+                setFormData({ ...formData, resumen: text });
+                // 🔥 LIMPIAR ERROR AL ESCRIBIR
+                if (text.trim()) setErrores({ ...errores, resumen: '' });
+              }}
+              placeholder="Resumen breve"
+              placeholderTextColor="rgba(255, 255, 255, 0.4)"
+              multiline
+              numberOfLines={3}
+              style={styles.formInputMultiline}
+            />
+
+            {/* 🔥 MENSAJE DE ERROR DE RESUMEN */}
+            {errores.resumen && (
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                padding: 10,
+                marginTop: 8,
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                borderRadius: 8,
+                borderLeftWidth: 3,
+                borderLeftColor: '#ef4444',
+              }}>
+                <Ionicons name="alert-circle" size={16} color="#ef4444" />
+                <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>
+                  {errores.resumen}
+                </Text>
+              </View>
+            )}
 
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                 <Text style={{ fontSize: 18 }}>📄</Text>
@@ -1008,47 +1142,114 @@ return (
               </View>
               <TextInput
                 value={formData.contenido}
-                onChangeText={(text) => setFormData({ ...formData, contenido: text })}
+                onChangeText={(text) => {
+                  setFormData({ ...formData, contenido: text });
+                  // 🔥 LIMPIAR ERROR AL ESCRIBIR
+                  if (text.trim()) setErrores({ ...errores, contenido: '' });
+                }}
                 placeholder="Contenido detallado"
+                placeholderTextColor="rgba(255, 255, 255, 0.4)"
                 multiline
                 numberOfLines={6}
                 style={styles.formInputMultiline}
               />
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <Text style={{ fontSize: 18 }}>📋</Text>
-                <Text style={styles.formLabel}>Resumen</Text>
-              </View>
-              <TextInput
-                value={formData.resumen}
-                onChangeText={(text) => setFormData({ ...formData, resumen: text })}
-                placeholder="Resumen breve"
-                multiline
-                numberOfLines={3}
-                style={styles.formInputMultiline}
-              />
+              {/* 🔥 AGREGAR ESTE MENSAJE DE ERROR */}
+              {errores.contenido && (
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: 10,
+                  marginTop: 8,
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  borderRadius: 8,
+                  borderLeftWidth: 3,
+                  borderLeftColor: '#ef4444',
+                }}>
+                  <Ionicons name="alert-circle" size={16} color="#ef4444" />
+                  <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>
+                    {errores.contenido}
+                  </Text>
+                </View>
+              )}
+
+
+
+              
+
 
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                 <Text style={{ fontSize: 18 }}>🔑</Text>
-                <Text style={styles.formLabel}>Palabras clave</Text>
+                <Text style={styles.formLabel}>Palabras clave <Text style={{ color: '#ef4444' }}>*</Text></Text>
               </View>
               <TextInput
                 value={formData.palabras_clave}
-                onChangeText={(text) => setFormData({ ...formData, palabras_clave: text })}
+                onChangeText={(text) => {
+                  setFormData({ ...formData, palabras_clave: text });
+                  // 🔥 LIMPIAR ERROR AL ESCRIBIR
+                  if (text.trim()) setErrores({ ...errores, palabras_clave: '' });
+                }}
                 placeholder="Separadas por comas"
+                placeholderTextColor="rgba(255, 255, 255, 0.4)"
                 style={styles.formInput}
               />
 
+              {/* 🔥 MENSAJE DE ERROR DE PALABRAS CLAVE */}
+              {errores.palabras_clave && (
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: 10,
+                  marginTop: 8,
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  borderRadius: 8,
+                  borderLeftWidth: 3,
+                  borderLeftColor: '#ef4444',
+                }}>
+                  <Ionicons name="alert-circle" size={16} color="#ef4444" />
+                  <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>
+                    {errores.palabras_clave}
+                  </Text>
+                </View>
+              )}
+
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <Text style={{ fontSize: 18 }}>🏷️</Text>
-                <Text style={styles.formLabel}>Etiquetas</Text>
+              <Text style={{ fontSize: 18 }}>🏷️</Text>
+              <Text style={styles.formLabel}>Etiquetas <Text style={{ color: '#ef4444' }}>*</Text></Text>
+            </View>
+            <TextInput
+              value={formData.etiquetas}
+              onChangeText={(text) => {
+                setFormData({ ...formData, etiquetas: text });
+                // 🔥 LIMPIAR ERROR AL ESCRIBIR
+                if (text.trim()) setErrores({ ...errores, etiquetas: '' });
+              }}
+              placeholder="Separadas por comas"
+              placeholderTextColor="rgba(255, 255, 255, 0.4)"
+              style={styles.formInput}
+            />
+
+            {/* 🔥 MENSAJE DE ERROR DE ETIQUETAS */}
+            {errores.etiquetas && (
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                padding: 10,
+                marginTop: 8,
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                borderRadius: 8,
+                borderLeftWidth: 3,
+                borderLeftColor: '#ef4444',
+              }}>
+                <Ionicons name="alert-circle" size={16} color="#ef4444" />
+                <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>
+                  {errores.etiquetas}
+                </Text>
               </View>
-              <TextInput
-                value={formData.etiquetas}
-                onChangeText={(text) => setFormData({ ...formData, etiquetas: text })}
-                placeholder="Separadas por comas"
-                style={styles.formInput}
-              />
+            )}
 
               {/* 🔥 MEJORADO: Header de prioridad con info */}
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -1258,6 +1459,26 @@ return (
               }
               return null;
             })()}
+               {/* 🔥 MENSAJE DE ERROR DE PRIORIDAD */}
+            {errores.prioridad && (
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                padding: 10,
+                marginTop: 8,
+                marginBottom: 16,
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                borderRadius: 8,
+                borderLeftWidth: 3,
+                borderLeftColor: '#ef4444',
+              }}>
+                <Ionicons name="alert-circle" size={16} color="#ef4444" />
+                <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>
+                  {errores.prioridad}
+                </Text>
+              </View>
+            )}
 
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <Text style={{ fontSize: 18 }}>📊</Text>
@@ -1316,6 +1537,27 @@ return (
                   );
                 })}
               </View>
+
+               {/* 🔥 MENSAJE DE ERROR DE ESTADO */}
+            {errores.estado && (
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                padding: 10,
+                marginTop: 8,
+                marginBottom: 16,
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                borderRadius: 8,
+                borderLeftWidth: 3,
+                borderLeftColor: '#ef4444',
+              }}>
+                <Ionicons name="alert-circle" size={16} color="#ef4444" />
+                <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>
+                  {errores.estado}
+                </Text>
+              </View>
+            )}
 
               {/* ============ FOOTER DEL MODAL ============ */}
               <View style={{
@@ -1388,7 +1630,58 @@ return (
             </ScrollView>
           </View>
         </View>
-      </Modal>
+</Modal>
+
+      {/* 🔥 NUEVO: Notificación de éxito flotante */}
+      {showSuccessNotification && (
+        <View style={{
+          position: 'absolute',
+          top: 80,
+          right: 20,
+          backgroundColor: '#10b981',
+          paddingHorizontal: 24,
+          paddingVertical: 16,
+          borderRadius: 16,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+          shadowColor: '#10b981',
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.6,
+          shadowRadius: 16,
+          elevation: 12,
+          zIndex: 9999,
+          minWidth: 300,
+        }}>
+          <View style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: 'rgba(255, 255, 255, 0.3)',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+            <Text style={{ fontSize: 24 }}>✅</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{
+              color: 'white',
+              fontWeight: '700',
+              fontSize: 15,
+              letterSpacing: 0.3,
+            }}>
+              {successMessage}
+            </Text>
+            <Text style={{
+              color: 'rgba(255, 255, 255, 0.8)',
+              fontSize: 11,
+              marginTop: 2,
+            }}>
+              Se cerró automáticamente
+            </Text>
+          </View>
+        </View>
+      )}
       </View>
     </View>
   );

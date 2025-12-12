@@ -31,7 +31,7 @@ export default function SuperAdminSidebar({ isOpen }) {
       id: 'dashboard',
       label: 'Dashboard',
       icon: 'grid-outline',
-      route: '/(superadmin)/dashboard',
+      route: '/superadmin/dashboard',
     },
     {
       id: 'usuarios',
