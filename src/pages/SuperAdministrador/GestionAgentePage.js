@@ -17,9 +17,11 @@ import { agenteService } from '../../api/services/agenteService';
 import { departamentoService } from '../../api/services/departamentoService';
 import SuperAdminSidebar from '../../components/Sidebar/sidebarSuperAdmin';
 import GestionAgenteCard from '../../components/SuperAdministrador/GestionAgenteCard';
+import { getUserIdFromToken } from "../../components/utils/authHelper";
 import SecurityValidator from '../../components/utils/SecurityValidator';
 import { contentStyles } from '../../styles/contentStyles';
 import { getStatIconColor, modalStyles, styles } from '../../styles/gestionAgenteStyles';
+
 
 export default function GestionAgentePage() {
   // ============ STATE ============
@@ -465,18 +467,20 @@ const getDepartamentosDisponibles = () => {
     }
     
     // Verificar que hay un usuario logueado
-  let usuarioParaGuardar = usuarioActual;
+// Obtener ID del usuario desde el token
+const userId = await getUserIdFromToken();
 
-  if (!usuarioActual || !usuarioActual.id_usuario) {
-    console.warn('⚠️ No se encontró usuario en state, usando HARDCODE temporal');
-    
-    // HARDCODE: Cambia este ID por el tuyo
-    usuarioParaGuardar = {
-      id_usuario: decoded.id_usuario,  
-      nombre: decoded.nombre,          
-      username: decoded.sub           
-    };
-  }
+if (!userId) {
+  console.warn("❌ No se pudo obtener el ID del usuario desde el token");
+  Alert.alert("Error", "No se pudo identificar al usuario autenticado.");
+  return;
+}
+
+// Registrar el usuario que realiza la acción
+let usuarioParaGuardar = {
+  id_usuario: userId
+};
+
     try {
       
       // CONSTRUIR EL PROMPT_SISTEMA 
