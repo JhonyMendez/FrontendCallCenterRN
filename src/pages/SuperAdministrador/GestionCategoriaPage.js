@@ -40,6 +40,9 @@ export default function GestionCategoriaPage() {
   const [scrollLeft, setScrollLeft] = useState(0);
   const [searchAgente, setSearchAgente] = useState('');
   const [searchFilterAgente, setSearchFilterAgente] = useState('');
+  const [showDetalleModal, setShowDetalleModal] = useState(false);
+const [categoriaDetalle, setCategoriaDetalle] = useState(null);
+const [breadcrumb, setBreadcrumb] = useState([]);
     
   const [formData, setFormData] = useState({
   nombre: '',
@@ -230,6 +233,33 @@ export default function GestionCategoriaPage() {
     setSearchAgente('');
   };
 
+
+  const handleOpenDetalle = (categoria) => {
+    setCategoriaDetalle(categoria);
+    setBreadcrumb([categoria]);
+    setShowDetalleModal(true);
+  };
+
+  const handleNavigateToSubcategoria = (subcategoria) => {
+    setBreadcrumb([...breadcrumb, subcategoria]);
+    setCategoriaDetalle(subcategoria);
+  };
+
+  const handleBreadcrumbClick = (index) => {
+    const newBreadcrumb = breadcrumb.slice(0, index + 1);
+    setBreadcrumb(newBreadcrumb);
+    setCategoriaDetalle(newBreadcrumb[newBreadcrumb.length - 1]);
+  };
+
+  const getSubcategorias = (idCategoriaPadre) => {
+    return categorias.filter(cat => cat.id_categoria_padre === idCategoriaPadre);
+  };
+
+
+
+
+
+
   const handleInputChange = (field, value) => {
     if (errors[field]) {
       setErrors({ ...errors, [field]: null });
@@ -242,7 +272,7 @@ export default function GestionCategoriaPage() {
     setSearchTerm(sanitized);
   };
 
-    const filteredCategorias = categorias.filter((cat) => {
+  const filteredCategorias = categorias.filter((cat) => {
     const search = searchTerm.toLowerCase();
 
     // Buscar por nombre o descripción
@@ -263,8 +293,11 @@ export default function GestionCategoriaPage() {
         ? true
         : String(cat.id_agente) === String(filterAgente);
 
-    return matchesSearch && matchesActivo && matchesAgente;
-    });
+    // NUEVO: Solo mostrar categorías padre (sin id_categoria_padre)
+    const isCategoriaPadre = cat.id_categoria_padre === null;
+
+    return matchesSearch && matchesActivo && matchesAgente && isCategoriaPadre;
+  });
 
 
   const getAgenteNombre = (id_agente) => {
@@ -578,6 +611,7 @@ export default function GestionCategoriaPage() {
                   categoria={item}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
+                  onPress={handleOpenDetalle} 
                   agenteNombre={getAgenteNombre(item.id_agente)}
                 />
               )}
@@ -1137,6 +1171,320 @@ export default function GestionCategoriaPage() {
               </View>
             </View>
           </Modal>
+
+{/* ============ MODAL DETALLE CATEGORÍA ============ */}
+<Modal visible={showDetalleModal} animationType="fade" transparent>
+  <View style={styles.modalOverlay}>
+    <View style={[styles.modal, { maxWidth: 700 }]}>
+      
+      {/* Header del Modal */}
+      <View style={styles.modalHeader}>
+        <View style={{ flex: 1 }}>
+          {/* Breadcrumb */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+            {breadcrumb.map((item, index) => (
+              <View key={item.id_categoria} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <TouchableOpacity
+                  onPress={() => handleBreadcrumbClick(index)}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 8,
+                    backgroundColor: index === breadcrumb.length - 1 
+                      ? 'rgba(102, 126, 234, 0.3)' 
+                      : 'rgba(255, 255, 255, 0.05)',
+                  }}
+                >
+                  <Text style={{
+                    color: index === breadcrumb.length - 1 ? '#667eea' : 'rgba(255, 255, 255, 0.6)',
+                    fontSize: 13,
+                    fontWeight: index === breadcrumb.length - 1 ? '700' : '500',
+                  }}>
+                    {item.nombre}
+                  </Text>
+                </TouchableOpacity>
+                {index < breadcrumb.length - 1 && (
+                  <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.4)" />
+                )}
+              </View>
+            ))}
+          </View>
+
+          {/* Título e info */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{
+              width: 48,
+              height: 48,
+              borderRadius: 14,
+              backgroundColor: categoriaDetalle?.color || '#667eea',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}>
+              <Ionicons 
+                name={categoriaDetalle?.icono || 'folder'} 
+                size={28} 
+                color="white" 
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.modalTitle}>{categoriaDetalle?.nombre}</Text>
+              <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}>
+                {getAgenteNombre(categoriaDetalle?.id_agente)}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <TouchableOpacity 
+          onPress={() => {
+            setShowDetalleModal(false);
+            setCategoriaDetalle(null);
+            setBreadcrumb([]);
+          }}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: 'rgba(239, 68, 68, 0.3)',
+          }}
+        >
+          <Ionicons name="close" size={22} color="#ef4444" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Contenido del Modal */}
+      <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+        
+        {/* Información de la categoría */}
+        <View style={{ gap: 16 }}>
+          
+          {/* Estado */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 8,
+              backgroundColor: categoriaDetalle?.activo 
+                ? 'rgba(16, 185, 129, 0.2)' 
+                : 'rgba(239, 68, 68, 0.2)',
+              borderWidth: 1,
+              borderColor: categoriaDetalle?.activo 
+                ? 'rgba(16, 185, 129, 0.3)' 
+                : 'rgba(239, 68, 68, 0.3)',
+            }}>
+              <Text style={{
+                color: categoriaDetalle?.activo ? '#10b981' : '#ef4444',
+                fontWeight: '700',
+                fontSize: 13,
+              }}>
+                {categoriaDetalle?.activo ? '✓ Activa' : '✗ Inactiva'}
+              </Text>
+            </View>
+
+            <View style={{
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 8,
+              backgroundColor: 'rgba(102, 126, 234, 0.15)',
+              borderWidth: 1,
+              borderColor: 'rgba(102, 126, 234, 0.3)',
+            }}>
+              <Text style={{ color: '#667eea', fontWeight: '700', fontSize: 13 }}>
+                Orden: {categoriaDetalle?.orden || 0}
+              </Text>
+            </View>
+          </View>
+
+          {/* Descripción */}
+          {categoriaDetalle?.descripcion && (
+            <View style={{
+              padding: 16,
+              borderRadius: 12,
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.1)',
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Ionicons name="document-text" size={16} color="#667eea" />
+                <Text style={{ color: '#667eea', fontWeight: '700', fontSize: 14 }}>
+                  Descripción
+                </Text>
+              </View>
+              <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 14, lineHeight: 20 }}>
+                {categoriaDetalle.descripcion}
+              </Text>
+            </View>
+          )}
+
+          {/* Acciones rápidas */}
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: 14,
+                borderRadius: 12,
+                backgroundColor: 'rgba(102, 126, 234, 0.15)',
+                borderWidth: 1,
+                borderColor: 'rgba(102, 126, 234, 0.3)',
+              }}
+              onPress={() => {
+                setShowDetalleModal(false);
+                handleEdit(categoriaDetalle);
+              }}
+            >
+              <Ionicons name="create" size={20} color="#667eea" />
+              <Text style={{ color: '#667eea', fontWeight: '700', fontSize: 14 }}>
+                Editar
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: 14,
+                borderRadius: 12,
+                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                borderWidth: 1,
+                borderColor: 'rgba(239, 68, 68, 0.3)',
+              }}
+              onPress={() => {
+                setShowDetalleModal(false);
+                handleDelete(categoriaDetalle?.id_categoria);
+              }}
+            >
+              <Ionicons name="trash" size={20} color="#ef4444" />
+              <Text style={{ color: '#ef4444', fontWeight: '700', fontSize: 14 }}>
+                Eliminar
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Subcategorías */}
+          {categoriaDetalle && (
+            <View style={{ marginTop: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Ionicons name="git-branch" size={18} color="#667eea" />
+                <Text style={{ color: 'white', fontWeight: '700', fontSize: 16 }}>
+                  Subcategorías
+                </Text>
+                <View style={{
+                  paddingHorizontal: 8,
+                  paddingVertical: 2,
+                  borderRadius: 6,
+                  backgroundColor: 'rgba(102, 126, 234, 0.3)',
+                }}>
+                  <Text style={{ color: '#667eea', fontWeight: '700', fontSize: 12 }}>
+                    {getSubcategorias(categoriaDetalle.id_categoria).length}
+                  </Text>
+                </View>
+              </View>
+
+              {getSubcategorias(categoriaDetalle.id_categoria).length > 0 ? (
+                <View style={{ gap: 12 }}>
+                  {getSubcategorias(categoriaDetalle.id_categoria).map((sub) => (
+                    <TouchableOpacity
+                      key={sub.id_categoria}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: 16,
+                        borderRadius: 12,
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                      }}
+                      onPress={() => handleNavigateToSubcategoria(sub)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 12,
+                        backgroundColor: sub.color || '#667eea',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                      }}>
+                        <Ionicons name={sub.icono || 'folder'} size={24} color="white" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: 'white', fontWeight: '700', fontSize: 15 }}>
+                          {sub.nombre}
+                        </Text>
+                        {sub.descripcion && (
+                          <Text 
+                            style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}
+                            numberOfLines={1}
+                          >
+                            {sub.descripcion}
+                          </Text>
+                        )}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                          <View style={{
+                            paddingHorizontal: 6,
+                            paddingVertical: 2,
+                            borderRadius: 4,
+                            backgroundColor: sub.activo 
+                              ? 'rgba(16, 185, 129, 0.2)' 
+                              : 'rgba(239, 68, 68, 0.2)',
+                          }}>
+                            <Text style={{
+                              color: sub.activo ? '#10b981' : '#ef4444',
+                              fontSize: 10,
+                              fontWeight: '700',
+                            }}>
+                              {sub.activo ? 'Activa' : 'Inactiva'}
+                            </Text>
+                          </View>
+                          {getSubcategorias(sub.id_categoria).length > 0 && (
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 11 }}>
+                              {getSubcategorias(sub.id_categoria).length} sub
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : (
+                <View style={{
+                  padding: 24,
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.05)',
+                }}>
+                  <Ionicons name="file-tray-outline" size={40} color="rgba(255, 255, 255, 0.2)" />
+                  <Text style={{ color: 'rgba(255, 255, 255, 0.5)', marginTop: 8, fontSize: 13 }}>
+                    No hay subcategorías
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
+        </View>
+
+      </ScrollView>
+
+    </View>
+  </View>
+</Modal>
+
 
         </View>
       </View>

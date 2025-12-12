@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-export default function GestionCategoriaCard({ categoria, onEdit, onDelete }) {
+export default function GestionCategoriaCard({ categoria, onEdit, onDelete, onPress, agenteNombre }) {
   // Formatear fecha de manera segura
   const formatDate = (dateString) => {
     if (!dateString) return 'Sin fecha';
@@ -32,6 +32,11 @@ export default function GestionCategoriaCard({ categoria, onEdit, onDelete }) {
   const colors = getColorScheme();
 
   return (
+
+  <TouchableOpacity 
+    onPress={() => onPress(categoria)}
+    activeOpacity={0.8}
+  >
     <View style={styles.card}>
       {/* Borde superior con gradiente */}
       <View style={[styles.gradientBorder, { backgroundColor: colors.icon }]} />
@@ -42,10 +47,7 @@ export default function GestionCategoriaCard({ categoria, onEdit, onDelete }) {
           <Text style={styles.nombre} numberOfLines={1}>
             {categoria?.nombre || 'Sin nombre'}
           </Text>
-          <View style={styles.codigoContainer}>
-            <Ionicons name="bookmark" size={14} color="#667eea" />
-            <Text style={styles.codigo}>#{categoria?.codigo || 'N/A'}</Text>
-          </View>
+         
         </View>
         
         <View
@@ -95,15 +97,21 @@ export default function GestionCategoriaCard({ categoria, onEdit, onDelete }) {
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.actionButton, styles.editButton]}
-            onPress={() => onEdit(categoria)}
+            onPress={(e) => {
+              e?.stopPropagation?.();
+              onEdit(categoria);
+            }}
             activeOpacity={0.7}
           >
             <Ionicons name="create" size={18} color="#667eea" />
           </TouchableOpacity>
-          
+
           <TouchableOpacity
             style={[styles.actionButton, styles.deleteButton]}
-            onPress={() => onDelete(categoria?.id_categoria)}
+            onPress={(e) => {
+              e?.stopPropagation?.();
+              onDelete(categoria?.id_categoria);
+            }}
             activeOpacity={0.7}
           >
             <Ionicons name="trash" size={18} color="#ef4444" />
@@ -111,6 +119,7 @@ export default function GestionCategoriaCard({ categoria, onEdit, onDelete }) {
         </View>
       </View>
     </View>
+    </TouchableOpacity>
   );
 }
 

@@ -89,7 +89,8 @@ export const usuarioService = {
       const response = await apiClient.post('/usuarios/crear-completo', data);
       return response;
     } catch (error) {
-      // Propagar el error tal cual viene del backend
+      // ✅ El error ya viene estructurado desde apiClient
+      // Solo lo propagamos tal cual
       throw error;
     }
   },
