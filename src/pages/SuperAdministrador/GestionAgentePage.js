@@ -393,14 +393,21 @@ const handleEdit = (agente) => {
     descripcion: agente.descripcion || '',
     modelo_ia: 'llama3:8b', 
     temperatura: (() => {
-      const temp = agente.temperatura?.toString() || '0.7';
-      // Normalizar a las opciones disponibles: '0.6', '0.9', '1.2'
-      if (temp === '0.6' || temp === '0.9' || temp === '1.2') {
+      const temp = agente.temperatura?.toString() || '0.6';
+      // ✅ Validar que sea uno de los valores permitidos, sino usar el más cercano
+      const valoresPermitidos = ['0.6', '0.9', '1.2'];
+      
+      if (valoresPermitidos.includes(temp)) {
         return temp;
       }
-      // Si es 0.7 o cualquier otro valor, usar 0.6 (balanceado por defecto)
-      return '0.6';
-    })(),    max_tokens: agente.max_tokens?.toString() || '4000',
+      
+      // Si el valor no está en los permitidos, buscar el más cercano
+      const tempNum = parseFloat(temp);
+      if (tempNum < 0.75) return '0.6';      // Más cercano a 0.6
+      if (tempNum < 1.05) return '0.9';      // Más cercano a 0.9
+      return '1.2';                           // Más cercano a 1.2
+    })(),
+    max_tokens: agente.max_tokens?.toString() || '4000',
     
     prompt_mision: prompt_mision,
     prompt_reglas: prompt_reglas,
