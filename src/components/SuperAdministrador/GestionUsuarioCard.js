@@ -34,9 +34,10 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
   const [consultandoCedula, setConsultandoCedula] = useState(false);
   const [cedulaConsultada, setCedulaConsultada] = useState(false);
 
-  const mostrarToast = (message, type = 'error') => {
-    setToast({ visible: true, message, type });
-  };
+const mostrarToast = (message, type = 'error') => {
+  console.log('🔔 mostrarToast ejecutado:', { message, type });
+  setToast({ visible: true, message, type });
+};
 
   const ocultarToast = () => {
     setToast({ visible: false, message: '', type: 'error' });
@@ -66,6 +67,56 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
   // ==================== ANIMACIONES ====================
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(100)).current;
+
+
+
+
+const extraerMensajeError = (error) => {
+  console.log('🔍 extraerMensajeError iniciado');
+  console.log('🔍 Error completo capturado:', error);
+  console.log('🔍 error.data:', error.data);
+  console.log('🔍 error.message:', error.message);
+  
+  let mensaje = '';
+  
+  // 1. Si hay detalles de validación (array)
+  if (error.data?.details && Array.isArray(error.data.details)) {
+    console.log('✅ Extrayendo desde error.data.details');
+    const mensajes = error.data.details
+      .map(e => e.message || e.msg)
+      .filter(Boolean);
+    mensaje = mensajes.length > 0 ? mensajes.join('\n') : 'Error de validación';
+  }
+  
+  // 2. Si hay detail del backend (string)
+  else if (error.data?.detail) {
+    console.log('✅ Extrayendo desde error.data.detail');
+    mensaje = error.data.detail;
+  }
+  
+  // 3. Si hay message del backend
+  else if (error.data?.message) {
+    console.log('✅ Extrayendo desde error.data.message');
+    mensaje = error.data.message;
+  }
+  
+  // 4. Si solo hay error.message
+  else if (error.message) {
+    console.log('✅ Extrayendo desde error.message');
+    mensaje = error.message;
+  }
+  
+  // 5. Fallback
+  else {
+    console.log('⚠️ Usando mensaje fallback');
+    mensaje = 'Error desconocido al procesar la solicitud';
+  }
+  
+  console.log('📤 Mensaje final extraído:', mensaje);
+  return mensaje;
+};
+
+
 
   useEffect(() => {
     Animated.parallel([
@@ -284,36 +335,44 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
   };
 
   // ==================== GUARDAR ====================
-  const handleGuardar = async () => {
-    if (!validarPaso(4)) {
-      mostrarToast('Por favor selecciona al menos un rol', 'warning');
-      return;
-    }
+const handleGuardar = async () => {
+  if (!validarPaso(4)) {
+    mostrarToast('Por favor selecciona al menos un rol', 'warning');
+    return;
+  }
 
-    setGuardando(true);
-    try {
-      if (usuario) {
-        await actualizarUsuario();
-      } else {
-        await crearUsuario();
-      }
-      
-      mostrarToast(
-        usuario ? '✅ Usuario actualizado correctamente' : '✅ Usuario creado exitosamente',
-        'success'
-      );
-      
-      setTimeout(() => {
-        onGuardado(true);
-      }, 1500);
-    } catch (error) {
-      mostrarToast(error.message || 'No se pudo guardar el usuario', 'error');
-      onGuardado(false);
-    } finally {
-      setGuardando(false);
+  setGuardando(true);
+  try {
+    if (usuario) {
+      await actualizarUsuario();
+    } else {
+      await crearUsuario();
     }
-  };
-
+    
+    mostrarToast(
+      usuario ? '✅ Usuario actualizado correctamente' : '✅ Usuario creado exitosamente',
+      'success'
+    );
+    
+    // ✅ Solo cerrar cuando hay ÉXITO
+    setTimeout(() => {
+      onGuardado(true);
+    }, 2000);
+    
+  } catch (error) {
+    console.error('❌ Error en handleGuardar:', error);
+    
+    const mensajeError = extraerMensajeError(error);
+    mostrarToast(mensajeError, 'error');
+    
+    // ✅ NO cerrar el card, dejar que el usuario vea el error
+    // y pueda corregir los datos
+    // onGuardado(false); <-- COMENTAR O ELIMINAR
+    
+  } finally {
+    setGuardando(false);
+  }
+};
 
 
 const crearUsuario = async () => {
@@ -336,12 +395,10 @@ const crearUsuario = async () => {
     );
     const emailLimpio = SecurityValidator.sanitizeText(email).toLowerCase().trim();
 
-
-    // ✅ USAR createCompleto (transacción atómica)
     const usuarioCompletoData = {
       username: usernameLimpio,
       email: emailLimpio,
-      password: password, // NO sanitizar passwords
+      password: password,
       estado: estado,
       creado_por: idUsuario,
       persona: {
@@ -354,7 +411,7 @@ const crearUsuario = async () => {
         direccion: direccionLimpia,
         tipo_persona: tipoPersona.toLowerCase(),
         celular: null,
-        email_personal: email.trim().toLowerCase(),
+        email_personal: emailLimpio,
         ciudad: null,
         provincia: null,
         id_departamento: null,
@@ -368,31 +425,15 @@ const crearUsuario = async () => {
       roles: rolesSeleccionados
     };
 
-    // ✅ LLAMADA A createCompleto (NO personaService.create)
     const response = await usuarioService.createCompleto(usuarioCompletoData);
     return response;
 
   } catch (error) {
-    let mensajeError = 'Error desconocido';
-    
-    if (error.data?.details && Array.isArray(error.data.details) && error.data.details.length > 0) {
-      const errores = error.data.details.map(e => e.message || e.msg).filter(Boolean);
-      mensajeError = errores.join('\n');
-    } 
-    else if (error.data?.detail) {
-      mensajeError = error.data.detail;
-    }
-    else if (error.data?.message) {
-      mensajeError = error.data.message;
-    }
-    else if (error.message) {
-      mensajeError = error.message;
-    }
-    
-    throw new Error(mensajeError);
+    console.error('❌ Error en crearUsuario:', error);
+    // ✅ NO llamar a extraerMensajeError aquí, solo re-lanzar el error
+    throw error; // Se maneja en handleGuardar
   }
 };
-
   /// =================== ACTUALIZAR USUARIO ====================
 
 const actualizarUsuario = async () => {

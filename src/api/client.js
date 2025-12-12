@@ -66,7 +66,6 @@ class ApiClient {
     return this.token;
   }
 
-  // NUEVO: Método removeToken para compatibilidad
   async removeToken() {
     console.log('🧹 [Client] Removiendo token...');
     await this.setToken(null);
@@ -89,7 +88,6 @@ class ApiClient {
     
     console.log(`🌐 [Client] ${options.method || 'GET'} ${url}`);
     
-    // 👇 Solo usamos timeout en WEB
     const useTimeout = Platform.OS === 'web' && this.timeout && this.timeout > 0;
 
     let controller = null;
@@ -125,11 +123,12 @@ class ApiClient {
         }
 
         console.error('❌ [Client] Error response:', errorData);
-        throw {
-          status: response.status,
-          message: errorData.detail || errorData.message || `Error ${response.status}`,
-          data: errorData
-        };
+        
+        // ✅ LANZAR ERROR EN FORMATO ESTRUCTURADO
+        const error = new Error(errorData.detail || errorData.message || `Error ${response.status}`);
+        error.status = response.status;
+        error.data = errorData; // ✅ Aquí está el errorData del backend
+        throw error;
       }
 
       if (response.status === 204) {
@@ -152,15 +151,14 @@ class ApiClient {
       
       if (useTimeout && error.name === 'AbortError') {
         console.error('❌ [Client] Timeout');
-        throw { 
-          status: 408, 
-          message: 'Tiempo de espera agotado',
-          isTimeout: true 
-        };
+        const timeoutError = new Error('Tiempo de espera agotado');
+        timeoutError.status = 408;
+        timeoutError.isTimeout = true;
+        throw timeoutError;
       }
       
       console.error('❌ [Client] Request failed:', error);
-      throw error;
+      throw error; // ✅ Ya es un Error con .data
     }
   }
 
