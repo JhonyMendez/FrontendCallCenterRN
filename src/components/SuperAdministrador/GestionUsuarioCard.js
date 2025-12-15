@@ -395,6 +395,24 @@ const crearUsuario = async () => {
     );
     const emailLimpio = SecurityValidator.sanitizeText(email).toLowerCase().trim();
 
+    // ✅ VALIDAR que no se asignen roles prohibidos
+    const rolesProhibidos = rolesSeleccionados.filter(idRol => {
+      const rol = roles.find(r => r.id_rol === idRol);
+      if (!rol) return true; // Si no existe el rol, bloquearlo
+      
+      const nombreRolLower = (rol.nombre_rol || '').toLowerCase();
+      const nivel = rol.nivel_jerarquia || rol.nivel_acceso || 999;
+      
+      return nivel < 3 || 
+             nombreRolLower.includes('super') || 
+             nombreRolLower.includes('administrador') ||
+             nombreRolLower.includes('admin');
+    });
+
+    if (rolesProhibidos.length > 0) {
+      throw new Error('No tienes permiso para asignar roles de administrador o superadministrador');
+    }
+
     const usuarioCompletoData = {
       username: usernameLimpio,
       email: emailLimpio,
@@ -430,10 +448,10 @@ const crearUsuario = async () => {
 
   } catch (error) {
     console.error('❌ Error en crearUsuario:', error);
-    // ✅ NO llamar a extraerMensajeError aquí, solo re-lanzar el error
-    throw error; // Se maneja en handleGuardar
+    throw error;
   }
 };
+
   /// =================== ACTUALIZAR USUARIO ====================
 
 const actualizarUsuario = async () => {
@@ -472,11 +490,10 @@ const actualizarUsuario = async () => {
         tipo_persona: tipoPersona ? tipoPersona.toLowerCase() : null,
       };
 
-      // 👈 AQUÍ VA EL ID CORRECTO
       await personaService.update(idPersona, personaData);
     }
 
-    // 2. ACTUALIZAR USUARIO (esto ya lo tenías bien)
+    // 2. ACTUALIZAR USUARIO
     const usernameLimpio = SecurityValidator.truncateText(
       SecurityValidator.sanitizeText(username), 50
     );
@@ -494,10 +511,29 @@ const actualizarUsuario = async () => {
 
     await usuarioService.update(usuario.id_usuario, usuarioData);
 
-    // 3. ACTUALIZAR ROLES (como ya lo tienes)
+    // 3. ACTUALIZAR ROLES
     const rolesActuales = usuario.roles?.map(r => r.id_rol) || [];
-    const rolesAEliminar = rolesActuales.filter(r => !rolesSeleccionados.includes(r));
     const rolesAAgregar = rolesSeleccionados.filter(r => !rolesActuales.includes(r));
+
+    // ✅ VALIDAR roles prohibidos AQUÍ (antes de calcular rolesAEliminar)
+    const rolesProhibidos = rolesAAgregar.filter(idRol => {
+      const rol = roles.find(r => r.id_rol === idRol);
+      if (!rol) return true;
+      
+      const nombreRolLower = (rol.nombre_rol || '').toLowerCase();
+      const nivel = rol.nivel_jerarquia || rol.nivel_acceso || 999;
+      
+      return nivel < 3 || 
+             nombreRolLower.includes('super') || 
+             nombreRolLower.includes('administrador');
+    });
+
+    if (rolesProhibidos.length > 0) {
+      throw new Error('No tienes permiso para asignar roles de administrador');
+    }
+
+    // ✅ AHORA SÍ calcular los roles a eliminar
+    const rolesAEliminar = rolesActuales.filter(r => !rolesSeleccionados.includes(r));
 
     for (const id_rol of rolesAEliminar) {
       await usuarioRolService.revocarRol(usuario.id_usuario, id_rol);

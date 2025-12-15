@@ -19,7 +19,7 @@ export default function Index() {
       
       if (!token) {
         console.log('❌ No hay token, redirigiendo a login');
-        router.replace('/login');
+        router.replace('/auth/login');
         return;
       }
 
@@ -30,7 +30,7 @@ export default function Index() {
         console.log('❌ No hay sesión válida');
         await apiClient.removeToken();
         await authService.limpiarSesion();
-        router.replace('/login');
+        router.replace('/auth/login');
         return;
       }
 
@@ -41,7 +41,7 @@ export default function Index() {
 
     } catch (error) {
       console.error('❌ Error verificando autenticación:', error);
-      router.replace('/login');
+      router.replace('/auth/login');
     }
   };
 

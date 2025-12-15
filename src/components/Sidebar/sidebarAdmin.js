@@ -1,11 +1,11 @@
 // ==================================================================================
-// sidebarSuperAdmin.js
-// Componente Sidebar para Super Admin - React Native (Navegación Fixed)
+// sidebarAdmin.js
+// Componente Sidebar para Admin - Usa los mismos estilos que SuperAdmin
 // ==================================================================================
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   ScrollView,
   Text,
@@ -16,7 +16,7 @@ import { apiClient } from '../../api/client';
 import authService from '../../api/services/authService';
 import { sidebarStyles } from './SidebarSuperAdminStyles';
 
-export default function SuperAdminSidebar({ isOpen }) {
+export default function AdminSidebar({ isOpen }) {
   const [expandedMenus, setExpandedMenus] = useState({});
   const router = useRouter();
 
@@ -25,21 +25,21 @@ export default function SuperAdminSidebar({ isOpen }) {
     return <View style={sidebarStyles.containerCollapsed} />;
   }
 
-  // Configuración del menú (rutas unificadas al grupo (superadmin))
+  // Configuración del menú para Admin
   const menuItems = [
     {
       id: 'dashboard',
       label: 'Dashboard',
       icon: 'grid-outline',
-      route: '/superadmin/dashboardAdmin',
+      route: '/admin/dashboard',
     },
     {
       id: 'usuarios',
       label: 'Gestión de Usuarios',
       icon: 'people-outline',
       submenu: [
-        { label: 'Gestión de Usuarios', route: '/superadmin/usuario' },
-        { label: 'Asignacion de Usuarios', route: '/superadmin/DepartamentoUsuario' }
+        { label: 'Ver Usuarios', route: '/admin/usuariosAdmin' },
+        { label: 'Asignacion de Usuarios', route: '/superadmin/DepartamentoUsuarioAdmin' }
       ]
     },
     {
@@ -47,60 +47,40 @@ export default function SuperAdminSidebar({ isOpen }) {
       label: 'Departamentos',
       icon: 'business-outline',
       submenu: [
-        { label: 'Todos los Departamentos', route: '/superadmin/departamento' },
+        { label: 'Mis Departamentos', route: '/admin/departamentoAdmin' },
+        { label: 'Asignar Usuarios', route: '/admin/departamentos/asignar' },
       ]
     },
+
     {
       id: 'Agente Inteligente',
       label: 'Gestion para agentes inteligentes',
       icon: 'shield-checkmark-outline',
       submenu: [
-        { label: 'Agentes Inteligentes', route: '/superadmin/agente' },
-        { label: 'Categoria', route: '/superadmin/categoria' },
-        { label: 'Unidad Contenido', route: '/superadmin/contenido' },
+        { label: 'Agentes Inteligentes', route: '/admin/agenteAdmin' },
+        { label: 'Categoria', route: '/admin/categoriaAdmin' },
+        { label: 'Unidad Contenido', route: '/admin/contenidoAdmin' },
       ]
     },
+
     {
-      id: 'metricas',
-      label: 'Métricas Globales',
+      id: 'reportes',
+      label: 'Reportes',
       icon: 'bar-chart-outline',
       submenu: [
-        { label: 'Dashboard de Métricas', route: '/(superadmin)/metricas' },
-        { label: 'Reportes por Departamento', route: '/(superadmin)/metricas/departamentos' },
-        { label: 'Reportes por Usuario', route: '/(superadmin)/metricas/usuarios' },
-        { label: 'Análisis de Rendimiento', route: '/(superadmin)/metricas/rendimiento' },
-      ]
-    },
-    {
-      id: 'exportar',
-      label: 'Exportar Datos',
-      icon: 'download-outline',
-      submenu: [
-        { label: 'Exportar Usuarios', route: '/(superadmin)/exportar/usuarios' },
-        { label: 'Exportar Departamentos', route: '/(superadmin)/exportar/departamentos' },
-        { label: 'Exportar Métricas', route: '/(superadmin)/exportar/metricas' },
-        { label: 'Exportación Personalizada', route: '/(superadmin)/exportar/personalizada' },
+        { label: 'Reportes Generales', route: '/admin/reportes' },
+        { label: 'Actividad de Usuarios', route: '/admin/reportes/actividad' },
+        { label: 'Métricas del Departamento', route: '/admin/reportes/metricas' },
       ]
     },
     {
       id: 'configuracion',
-      label: 'Configuración Sistema',
+      label: 'Configuración',
       icon: 'settings-outline',
       submenu: [
-        { label: 'General', route: '/(superadmin)/configuracion/general' },
-        { label: 'Seguridad', route: '/(superadmin)/configuracion/seguridad' },
-        { label: 'Notificaciones', route: '/(superadmin)/configuracion/notificaciones' },
-        { label: 'Integraciones', route: '/(superadmin)/configuracion/integraciones' },
-      ]
-    },
-    {
-      id: 'api-keys',
-      label: 'API Keys',
-      icon: 'key-outline',
-      submenu: [
-        { label: 'Todas las Keys', route: '/(superadmin)/api-keys' },
-        { label: 'Crear Nueva Key', route: '/(superadmin)/api-keys/crear' },
-        { label: 'Logs de Uso', route: '/(superadmin)/api-keys/logs' },
+        { label: 'Perfil', route: '/admin/configuracion/perfil' },
+        { label: 'Preferencias', route: '/admin/configuracion/preferencias' },
+        { label: 'Notificaciones', route: '/admin/configuracion/notificaciones' },
       ]
     },
   ];
@@ -125,14 +105,8 @@ export default function SuperAdminSidebar({ isOpen }) {
   const handleLogout = async () => {
     try {
       console.log('Cerrando sesión desde sidebar...');
-
-      // 1. Quitar token
       await apiClient.removeToken();
-
-      // 2. Limpiar datos de sesión (usuario, rol, etc.)
       await authService.limpiarSesion();
-
-      // 3. Redirigir a login
       router.replace('/auth/login');
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
@@ -144,11 +118,11 @@ export default function SuperAdminSidebar({ isOpen }) {
       {/* Header */}
       <View style={sidebarStyles.header}>
         <View style={sidebarStyles.iconWrapperGradient}>
-          <Ionicons name="shield-checkmark" size={24} color="#ffffff" />
+          <Ionicons name="person-circle" size={24} color="#ffffff" />
         </View>
         <View style={sidebarStyles.headerTitle}>
-          <Text style={sidebarStyles.title}>Super Admin</Text>
-          <Text style={sidebarStyles.subtitle}>Control Total</Text>
+          <Text style={sidebarStyles.title}>Admin</Text>
+          <Text style={sidebarStyles.subtitle}>Administrador</Text>
         </View>
       </View>
 

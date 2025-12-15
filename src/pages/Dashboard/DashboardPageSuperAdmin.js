@@ -1,12 +1,12 @@
 // ==================================================================================
 // DashboardPageSuperAdmin.js
-// Dashboard para Super Administrador - Diseño Profesional en Cuadrícula
+// Dashboard para Super Administrador - Compatible con Web y Mobile
 // ==================================================================================
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { apiClient } from '../../api/client';
 import authService from '../../api/services/authService';
 import {
@@ -17,8 +17,9 @@ import {
   StatCard
 } from '../../components/Dashboard/DashboardSuperAdminCard';
 import SuperAdminSidebar from '../../components/Sidebar/sidebarSuperAdmin';
-import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles';
 import { dashboardStyles } from '../../styles/dashboardSuperAdminStyles';
+
+const isWeb = Platform.OS === 'web';
 
 export default function DashboardPageSuperAdmin() {
   const router = useRouter();
@@ -70,17 +71,11 @@ export default function DashboardPageSuperAdmin() {
     }, 1000);
   };
 
-  // 🔐 Logout real: limpia token + sesión y redirige a /login
   const handleLogout = async () => {
     try {
-      // 1. Quitar token del cliente HTTP
       await apiClient.removeToken();
-
-      // 2. Limpiar datos de sesión (usuario, rol, etc.)
       await authService.limpiarSesion();
-
-      // 3. Redirigir a login
-      router.replace('/login');
+      router.replace('/auth/login');
     } catch (error) {
       console.error('❌ Error cerrando sesión:', error);
     }
@@ -169,40 +164,46 @@ export default function DashboardPageSuperAdmin() {
   }
 
   return (
-    <View style={contentStyles.wrapper}>
+    <View style={{ flex: 1, flexDirection: 'row', backgroundColor: '#0f172a' }}>
       
       {/* Sidebar */}
-      <SuperAdminSidebar 
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-      />
+      <SuperAdminSidebar isOpen={sidebarOpen} />
 
-      {/* Botón Toggle - Se mueve con el sidebar */}
-      <TouchableOpacity
-        style={{
-          position: 'absolute',
-          top: 16,
-          left: sidebarOpen ? 296 : 16,
-          zIndex: 1001,
+      {/* Contenido Principal */}
+      <View style={{ flex: 1, backgroundColor: '#0f172a' }}>
+        
+        {/* Header con botón toggle */}
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
           backgroundColor: '#1e1b4b',
-          padding: 12,
-          borderRadius: 12,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.25,
-          shadowRadius: 3.84,
-          elevation: 5,
-        }}
-        onPress={() => setSidebarOpen(!sidebarOpen)}
-      >
-        <Ionicons name={sidebarOpen ? "close" : "menu"} size={24} color="#ffffff" />
-      </TouchableOpacity>
+          borderBottomWidth: 1,
+          borderBottomColor: '#312e81',
+        }}>
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#312e81',
+              padding: 12,
+              borderRadius: 12,
+              marginRight: 12,
+            }}
+            onPress={() => setSidebarOpen(!sidebarOpen)}
+          >
+            <Ionicons name={sidebarOpen ? "close" : "menu"} size={24} color="#ffffff" />
+          </TouchableOpacity>
+          
+          <Text style={{
+            color: '#ffffff',
+            fontSize: 18,
+            fontWeight: '600',
+            flex: 1,
+          }}>
+            Dashboard
+          </Text>
+        </View>
 
-      {/* Contenido Principal - Se empuja cuando sidebar está abierto */}
-      <View style={[
-        contentStyles.mainContent, 
-        sidebarOpen && contentStyles.mainContentWithSidebar
-      ]}>
         <ScrollView 
           style={dashboardStyles.container} 
           contentContainerStyle={dashboardStyles.scrollContent}

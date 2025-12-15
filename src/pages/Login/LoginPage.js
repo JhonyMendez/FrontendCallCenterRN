@@ -410,13 +410,13 @@ const handleLogin = async () => {
     }
 
     // Cambio de contraseña obligatorio
-    if (response.usuario.requiere_cambio_password === true) {
-      console.log("⚠️ [LoginPage] Usuario requiere cambio de contraseña");
-      redirigiendo.current = true;
-      await new Promise(resolve => setTimeout(resolve, 0));
-      router.replace("/cambiar-password");
-      return;
-    }
+    //if (response.usuario.requiere_cambio_password === true) {
+      //console.log("⚠️ [LoginPage] Usuario requiere cambio de contraseña");
+      //redirigiendo.current = true;
+      //await new Promise(resolve => setTimeout(resolve, 0));
+      //router.replace("/cambiar-password");
+      //return;
+    //}
 
     console.log("🔍 [LoginPage] Procesando roles del usuario...");
     

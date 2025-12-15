@@ -98,15 +98,13 @@ const authService = {
   },
 
   getRutaPorRol: (idRol) => {
-    const isWeb = Platform.OS === 'web';
-    
     switch (idRol) {
       case 1: // Super Admin
-        return isWeb ? '/superadmin/dashboard' : '/superadmin/dashboard';
+        return '/superadmin/dashboard';
       case 2: // Admin
-        return isWeb ? '/admin/dashboard' : '/admin/dashboard';
+        return '/admin/dashboardAdmin';
       case 3: // Funcionario
-        return isWeb ? '/funcionario/dashboard' : '/funcionario/dashboard';
+        return '/funcionario/dashboard';
       default:
         return '/login';
     }
@@ -133,7 +131,7 @@ const authService = {
     }
   },
 
-  // ✅ NUEVO: Método para obtener el id_usuario
+  // Método para obtener el id_usuario
   getUsuarioId: async () => {
     try {
       const id = await storage.getItem('@usuario_id');
@@ -144,7 +142,7 @@ const authService = {
     }
   },
 
-  // ✅ NUEVO: Método para obtener datos completos del usuario
+  // Método para obtener datos completos del usuario
   getUsuarioActual: async () => {
     try {
       const [id, username, email, nombreCompleto] = await Promise.all([
@@ -166,6 +164,60 @@ const authService = {
       };
     } catch (error) {
       console.error('❌ Error obteniendo usuario actual:', error);
+      return null;
+    }
+  },
+
+  // Método para obtener todos los datos de sesión
+  obtenerDatosSesion: async () => {
+    try {
+      const [
+        rolIdStr,
+        rolNombre,
+        usuarioId,
+        username,
+        email,
+        nombreCompleto,
+        esAdmin,
+        esSuperAdmin
+      ] = await Promise.all([
+        storage.getItem('@rol_principal_id'),
+        storage.getItem('@rol_principal_nombre'),
+        storage.getItem('@usuario_id'),
+        storage.getItem('@usuario_username'),
+        storage.getItem('@usuario_email'),
+        storage.getItem('@usuario_nombre_completo'),
+        storage.getItem('@usuario_es_admin'),
+        storage.getItem('@usuario_es_superadmin')
+      ]);
+
+      // Validar que existan los datos mínimos
+      if (!rolIdStr || !username || !usuarioId) {
+        return null;
+      }
+
+      const rolId = parseInt(rolIdStr);
+      
+      if (isNaN(rolId) || rolId < 1) {
+        return null;
+      }
+
+      return {
+        usuario: {
+          id_usuario: parseInt(usuarioId),
+          username,
+          email: email || '',
+          nombre_completo: nombreCompleto || username,
+          es_admin: esAdmin === 'true',
+          es_superadmin: esSuperAdmin === 'true'
+        },
+        rolPrincipal: {
+          id_rol: rolId,
+          nombre_rol: rolNombre || 'Sin rol'
+        }
+      };
+    } catch (error) {
+      console.error('❌ Error obteniendo datos de sesión:', error);
       return null;
     }
   }

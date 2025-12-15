@@ -8,7 +8,7 @@ import { StyleSheet } from 'react-native';
 const DRAWER_WIDTH = 280;
 
 export const sidebarStyles = StyleSheet.create({
-  // Contenedor del sidebar (NO position absolute)
+  // Contenedor del sidebar - VISIBLE
   container: {
     width: DRAWER_WIDTH,
     backgroundColor: '#1e1b4b',
@@ -20,7 +20,7 @@ export const sidebarStyles = StyleSheet.create({
     elevation: 10,
   },
 
-  // Cuando está cerrado (colapsado)
+  // Cuando está cerrado (colapsado) - IMPORTANTE: width 0
   containerCollapsed: {
     width: 0,
     overflow: 'hidden',
@@ -56,9 +56,6 @@ export const sidebarStyles = StyleSheet.create({
   subtitle: {
     fontSize: 12,
     color: '#c7d2fe',
-  },
-  closeButton: {
-    padding: 8,
   },
 
   // Scroll Content
@@ -141,40 +138,23 @@ export const sidebarStyles = StyleSheet.create({
   },
 });
 
-// Estilos para el contenido principal
 export const contentStyles = StyleSheet.create({
   // Wrapper principal - flex row para colocar sidebar y contenido lado a lado
   wrapper: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#0f172a',
   },
   
   // Contenido principal
   mainContent: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#0f172a',
   },
   
-  // Botón toggle
-  toggleButton: {
-    position: 'absolute',
-    top: 16,
-    left: 16,
-    zIndex: 1001,
-    backgroundColor: '#1e1b4b',
-    padding: 12,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  
-  // Botón cuando sidebar está abierto
-  toggleButtonShifted: {
-    left: 296, // DRAWER_WIDTH + 16
+  // Contenido con sidebar (ya no se usa en el nuevo diseño, pero se mantiene por compatibilidad)
+  mainContentWithSidebar: {
+    flex: 1,
   },
 });
 
