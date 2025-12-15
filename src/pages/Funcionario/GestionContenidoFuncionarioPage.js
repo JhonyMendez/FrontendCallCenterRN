@@ -179,26 +179,26 @@ const cargarDatosIniciales = async () => {
     console.log('🏢 ID Departamento del usuario:', usuarioData?.id_departamento);
     console.log('📊 Tipo de id_departamento:', typeof usuarioData?.id_departamento);
     
- // 3️⃣ VALIDACIÓN: ¿El usuario tiene departamento asignado?
-// 🔥 NUEVO: Verificar múltiples formas posibles de obtener el departamento
-const idDepartamento = 
-  usuarioData?.id_departamento || 
-  usuarioData?.departamento?.id_departamento || 
-  usuarioData?.departamento_id;
+    // 3️⃣ VALIDACIÓN: ¿El usuario tiene departamento asignado?
+    // 🔥 NUEVO: Verificar múltiples formas posibles de obtener el departamento
+    const idDepartamento = 
+      usuarioData?.id_departamento || 
+      usuarioData?.departamento?.id_departamento || 
+      usuarioData?.departamento_id;
 
-console.log('🔍 ID Departamento detectado:', idDepartamento);
+    console.log('🔍 ID Departamento detectado:', idDepartamento);
 
-if (!idDepartamento) {
-  console.log('❌ Usuario SIN departamento');
-  console.log('📦 Estructura del usuario:', Object.keys(usuarioData || {}));
-  setEstadoCarga('sin_departamento');
-  setMensajeError('No tienes un departamento asignado. Por favor contacta a un administrador para que te asigne uno.');
-  setLoading(false);
-  return;
-}
+    if (!idDepartamento) {
+      console.log('❌ Usuario SIN departamento');
+      console.log('📦 Estructura del usuario:', Object.keys(usuarioData || {}));
+      setEstadoCarga('sin_departamento');
+      setMensajeError('No tienes un departamento asignado. Por favor contacta a un administrador para que te asigne uno.');
+      setLoading(false);
+      return;
+    }
 
-console.log('✅ Usuario tiene departamento:', idDepartamento);
-setDepartamentoUsuario(idDepartamento);
+    console.log('✅ Usuario tiene departamento:', idDepartamento);
+    setDepartamentoUsuario(idDepartamento);
     
     console.log('✅ Usuario tiene departamento:', usuarioData.id_departamento);
     setDepartamentoUsuario(usuarioData.id_departamento);
@@ -211,8 +211,16 @@ setDepartamentoUsuario(idDepartamento);
     
     // 5️⃣ VALIDACIÓN: ¿El departamento del usuario tiene un agente asignado?
     const agenteDelDepartamento = agentesData.find(
-      agente => agente.id_departamento === usuarioData.id_departamento
+      agente => agente.id_departamento === idDepartamento
     );
+
+    console.log('🔍 Buscando agente para departamento:', idDepartamento);
+    console.log('📋 Agentes disponibles:', agentesData.map(a => ({
+      id: a.id_agente,
+      nombre: a.nombre_agente,
+      id_dept: a.id_departamento
+    })));
+    console.log('🎯 Agente encontrado:', agenteDelDepartamento);
     
     if (!agenteDelDepartamento) {
       console.log('❌ Departamento SIN agente asignado');
