@@ -52,6 +52,14 @@ const authService = {
       await storage.setItem('@usuario_username', usuario.username);
       await storage.setItem('@usuario_email', usuario.email || '');
       await storage.setItem('@usuario_nombre_completo', usuario.nombre_completo || usuario.username);
+
+      // 🔥 NUEVO: Guardar departamento si existe
+      if (usuario.id_departamento) {
+        await storage.setItem('@usuario_id_departamento', usuario.id_departamento.toString());
+        console.log('✅ Guardado id_departamento:', usuario.id_departamento);
+      } else {
+        console.log('⚠️ Usuario sin id_departamento al hacer login');
+      }
       
       // Guardar flags de administrador
       await storage.setItem('@usuario_es_admin', usuario.es_admin ? 'true' : 'false');
@@ -113,18 +121,19 @@ const authService = {
   limpiarSesion: async () => {
     try {
       await storage.multiRemove([
-        '@usuario_id',
-        '@usuario_username',
-        '@usuario_email',
-        '@usuario_nombre_completo',
-        '@usuario_es_admin',
-        '@usuario_es_superadmin',
-        '@rol_principal_id',
-        '@rol_principal_nombre',
-        '@todos_roles',
-        '@permisos',
-        '@datos_sesion'
-      ]);
+      '@usuario_id',
+      '@usuario_username',
+      '@usuario_email',
+      '@usuario_nombre_completo',
+      '@usuario_id_departamento',
+      '@usuario_es_admin',
+      '@usuario_es_superadmin',
+      '@rol_principal_id',
+      '@rol_principal_nombre',
+      '@todos_roles',
+      '@permisos',
+      '@datos_sesion'
+    ]);
       console.log('✅ [authService] Sesión limpiada');
     } catch (error) {
       console.error('❌ [authService] Error limpiando sesión:', error);
@@ -145,23 +154,33 @@ const authService = {
   // Método para obtener datos completos del usuario
   getUsuarioActual: async () => {
     try {
-      const [id, username, email, nombreCompleto] = await Promise.all([
+      const [id, username, email, nombreCompleto, idDepartamento] = await Promise.all([
         storage.getItem('@usuario_id'),
         storage.getItem('@usuario_username'),
         storage.getItem('@usuario_email'),
-        storage.getItem('@usuario_nombre_completo')
+        storage.getItem('@usuario_nombre_completo'),
+        storage.getItem('@usuario_id_departamento') // 🔥 NUEVO
       ]);
 
       if (!id || !username) {
         return null;
       }
 
-      return {
+      const usuario = {
         id_usuario: parseInt(id),
         username,
         email: email || '',
         nombre_completo: nombreCompleto || username
       };
+
+      // 🔥 NUEVO: Agregar id_departamento si existe
+      if (idDepartamento) {
+        usuario.id_departamento = parseInt(idDepartamento);
+      }
+
+      console.log('🔐 getUsuarioActual devuelve:', usuario);
+      
+      return usuario;
     } catch (error) {
       console.error('❌ Error obteniendo usuario actual:', error);
       return null;

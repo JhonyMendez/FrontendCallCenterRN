@@ -1,15 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    RefreshControl,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { agenteService } from '../../api/services/agenteService';
 import authService from '../../api/services/authService';
@@ -62,6 +62,11 @@ const GestionContenidoPage = () => {
   const [modalViewVisible, setModalViewVisible] = useState(false);
   const [contenidoView, setContenidoView] = useState(null);
   const [agentesPermitidos, setAgentesPermitidos] = useState([]);
+
+ // Estados para personas designado a departamento
+  const [departamentoUsuario, setDepartamentoUsuario] = useState(null);
+  const [estadoCarga, setEstadoCarga] = useState('cargando'); // 'cargando' | 'sin_departamento' | 'sin_agente' | 'ok'
+  const [mensajeError, setMensajeError] = useState('');
 
   const [formData, setFormData] = useState({
     id_contenido: null,
@@ -154,52 +159,96 @@ useEffect(() => {
 const cargarDatosIniciales = async () => {
   try {
     setLoading(true);
+    setEstadoCarga('cargando');
     
-    // 🔥 NUEVO: Obtener ID del usuario desde el token
+    // 1️⃣ Obtener ID del usuario actual
     const idUsuarioActual = await authService.getUsuarioId();
     
     if (!idUsuarioActual) {
-      Alert.alert('Error', 'No se pudo obtener el usuario actual. Por favor inicia sesión nuevamente.');
+      setEstadoCarga('sin_departamento');
+      setMensajeError('No se pudo obtener el usuario actual. Por favor inicia sesión nuevamente.');
       setLoading(false);
       return;
     }
     
-    const [agentesData, departamentosData, permisosData] = await Promise.all([
+    // 2️⃣ Obtener datos del usuario para verificar su departamento
+    const usuarioData = await authService.getUsuarioActual();
+
+    console.log('👤 Usuario actual COMPLETO:', JSON.stringify(usuarioData, null, 2));
+    console.log('🔍 ID Usuario:', usuarioData?.id_usuario);
+    console.log('🏢 ID Departamento del usuario:', usuarioData?.id_departamento);
+    console.log('📊 Tipo de id_departamento:', typeof usuarioData?.id_departamento);
+    
+ // 3️⃣ VALIDACIÓN: ¿El usuario tiene departamento asignado?
+// 🔥 NUEVO: Verificar múltiples formas posibles de obtener el departamento
+const idDepartamento = 
+  usuarioData?.id_departamento || 
+  usuarioData?.departamento?.id_departamento || 
+  usuarioData?.departamento_id;
+
+console.log('🔍 ID Departamento detectado:', idDepartamento);
+
+if (!idDepartamento) {
+  console.log('❌ Usuario SIN departamento');
+  console.log('📦 Estructura del usuario:', Object.keys(usuarioData || {}));
+  setEstadoCarga('sin_departamento');
+  setMensajeError('No tienes un departamento asignado. Por favor contacta a un administrador para que te asigne uno.');
+  setLoading(false);
+  return;
+}
+
+console.log('✅ Usuario tiene departamento:', idDepartamento);
+setDepartamentoUsuario(idDepartamento);
+    
+    console.log('✅ Usuario tiene departamento:', usuarioData.id_departamento);
+    setDepartamentoUsuario(usuarioData.id_departamento);
+    
+    // 4️⃣ Cargar todos los agentes y departamentos
+    const [agentesData, departamentosData] = await Promise.all([
       agenteService.getAll(),
-      departamentoService.getAll(),
-      usuarioAgenteService.getAgentesByUsuario(idUsuarioActual, true) // Solo activos
+      departamentoService.getAll()
     ]);
     
-    // 🔥 NUEVO: Filtrar solo agentes con permisos
-    const idsAgentesPermitidos = permisosData.map(p => p.id_agente);
-    const agentesFiltrados = agentesData.filter(a => 
-      idsAgentesPermitidos.includes(a.id_agente)
+    // 5️⃣ VALIDACIÓN: ¿El departamento del usuario tiene un agente asignado?
+    const agenteDelDepartamento = agentesData.find(
+      agente => agente.id_departamento === usuarioData.id_departamento
     );
+    
+    if (!agenteDelDepartamento) {
+      console.log('❌ Departamento SIN agente asignado');
+      setEstadoCarga('sin_agente');
+      const nombreDept = departamentosData.find(d => d.id_departamento === usuarioData.id_departamento)?.nombre || 'tu departamento';
+      setMensajeError(`Tu departamento "${nombreDept}" aún no tiene un agente asignado. Por favor contacta a un administrador.`);
+      setLoading(false);
+      return;
+    }
+    
+    console.log('✅ Agente encontrado:', agenteDelDepartamento.nombre_agente);
+    
+    // 6️⃣ Obtener permisos del usuario para este agente
+    const permisosData = await usuarioAgenteService.getAgentesByUsuario(idUsuarioActual, true);
+    
+    // 7️⃣ Filtrar solo el agente del departamento del usuario
+    const agentesFiltrados = [agenteDelDepartamento]; // Solo un agente
     
     setAgentes(agentesFiltrados);
     setAgentesPermitidos(permisosData);
     setDepartamentos(departamentosData);
     
-    // 🔥 Cargar categorías solo de agentes permitidos
-    if (agentesFiltrados.length > 0) {
-      setSelectedAgente(agentesFiltrados[0].id_agente);
-      
-      const todasLasCategorias = [];
-      for (const agente of agentesFiltrados) {
-        const cats = await categoriaService.getByAgente(agente.id_agente);
-        todasLasCategorias.push(...cats);
-      }
-      setCategorias(todasLasCategorias);
-    } else {
-      // 🔥 NUEVO: Sin agentes permitidos
-      Alert.alert(
-        'Sin permisos', 
-        'No tienes acceso a ningún agente para crear contenido'
-      );
-    }
+    // 8️⃣ Cargar categorías del agente
+    const categoriasData = await categoriaService.getByAgente(agenteDelDepartamento.id_agente);
+    setCategorias(categoriasData);
+    
+    // 9️⃣ Seleccionar automáticamente el único agente disponible
+    setSelectedAgente(agenteDelDepartamento.id_agente);
+    
+    // ✅ Todo OK
+    setEstadoCarga('ok');
+    
   } catch (error) {
-    console.error('Error cargando datos:', error);
-    Alert.alert('Error', 'No se pudieron cargar los datos iniciales');
+    console.error('❌ Error cargando datos:', error);
+    setEstadoCarga('sin_departamento');
+    setMensajeError('Error al cargar los datos. Por favor intenta nuevamente.');
   } finally {
     setLoading(false);
   }
@@ -505,20 +554,103 @@ const abrirModal = async (contenido = null) => {
       ]
     );
   };
-
-if (loading) {
-    return (
-      <View style={contentStyles.wrapper}>
-        <FuncionarioSidebar isOpen={sidebarOpen} />
-        <View style={[contentStyles.mainContent, sidebarOpen && contentStyles.mainContentWithSidebar]}>
+// 🔥 PANTALLAS DE ESTADO
+if (loading || estadoCarga !== 'ok') {
+  return (
+    <View style={contentStyles.wrapper}>
+      <FuncionarioSidebar isOpen={sidebarOpen} />
+      <View style={[contentStyles.mainContent, sidebarOpen && contentStyles.mainContentWithSidebar]}>
+        
+        {/* CARGANDO */}
+        {estadoCarga === 'cargando' && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#3498db" />
-            <Text style={styles.loadingText}>Cargando...</Text>
+            <Text style={styles.loadingText}>Verificando departamento y agente...</Text>
           </View>
-        </View>
+        )}
+
+        {/* SIN DEPARTAMENTO */}
+        {estadoCarga === 'sin_departamento' && (
+          <View style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 40,
+          }}>
+            <View style={{
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              padding: 40,
+              borderRadius: 24,
+              borderWidth: 2,
+              borderColor: '#ef4444',
+              maxWidth: 500,
+              alignItems: 'center',
+            }}>
+              <Text style={{ fontSize: 64, marginBottom: 20 }}>🏢</Text>
+              <Text style={{
+                fontSize: 24,
+                fontWeight: '700',
+                color: '#ef4444',
+                marginBottom: 12,
+                textAlign: 'center',
+              }}>
+                Sin Departamento Asignado
+              </Text>
+              <Text style={{
+                fontSize: 14,
+                color: 'rgba(255, 255, 255, 0.7)',
+                textAlign: 'center',
+                lineHeight: 22,
+              }}>
+                {mensajeError}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* SIN AGENTE */}
+        {estadoCarga === 'sin_agente' && (
+          <View style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 40,
+          }}>
+            <View style={{
+              backgroundColor: 'rgba(251, 191, 36, 0.1)',
+              padding: 40,
+              borderRadius: 24,
+              borderWidth: 2,
+              borderColor: '#fbbf24',
+              maxWidth: 500,
+              alignItems: 'center',
+            }}>
+              <Text style={{ fontSize: 64, marginBottom: 20 }}>🤖</Text>
+              <Text style={{
+                fontSize: 24,
+                fontWeight: '700',
+                color: '#fbbf24',
+                marginBottom: 12,
+                textAlign: 'center',
+              }}>
+                Agente No Configurado
+              </Text>
+              <Text style={{
+                fontSize: 14,
+                color: 'rgba(255, 255, 255, 0.7)',
+                textAlign: 'center',
+                lineHeight: 22,
+              }}>
+                {mensajeError}
+              </Text>
+            </View>
+          </View>
+        )}
+
       </View>
-    );
-  }
+    </View>
+  );
+}
 
 return (
     <View style={contentStyles.wrapper}>
@@ -570,6 +702,40 @@ return (
               </Text>
             </View>
 
+          {/* Badge informativo cuando solo hay 1 agente */}
+          {agentes.length === 1 && selectedAgente && (
+            <View style={{
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              padding: 12,
+              borderRadius: 10,
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: 'rgba(16, 185, 129, 0.3)',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+            }}>
+              <View style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                backgroundColor: '#10b981',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
+                <Ionicons name="checkmark-circle" size={20} color="white" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#10b981', fontWeight: '700', fontSize: 13 }}>
+                  Agente de tu departamento
+                </Text>
+                <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 11, marginTop: 2 }}>
+                  {agentes[0].nombre_agente} - Gestiona solo contenidos de este agente
+                </Text>
+              </View>
+            </View>
+          )}
+
             {/* Filtros */}
           {/* ============ FILTROS ============ */}
           <View style={styles.filtrosContainer}>
@@ -611,42 +777,45 @@ return (
               ))}
             </View>
 
-            {/* Filtro por Agente */}
-            <View style={{ marginTop: 12 }}>
-              {/* 🔍 Búsqueda compacta */}
-              <View style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 8,
-                paddingHorizontal: 16,
-                paddingVertical: 8,
-                marginBottom: 8,
-                borderRadius: 8,
-                backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                borderWidth: 1,
-                borderColor: 'rgba(255, 255, 255, 0.08)',
-              }}>
-                <Ionicons name="search" size={16} color="rgba(255, 255, 255, 0.4)" />
-                <TextInput
-                  style={{
-                    flex: 1,
-                    color: 'white',
-                    fontSize: 13,
-                    paddingVertical: 2,
-                  }}
-                  placeholder="Buscar agente..."
-                  placeholderTextColor="rgba(255, 255, 255, 0.3)"
-                  value={searchAgente}
-                  onChangeText={(text) => setSearchAgente(sanitizeInput(text))}
-                />
-                {searchAgente.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearchAgente('')}>
-                    <Ionicons name="close-circle" size={16} color="rgba(255, 255, 255, 0.4)" />
-                  </TouchableOpacity>
-                )}
+           {/* Mostrar selector solo si hay más de 1 agente */}
+            {agentes.length > 1 && (
+              <View style={{ marginTop: 12 }}>
+                {/* 🔍 Búsqueda compacta */}
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  marginBottom: 8,
+                  borderRadius: 8,
+                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.08)',
+                }}>
+                  <Ionicons name="search" size={16} color="rgba(255, 255, 255, 0.4)" />
+                  <TextInput
+                    style={{
+                      flex: 1,
+                      color: 'white',
+                      fontSize: 13,
+                      paddingVertical: 2,
+                    }}
+                    placeholder="Buscar agente..."
+                    placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                    value={searchAgente}
+                    onChangeText={(text) => setSearchAgente(sanitizeInput(text))}
+                  />
+                  {searchAgente.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearchAgente('')}>
+                      <Ionicons name="close-circle" size={16} color="rgba(255, 255, 255, 0.4)" />
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
+            )} 
 
-{/* Scroll horizontal de agentes con drag */}
+              {/* Scroll horizontal de agentes con drag */}
               <View
                 ref={scrollRef}
                 onStartShouldSetResponder={() => true}
@@ -744,7 +913,6 @@ return (
                 })
                 )}
               </View>
-            </View>
 
             {/* Botón Nuevo - CON VALIDACIÓN DE PERMISOS */}
             {(() => {
@@ -801,7 +969,6 @@ return (
             </View>
           </View>
         </ScrollView>
-         
 
       </View>
 
