@@ -15,6 +15,8 @@ import {
   HeaderCard,
   SearchBar
 } from '../../components/Dashboard/DashboardFuncionarioCard';
+import FuncionarioSidebar from '../../components/Sidebar/sidebarFuncionario';
+import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles';
 import { ROLES, useAuth } from '../../hooks/useAuth';
 import { dashboardFuncionarioStyles } from '../../styles/dashboardFuncionarioStyles';
 
@@ -40,6 +42,7 @@ export default function DashboardFuncionarioPageAdmin() {
   const [selectedState, setSelectedState] = useState('');
   const [contenidos, setContenidos] = useState([]);
   const [loadingContenidos, setLoadingContenidos] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // ==================================================================================
   // EFECTOS
@@ -157,11 +160,16 @@ export default function DashboardFuncionarioPageAdmin() {
   // ==================================================================================
   if (authLoading) {
     return (
-      <View style={[dashboardFuncionarioStyles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#667eea" />
-        <Text style={{ marginTop: 15, color: '#636e72', fontSize: 14 }}>
-          Verificando autenticación...
-        </Text>
+      <View style={contentStyles.wrapper}>
+        <FuncionarioSidebar isOpen={sidebarOpen} />
+        <View style={[contentStyles.mainContent, sidebarOpen && contentStyles.mainContentWithSidebar]}>
+          <View style={[dashboardFuncionarioStyles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+            <ActivityIndicator size="large" color="#667eea" />
+            <Text style={{ marginTop: 15, color: '#636e72', fontSize: 14 }}>
+              Verificando autenticación...
+            </Text>
+          </View>
+        </View>
       </View>
     );
   }
@@ -170,117 +178,153 @@ export default function DashboardFuncionarioPageAdmin() {
   // RENDER PRINCIPAL
   // ==================================================================================
   return (
-    <View style={dashboardFuncionarioStyles.container}>
-      <ScrollView 
-        style={dashboardFuncionarioStyles.scrollView}
-        showsVerticalScrollIndicator={false}
+    <View style={contentStyles.wrapper}>
+      
+      {/* ============ SIDEBAR ============ */}
+      <FuncionarioSidebar 
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
+      />
+
+      {/* ============ BOTÓN TOGGLE SIDEBAR ============ */}
+      <TouchableOpacity
+        style={{
+          position: 'absolute',
+          top: 16,
+          left: sidebarOpen ? 296 : 16,
+          zIndex: 1001,
+          backgroundColor: '#1e1b4b',
+          padding: 12,
+          borderRadius: 12,
+          shadowColor: '#667eea',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.4,
+          shadowRadius: 8,
+          elevation: 8,
+        }}
+        onPress={() => setSidebarOpen(!sidebarOpen)}
       >
-        {/* Header Card */}
-        <HeaderCard 
-          username={usuario?.nombre_completo || usuario?.username}
-          role={rolPrincipal?.nombre_rol || 'Funcionario'}
-        />
+        <Ionicons name={sidebarOpen ? "close" : "menu"} size={24} color="#ffffff" />
+      </TouchableOpacity>
 
-        {/* Botón Agregar Contenido - Solo si tiene permiso */}
-        {tienePermiso('puede_crear_contenido') && (
-          <AddContentButton onPress={handleAddContent} />
-        )}
+      {/* ============ CONTENIDO PRINCIPAL ============ */}
+      <View style={[
+        contentStyles.mainContent, 
+        sidebarOpen && contentStyles.mainContentWithSidebar
+      ]}>
+        <View style={dashboardFuncionarioStyles.container}>
+          <ScrollView 
+            style={dashboardFuncionarioStyles.scrollView}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Header Card */}
+            <HeaderCard 
+              username={usuario?.nombre_completo || usuario?.username}
+              role={rolPrincipal?.nombre_rol || 'Funcionario'}
+            />
 
-        {/* Search Bar */}
-        <SearchBar
-          searchText={searchText}
-          onChangeText={setSearchText}
-          onSearch={handleSearch}
-        />
+            {/* Botón Agregar Contenido - Solo si tiene permiso */}
+            {tienePermiso('puede_crear_contenido') && (
+              <AddContentButton onPress={handleAddContent} />
+            )}
 
-        {/* Filter Bar */}
-        <FilterBar
-          selectedCategory={selectedCategory}
-          selectedState={selectedState}
-          onCategoryPress={() => console.log('Abrir selector de categoría')}
-          onStatePress={() => console.log('Abrir selector de estado')}
-        />
+            {/* Search Bar */}
+            <SearchBar
+              searchText={searchText}
+              onChangeText={setSearchText}
+              onSearch={handleSearch}
+            />
 
-        {/* Loading de contenidos */}
-        {loadingContenidos ? (
-          <View style={{ padding: 30, alignItems: 'center' }}>
-            <ActivityIndicator size="large" color="#667eea" />
-            <Text style={{ marginTop: 10, color: '#636e72' }}>
-              Cargando contenidos...
-            </Text>
-          </View>
-        ) : (
-          <>
-            {/* Table Container */}
-            <View style={dashboardFuncionarioStyles.tableContainer}>
-              {/* Table Header */}
-              <View style={dashboardFuncionarioStyles.tableHeader}>
-                <View style={dashboardFuncionarioStyles.headerCell}>
-                  <Text style={dashboardFuncionarioStyles.headerText}>Título</Text>
-                </View>
-                <View style={dashboardFuncionarioStyles.headerCell}>
-                  <Text style={dashboardFuncionarioStyles.headerText}>Categoría</Text>
-                </View>
-                <View style={dashboardFuncionarioStyles.headerCell}>
-                  <Text style={dashboardFuncionarioStyles.headerText}>Estado</Text>
-                </View>
-                <View style={dashboardFuncionarioStyles.headerCell}>
-                  <Text style={dashboardFuncionarioStyles.headerText}>Actualizaciones</Text>
-                </View>
+            {/* Filter Bar */}
+            <FilterBar
+              selectedCategory={selectedCategory}
+              selectedState={selectedState}
+              onCategoryPress={() => console.log('Abrir selector de categoría')}
+              onStatePress={() => console.log('Abrir selector de estado')}
+            />
+
+            {/* Loading de contenidos */}
+            {loadingContenidos ? (
+              <View style={{ padding: 30, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#667eea" />
+                <Text style={{ marginTop: 10, color: '#636e72' }}>
+                  Cargando contenidos...
+                </Text>
               </View>
+            ) : (
+              <>
+                {/* Table Container */}
+                <View style={dashboardFuncionarioStyles.tableContainer}>
+                  {/* Table Header */}
+                  <View style={dashboardFuncionarioStyles.tableHeader}>
+                    <View style={dashboardFuncionarioStyles.headerCell}>
+                      <Text style={dashboardFuncionarioStyles.headerText}>Título</Text>
+                    </View>
+                    <View style={dashboardFuncionarioStyles.headerCell}>
+                      <Text style={dashboardFuncionarioStyles.headerText}>Categoría</Text>
+                    </View>
+                    <View style={dashboardFuncionarioStyles.headerCell}>
+                      <Text style={dashboardFuncionarioStyles.headerText}>Estado</Text>
+                    </View>
+                    <View style={dashboardFuncionarioStyles.headerCell}>
+                      <Text style={dashboardFuncionarioStyles.headerText}>Actualizaciones</Text>
+                    </View>
+                  </View>
 
-              {/* Content Rows */}
-              {contenidosFiltrados.length > 0 ? (
-                contenidosFiltrados.map((contenido) => (
-                  <ContentRow
-                    key={contenido.id}
-                    titulo={contenido.titulo}
-                    categoria={contenido.categoria}
-                    estado={contenido.estado}
-                    fechaActualizacion={contenido.fechaActualizacion}
-                    onEdit={() => handleEditContent(contenido.id)}
-                    onDelete={() => handleDeleteContent(contenido.id)}
-                  />
-                ))
-              ) : (
-                <View style={{ padding: 30, alignItems: 'center' }}>
-                  <Ionicons name="document-text-outline" size={48} color="#636e72" />
-                  <Text style={{ marginTop: 15, color: '#636e72', textAlign: 'center' }}>
-                    No se encontraron contenidos
-                  </Text>
+                  {/* Content Rows */}
+                  {contenidosFiltrados.length > 0 ? (
+                    contenidosFiltrados.map((contenido) => (
+                      <ContentRow
+                        key={contenido.id}
+                        titulo={contenido.titulo}
+                        categoria={contenido.categoria}
+                        estado={contenido.estado}
+                        fechaActualizacion={contenido.fechaActualizacion}
+                        onEdit={() => handleEditContent(contenido.id)}
+                        onDelete={() => handleDeleteContent(contenido.id)}
+                      />
+                    ))
+                  ) : (
+                    <View style={{ padding: 30, alignItems: 'center' }}>
+                      <Ionicons name="document-text-outline" size={48} color="#636e72" />
+                      <Text style={{ marginTop: 15, color: '#636e72', textAlign: 'center' }}>
+                        No se encontraron contenidos
+                      </Text>
+                    </View>
+                  )}
                 </View>
-              )}
-            </View>
-          </>
-        )}
+              </>
+            )}
 
-        {/* Footer */}
-        <View style={dashboardFuncionarioStyles.footer}>
-          <TouchableOpacity 
-            style={dashboardFuncionarioStyles.footerButton}
-            onPress={handleCerrarSesion}
-          >
-            <Ionicons name="log-out-outline" size={20} color="#ff4757" />
-            <Text style={dashboardFuncionarioStyles.footerButtonText}>Cerrar sesión</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={dashboardFuncionarioStyles.footerButton}
-            onPress={() => router.push('/configuracion')}
-          >
-            <Ionicons name="settings-outline" size={20} color="#636e72" />
-            <Text style={dashboardFuncionarioStyles.footerButtonText}>Configuración</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={dashboardFuncionarioStyles.footerButton}
-            onPress={() => router.push('/notificaciones')}
-          >
-            <Ionicons name="notifications-outline" size={20} color="#636e72" />
-            <Text style={dashboardFuncionarioStyles.footerButtonText}>Notificaciones</Text>
-          </TouchableOpacity>
+            {/* Footer */}
+            <View style={dashboardFuncionarioStyles.footer}>
+              <TouchableOpacity 
+                style={dashboardFuncionarioStyles.footerButton}
+                onPress={handleCerrarSesion}
+              >
+                <Ionicons name="log-out-outline" size={20} color="#ff4757" />
+                <Text style={dashboardFuncionarioStyles.footerButtonText}>Cerrar sesión</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={dashboardFuncionarioStyles.footerButton}
+                onPress={() => router.push('/configuracion')}
+              >
+                <Ionicons name="settings-outline" size={20} color="#636e72" />
+                <Text style={dashboardFuncionarioStyles.footerButtonText}>Configuración</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={dashboardFuncionarioStyles.footerButton}
+                onPress={() => router.push('/notificaciones')}
+              >
+                <Ionicons name="notifications-outline" size={20} color="#636e72" />
+                <Text style={dashboardFuncionarioStyles.footerButtonText}>Notificaciones</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </View>
-      </ScrollView>
+      </View>
     </View>
   );
 }

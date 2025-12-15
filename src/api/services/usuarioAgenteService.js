@@ -33,5 +33,19 @@ export const usuarioAgenteService = {
   // Revocar acceso
   revocarAcceso: async (id) => {
     return await apiClient.delete(ENDPOINTS.USUARIO_AGENTE.BY_ID(id));
+  },
+
+  // Verificar permisos de un usuario sobre un agente específico
+  verificarPermisos: async (idUsuario, idAgente) => {
+    return await apiClient.get(
+      `${ENDPOINTS.USUARIO_AGENTE.BASE}/verificar/${idUsuario}/${idAgente}`
+    );
+  },
+
+  // Listar IDs de agentes accesibles
+  getAgentesAccesibles: async (idUsuario) => {
+    return await apiClient.get(
+      `${ENDPOINTS.USUARIO_AGENTE.BASE}/accesibles/${idUsuario}`
+    );
   }
 };
