@@ -85,21 +85,29 @@ export default function GestionAsignacionUsPage() {
     }
   }, [mostrarAsignacionSinDept]);
 
-  const cargarUsuariosSinDepartamento = async () => {
-    try {
-      setLoadingSinDept(true);
-      const response = await usuarioService.listarCompleto({ 
-        estado: 'activo'
-      });
-      const sinDept = (response?.usuarios || []).filter(u => !u.departamento);
-      setUsuariosSinDept(sinDept);
-    } catch (error) {
-      console.error('Error cargando usuarios sin departamento:', error);
-      Alert.alert('Error', 'No se pudieron cargar los usuarios sin departamento');
-    } finally {
-      setLoadingSinDept(false);
-    }
-  };
+const cargarUsuariosSinDepartamento = async () => {
+  try {
+    setLoadingSinDept(true);
+    const response = await usuarioService.listarCompleto({ 
+      estado: 'activo'
+    });
+    
+    // ✅ Filtrar: sin departamento Y solo funcionarios
+    const sinDept = (response?.usuarios || []).filter(u => 
+      (!u.departamento && !u.id_departamento) && 
+      (u.rol_principal?.nombre_rol?.toLowerCase() === 'funcionario' ||
+       u.roles?.some(r => r.nombre_rol?.toLowerCase() === 'funcionario'))
+    );
+    
+    console.log('✅ Usuarios sin departamento (Funcionarios):', sinDept.length);
+    setUsuariosSinDept(sinDept);
+  } catch (error) {
+    console.error('Error cargando usuarios sin departamento:', error);
+    Alert.alert('Error', 'No se pudieron cargar los usuarios sin departamento');
+  } finally {
+    setLoadingSinDept(false);
+  }
+};
 
   const cargarDepartamentos = async () => {
     try {
@@ -122,7 +130,13 @@ export default function GestionAsignacionUsPage() {
         id_departamento: idDepartamento,
         estado: 'activo'
       });
-      setUsuarios(response?.usuarios || []);
+// ✅ Filtrar: solo funcionarios
+    const usuariosFuncionarios = (response?.usuarios || []).filter(u => 
+      u.rol_principal?.nombre_rol?.toLowerCase() === 'funcionario' ||
+      u.roles?.some(r => r.nombre_rol?.toLowerCase() === 'funcionario')
+    );
+    console.log('✅ Funcionarios en departamento:', usuariosFuncionarios.length);
+      setUsuarios(usuariosFuncionarios);
     } catch (error) {
       console.error('Error cargando usuarios:', error);
       Alert.alert('Error', 'No se pudieron cargar los usuarios del departamento');
