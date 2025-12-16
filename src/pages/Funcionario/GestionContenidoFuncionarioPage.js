@@ -1018,7 +1018,7 @@ return (
                     permisos={permisos}
                     onEdit={abrirModal}
                     onPublish={publicarContenido}
-                    onDelete={eliminarContenido}  // 🔥 AGREGAR ESTA LÍNEA
+                    onDelete={eliminarContenido} 
                     onView={(cont) => {
                       setContenidoView(cont);
                       setModalViewVisible(true);
