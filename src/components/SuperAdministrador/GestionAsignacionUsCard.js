@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
 import {
-    ActivityIndicator,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { styles } from '../../styles/GestionAsignacionUsStyles';
 
@@ -69,7 +70,9 @@ export const UsuarioCard = ({
   showChevron = false,
   showNoDeptBadge = false,
   checkboxColor = "#3b82f6",
-  selectedStyle = "blue" // "blue" o "green"
+  selectedStyle = "blue",
+  onPressEditPermisos = null,
+  showEditPermisosButton = false
 }) => {
   const selectedStyleClass = selectedStyle === "green" 
     ? styles.usuarioCardSelectedGreen 
@@ -82,6 +85,7 @@ export const UsuarioCard = ({
         isSelected && selectedStyleClass
       ]}
       onPress={onPress}
+      activeOpacity={0.7}
     >
       {showCheckbox && (
         <Ionicons 
@@ -133,7 +137,6 @@ export const UsuarioCard = ({
     </TouchableOpacity>
   );
 };
-
 // ============================================
 // INFO CARD
 // ============================================
@@ -247,13 +250,12 @@ export const ResumenCard = ({
 // ============================================
 // USUARIO DETALLE MODAL
 // ============================================
-export const UsuarioDetalleModal = ({ usuario, onClose }) => {
-  return (
+export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos }) => {  return (
     <View style={styles.modalOverlay}>
       <View style={styles.modalContent}>
         <ScrollView style={styles.modalScroll}>
           
-          {/* Header del Modal */}
+{/* Header del Modal */}
           <View style={styles.modalHeader}>
             <View style={styles.modalHeaderLeft}>
               <View style={styles.avatarLarge}>
@@ -272,12 +274,37 @@ export const UsuarioDetalleModal = ({ usuario, onClose }) => {
               </View>
             </View>
             
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={onClose}
-            >
-              <Ionicons name="close" size={24} color="#64748b" />
-            </TouchableOpacity>
+            {/* Botones de Acción */}
+            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+              {/* Botón Editar Permisos */}
+              {onEditarPermisos && (
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: '#f59e0b',
+                    paddingVertical: 10,
+                    paddingHorizontal: 16,
+                    borderRadius: 8,
+                    gap: 6
+                  }}
+                  onPress={() => onEditarPermisos(usuario)}
+                >
+                  <Ionicons name="shield-checkmark" size={18} color="white" />
+                  <Text style={{ color: 'white', fontSize: 14, fontWeight: '600' }}>
+                    Editar Permisos
+                  </Text>
+                </TouchableOpacity>
+              )}
+              
+              {/* Botón Cerrar */}
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={onClose}
+              >
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Información Personal */}

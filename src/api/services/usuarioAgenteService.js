@@ -25,7 +25,33 @@ export const usuarioAgenteService = {
     return await apiClient.get(endpoint);
   },
 
-  // Actualizar permisos
+  // ✅ NUEVO: Obtener permisos de un usuario para un agente específico
+  obtenerPorUsuarioYAgente: async (idUsuario, idAgente) => {
+    try {
+      const response = await apiClient.get(
+        `${ENDPOINTS.USUARIO_AGENTE.BASE}/usuario/${idUsuario}/agente/${idAgente}`
+      );
+      return response;
+    } catch (error) {
+      console.error('Error obteniendo permisos usuario-agente:', error);
+      throw error;
+    }
+  },
+
+  // ✅ NUEVO: Alias para obtener por usuario (útil para la alternativa)
+  obtenerPorUsuario: async (idUsuario) => {
+    return await apiClient.get(ENDPOINTS.USUARIO_AGENTE.BY_USUARIO(idUsuario));
+  },
+
+  // ✅ CORREGIDO: Actualizar permisos (nombre correcto del método)
+  actualizar: async (idUsuario, idAgente, data) => {
+    return await apiClient.put(
+      `${ENDPOINTS.USUARIO_AGENTE.BASE}/usuario/${idUsuario}/agente/${idAgente}`,
+      data
+    );
+  },
+
+  // Actualizar permisos (método original mantenido por compatibilidad)
   actualizarPermisos: async (id, data) => {
     return await apiClient.put(ENDPOINTS.USUARIO_AGENTE.BY_ID(id), data);
   },

@@ -11,8 +11,11 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { agenteService } from '../../api/services/agenteService';
 import { departamentoService } from '../../api/services/departamentoService';
+import { usuarioAgenteService } from '../../api/services/usuarioAgenteService';
 import { usuarioService } from '../../api/services/usuarioService';
+import PermisosModal from '../../components/Modals/PermisosModal';
 import SuperAdminSidebar from '../../components/Sidebar/sidebarSuperAdmin';
 import {
   DepartamentoCard,
@@ -56,6 +59,11 @@ export default function GestionAsignacionUsPage() {
 
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null);
   const [mostrarDetalleUsuario, setMostrarDetalleUsuario] = useState(false);
+  const [mostrarModalPermisos, setMostrarModalPermisos] = useState(false);
+
+  const [modoEdicion, setModoEdicion] = useState(false);
+  const [permisosActuales, setPermisosActuales] = useState(null);
+  const [usuarioEditandoPermisos, setUsuarioEditandoPermisos] = useState(null);
 
   useEffect(() => {
     cargarDepartamentos();
@@ -151,43 +159,17 @@ export default function GestionAsignacionUsPage() {
     // Si es asignación de usuarios sin departamento
     if (mostrarAsignacionSinDept) {
       if (selectedUsuarios.length === 0) {
-        window.alert('⚠️ Debes seleccionar al menos un usuario');
+        Alert.alert('⚠️', 'Debes seleccionar al menos un usuario');
         return;
       }
 
       if (!selectedDepartamento) {
-        window.alert('⚠️ Debes seleccionar un departamento destino');
+        Alert.alert('⚠️', 'Debes seleccionar un departamento destino');
         return;
       }
 
-      const confirmar = window.confirm(
-        `¿Asignar ${selectedUsuarios.length} usuario(s) a ${departamentoActual?.nombre}?`
-      );
-
-      if (!confirmar) return;
-
-      try {
-        setLoading(true);
-        
-        const promesas = selectedUsuarios.map(idUsuario => 
-          usuarioService.cambiarDepartamento(idUsuario, {
-            id_departamento: selectedDepartamento,
-          })
-        );
-
-        const resultados = await Promise.all(promesas);
-
-        setMostrarAsignacionSinDept(false);
-        setSelectedUsuarios([]);
-
-        window.alert(`✅ ${resultados.length} usuario(s) asignado(s) correctamente a ${departamentoActual?.nombre}`);
-        
-      } catch (error) {
-        console.error('❌ Error asignando usuarios:', error);
-        window.alert('❌ Error: ' + (error.message || 'No se pudieron asignar los usuarios'));
-      } finally {
-        setLoading(false);
-      }
+      // ✅ NUEVO: Abrir modal de permisos
+      setMostrarModalPermisos(true);
       return;
     }
 
@@ -245,6 +227,343 @@ export default function GestionAsignacionUsPage() {
       setLoading(false);
     }
   };
+
+const handleConfirmarConPermisos = async (permisos) => {
+    try {
+      setLoading(true);
+      setMostrarModalPermisos(false);
+
+      // ✅ NUEVO: Si es modo edición, actualizar permisos existentes
+      if (modoEdicion && usuarioEditandoPermisos) {
+        console.log('📝 Modo edición activado');
+        console.log('📝 Usuario:', usuarioEditandoPermisos.usuario.id_usuario);
+        console.log('📝 Agente:', usuarioEditandoPermisos.agente.id_agente);
+        console.log('📝 Nuevos permisos:', permisos);
+        
+        try {
+          await usuarioAgenteService.actualizar(
+            usuarioEditandoPermisos.usuario.id_usuario,
+            usuarioEditandoPermisos.agente.id_agente,
+            {
+              puede_ver_contenido: permisos.puede_ver_contenido,
+              puede_crear_contenido: permisos.puede_crear_contenido,
+              puede_editar_contenido: permisos.puede_editar_contenido,
+              puede_eliminar_contenido: permisos.puede_eliminar_contenido,
+              puede_publicar_contenido: permisos.puede_publicar_contenido,
+              puede_ver_metricas: permisos.puede_ver_metricas,
+              puede_exportar_datos: permisos.puede_exportar_datos,
+              puede_configurar_agente: permisos.puede_configurar_agente,
+              puede_gestionar_permisos: permisos.puede_gestionar_permisos,
+              puede_gestionar_categorias: permisos.puede_gestionar_categorias,
+              puede_gestionar_widgets: permisos.puede_gestionar_widgets,
+            }
+          );
+          
+          // Limpiar estados
+          setModoEdicion(false);
+          setUsuarioEditandoPermisos(null);
+          setPermisosActuales(null);
+          setLoading(false);
+          
+          Alert.alert(
+            '✅ Permisos Actualizados',
+            `Los permisos de ${usuarioEditandoPermisos.usuario.persona?.nombre} ${usuarioEditandoPermisos.usuario.persona?.apellido} se actualizaron correctamente.`,
+            [{ text: 'Perfecto', style: 'default' }]
+          );
+          
+          return;
+        } catch (error) {
+          console.error('❌ Error actualizando permisos:', error);
+          Alert.alert('Error', 'No se pudieron actualizar los permisos');
+          setLoading(false);
+          return;
+        }
+      }
+
+      // ✅ RESTO DEL CÓDIGO (para asignación nueva)
+      const usuariosAsignados = selectedUsuarios.length;
+      const nombreDept = departamentoActual?.nombre;
+      const idsUsuarios = [...selectedUsuarios];
+
+      console.log('🔍 Iniciando asignación de usuarios:', idsUsuarios);
+      console.log('🔍 Departamento destino:', selectedDepartamento, '-', nombreDept);
+      console.log('🔍 Permisos a aplicar:', permisos);
+
+      const promesasDepartamento = idsUsuarios.map(idUsuario => 
+        usuarioService.cambiarDepartamento(idUsuario, {
+          id_departamento: selectedDepartamento,
+        })
+      );
+
+      await Promise.all(promesasDepartamento);
+      console.log('✅ Usuarios asignados al departamento exitosamente');
+
+      const agentesResponse = await obtenerAgentesDelDepartamento(selectedDepartamento);
+      const agentes = agentesResponse || [];
+
+      console.log('🔍 Agentes obtenidos:', agentes.length, 'agente(s)');
+      console.log('🔍 Detalle de agentes:', agentes.map(a => ({ id: a.id_agente, nombre: a.nombre })));
+
+      if (agentes.length === 0) {
+        // ✅ PRIMERO: Recargar datos
+        await cargarUsuariosDepartamento(selectedDepartamento);
+        await cargarUsuariosSinDepartamento();
+        
+        // ✅ SEGUNDO: Limpiar estados (esto cierra la vista de asignación)
+        setMostrarAsignacionSinDept(false);
+        setSelectedUsuarios([]);
+        setNuevoDepartamento(null);
+        setLoading(false);
+        
+        // ✅ TERCERO: Mostrar alerta
+        Alert.alert(
+          '⚠️ Advertencia', 
+          `Los ${usuariosAsignados} usuario(s) se asignaron correctamente al departamento "${nombreDept}", pero este departamento no tiene agentes virtuales.\n\n✓ El cambio de departamento fue exitoso\n✓ Los permisos se aplicarán automáticamente cuando se creen agentes en este departamento.`,
+          [{ text: 'Entendido', style: 'default' }]
+        );
+        
+        return;
+      }
+
+      const promesasPermisos = [];
+      
+      for (const idUsuario of idsUsuarios) {
+        for (const agente of agentes) {
+          const datosAsignacion = {
+            id_usuario: idUsuario,
+            id_agente: agente.id_agente,
+            puede_ver_contenido: permisos.puede_ver_contenido,
+            puede_crear_contenido: permisos.puede_crear_contenido,
+            puede_editar_contenido: permisos.puede_editar_contenido,
+            puede_eliminar_contenido: permisos.puede_eliminar_contenido,
+            puede_publicar_contenido: permisos.puede_publicar_contenido,
+            puede_ver_metricas: permisos.puede_ver_metricas,
+            puede_exportar_datos: permisos.puede_exportar_datos,
+            puede_configurar_agente: permisos.puede_configurar_agente,
+            puede_gestionar_permisos: permisos.puede_gestionar_permisos,
+            puede_gestionar_categorias: permisos.puede_gestionar_categorias,
+            puede_gestionar_widgets: permisos.puede_gestionar_widgets,
+            notas: `Asignado automáticamente al ingresar al departamento ${nombreDept}`
+          };
+
+          console.log(`📝 Preparando asignación: Usuario ${idUsuario} → Agente ${agente.id_agente} (${agente.nombre})`);
+          
+          promesasPermisos.push(
+            usuarioAgenteService.asignar(datosAsignacion)
+          );
+        }
+      }
+
+      console.log('🔍 Total de asignaciones a realizar:', promesasPermisos.length);
+      console.log(`🔍 Desglose: ${idsUsuarios.length} usuario(s) × ${agentes.length} agente(s) = ${promesasPermisos.length} asignaciones`);
+
+      if (promesasPermisos.length > 0) {
+        const resultados = await Promise.all(promesasPermisos);
+        console.log('✅ Asignaciones completadas:', resultados.length);
+      }
+
+      // ✅ PRIMERO: Recargar datos
+      await cargarUsuariosDepartamento(selectedDepartamento);
+      await cargarUsuariosSinDepartamento();
+      
+      // ✅ SEGUNDO: Limpiar estados (esto cierra la vista de asignación)
+      setMostrarAsignacionSinDept(false);
+      setSelectedUsuarios([]);
+      setNuevoDepartamento(null);
+      setLoading(false);
+
+      // ✅ TERCERO: Mostrar alerta
+      const resumenPermisos = Object.entries(permisos)
+        .filter(([_, value]) => value === true)
+        .length;
+
+      Alert.alert(
+        '✅ Asignación Exitosa', 
+        `${usuariosAsignados} usuario(s) asignado(s) a "${nombreDept}"\n\n` +
+        `✓ Departamento actualizado\n` +
+        `✓ ${promesasPermisos.length} relación(es) usuario-agente creadas\n` +
+        `✓ ${resumenPermisos} permiso(s) activo(s) por usuario`,
+        [{ text: 'Perfecto', style: 'default' }]
+      );
+      
+    } catch (error) {
+      console.error('❌ Error asignando usuarios:', error);
+      console.error('❌ Stack:', error.stack);
+      
+      Alert.alert(
+        '❌ Error en la Asignación', 
+        `No se pudieron asignar los usuarios:\n\n${error.message || 'Error desconocido'}\n\nIntenta nuevamente o contacta al administrador.`,
+        [{ text: 'Cerrar', style: 'cancel' }]
+      );
+      
+      setLoading(false);
+    }
+  };
+
+const obtenerAgentesDelDepartamento = async (idDepartamento) => {
+  try {
+    console.log('🔍 [obtenerAgentesDelDepartamento] Buscando agentes para departamento:', idDepartamento);
+    
+    const response = await agenteService.getAll({ id_departamento: idDepartamento });
+    
+    console.log('🔍 [obtenerAgentesDelDepartamento] Respuesta completa del servicio:', response);
+    console.log('🔍 [obtenerAgentesDelDepartamento] response.agentes:', response?.agentes);
+    console.log('🔍 [obtenerAgentesDelDepartamento] response.data:', response?.data);
+    console.log('🔍 [obtenerAgentesDelDepartamento] response directamente:', Array.isArray(response) ? response : 'No es array');
+    
+    // Intentar diferentes estructuras de respuesta
+    let agentes = [];
+    
+    if (Array.isArray(response)) {
+      // Caso 1: La respuesta ES directamente el array de agentes
+      agentes = response;
+      console.log('✅ Caso 1: response es array directo');
+    } else if (response?.agentes && Array.isArray(response.agentes)) {
+      // Caso 2: La respuesta tiene propiedad 'agentes'
+      agentes = response.agentes;
+      console.log('✅ Caso 2: response.agentes');
+    } else if (response?.data && Array.isArray(response.data)) {
+      // Caso 3: La respuesta tiene propiedad 'data'
+      agentes = response.data;
+      console.log('✅ Caso 3: response.data');
+    } else if (response?.data?.agentes && Array.isArray(response.data.agentes)) {
+      // Caso 4: La respuesta tiene data.agentes
+      agentes = response.data.agentes;
+      console.log('✅ Caso 4: response.data.agentes');
+    } else {
+      console.log('⚠️ No se pudo determinar la estructura de la respuesta');
+    }
+    
+    // Filtrar solo agentes activos del departamento específico
+    const agentesFiltrados = agentes.filter(a => 
+      a.id_departamento === idDepartamento || 
+      a.id_departamento === Number(idDepartamento)
+    );
+    
+    console.log('🔍 [obtenerAgentesDelDepartamento] Agentes filtrados:', agentesFiltrados.length);
+    console.log('🔍 [obtenerAgentesDelDepartamento] Detalle:', agentesFiltrados.map(a => ({
+      id: a.id_agente,
+      nombre: a.nombre,
+      id_departamento: a.id_departamento
+    })));
+    
+    return agentesFiltrados;
+  } catch (error) {
+    console.error('❌ [obtenerAgentesDelDepartamento] Error obteniendo agentes:', error);
+    console.error('❌ [obtenerAgentesDelDepartamento] Error completo:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    });
+    return [];
+  }
+};
+
+const cargarPermisosUsuario = async (usuario, agente) => {
+  try {
+    console.log('🔍 Cargando permisos para:', { usuario: usuario.id_usuario, agente: agente.id_agente });
+    
+    const response = await usuarioAgenteService.obtenerPorUsuarioYAgente(usuario.id_usuario, agente.id_agente);
+    
+    console.log('🔍 Respuesta de permisos:', response);
+    
+    if (response) {
+      return {
+        puede_ver_contenido: response.puede_ver_contenido || false,
+        puede_crear_contenido: response.puede_crear_contenido || false,
+        puede_editar_contenido: response.puede_editar_contenido || false,
+        puede_eliminar_contenido: response.puede_eliminar_contenido || false,
+        puede_publicar_contenido: response.puede_publicar_contenido || false,
+        puede_ver_metricas: response.puede_ver_metricas || false,
+        puede_exportar_datos: response.puede_exportar_datos || false,
+        puede_configurar_agente: response.puede_configurar_agente || false,
+        puede_gestionar_permisos: response.puede_gestionar_permisos || false,
+        puede_gestionar_categorias: response.puede_gestionar_categorias || false,
+        puede_gestionar_widgets: response.puede_gestionar_widgets || false,
+      };
+    }
+    
+    // Si no hay permisos, retornar permisos por defecto
+    return {
+      puede_ver_contenido: true,
+      puede_crear_contenido: true,
+      puede_editar_contenido: true,
+      puede_eliminar_contenido: false,
+      puede_publicar_contenido: false,
+      puede_ver_metricas: true,
+      puede_exportar_datos: false,
+      puede_configurar_agente: false,
+      puede_gestionar_permisos: false,
+      puede_gestionar_categorias: false,
+      puede_gestionar_widgets: false,
+    };
+  } catch (error) {
+    console.error('❌ Error cargando permisos:', error);
+    // Retornar permisos por defecto en caso de error
+    return {
+      puede_ver_contenido: true,
+      puede_crear_contenido: true,
+      puede_editar_contenido: true,
+      puede_eliminar_contenido: false,
+      puede_publicar_contenido: false,
+      puede_ver_metricas: true,
+      puede_exportar_datos: false,
+      puede_configurar_agente: false,
+      puede_gestionar_permisos: false,
+      puede_gestionar_categorias: false,
+      puede_gestionar_widgets: false,
+    };
+  }
+};
+
+
+const handleEditarPermisos = async (usuario) => {
+  try {
+    console.log('📝 Iniciando edición de permisos para usuario:', usuario.id_usuario);
+    
+    // Obtener agentes del departamento del usuario
+    const agentesResponse = await obtenerAgentesDelDepartamento(usuario.departamento?.id_departamento || usuario.id_departamento);
+    const agentes = agentesResponse || [];
+    
+if (agentes.length === 0) {
+        // ✅ Recargar ANTES de mostrar el alert
+        await cargarUsuariosDepartamento(selectedDepartamento);
+        await cargarUsuariosSinDepartamento();
+        
+        // ✅ Limpiar estados
+        setMostrarAsignacionSinDept(false);
+        setSelectedUsuarios([]);
+        setNuevoDepartamento(null);
+        setLoading(false);
+        
+        Alert.alert(
+          '⚠️ Advertencia', 
+          `Los ${usuariosAsignados} usuario(s) se asignaron correctamente al departamento "${nombreDept}", pero este departamento no tiene agentes virtuales.\n\n✓ El cambio de departamento fue exitoso\n✓ Los permisos se aplicarán automáticamente cuando se creen agentes en este departamento.`,
+          [{ text: 'Entendido', style: 'default' }]
+        );
+        
+        return;
+      }
+    
+    // Por ahora tomamos el primer agente (puedes mejorar esto después para seleccionar cuál agente)
+    const agente = agentes[0];
+    
+    // Cargar permisos actuales
+    const permisos = await cargarPermisosUsuario(usuario, agente);
+    
+    console.log('📝 Permisos cargados:', permisos);
+    
+    // Configurar estado para edición
+    setUsuarioEditandoPermisos({ usuario, agente });
+    setPermisosActuales(permisos);
+    setModoEdicion(true);
+    setMostrarModalPermisos(true);
+    
+  } catch (error) {
+    console.error('❌ Error al preparar edición de permisos:', error);
+    Alert.alert('Error', 'No se pudieron cargar los permisos del usuario');
+  }
+};
 
   const getDepartamentoNombre = (idDepartamento) => {
     return departamentos.find(d => d.id_departamento === idDepartamento)?.nombre || '';
@@ -529,6 +848,7 @@ export default function GestionAsignacionUsPage() {
                               isSelected={selectedUsuarios.includes(usuario.id_usuario)}
                               onPress={() => toggleUsuario(usuario.id_usuario)}
                               showCheckbox={true}
+                              showChevron={false}
                               showNoDeptBadge={true}
                               checkboxColor="#10b981"
                               selectedStyle="green"
@@ -602,7 +922,9 @@ export default function GestionAsignacionUsPage() {
                       </View>
                     ) : (
                       <View style={styles.usuariosList}>
-                        {usuariosFiltrados.map((usuario) => (
+                      {usuariosFiltrados.map((usuario) => {
+                        console.log('🔍 Renderizando usuario:', usuario.persona?.nombre, 'showEdit:', !mostrarCambioDept);
+                        return (
                           <UsuarioCard
                             key={usuario.id_usuario}
                             usuario={usuario}
@@ -616,10 +938,13 @@ export default function GestionAsignacionUsPage() {
                               }
                             }}
                             showCheckbox={mostrarCambioDept}
-                            showChevron={!mostrarCambioDept}
+                            showChevron={false}
+                            showEditPermisosButton={!mostrarCambioDept}
+                            onPressEditPermisos={handleEditarPermisos}
                           />
-                        ))}
-                      </View>
+                        );
+                      })}
+                    </View>
                     )}
                   </>
                 )}
@@ -676,8 +1001,29 @@ export default function GestionAsignacionUsPage() {
             setMostrarDetalleUsuario(false);
             setUsuarioSeleccionado(null);
           }}
+          onEditarPermisos={(usuario) => {
+            setMostrarDetalleUsuario(false);
+            handleEditarPermisos(usuario);
+          }}
         />
       )}
+
+      {/* ✅ NUEVO: Modal de Permisos */}
+    <PermisosModal
+      isOpen={mostrarModalPermisos}
+      onClose={() => {
+        setMostrarModalPermisos(false);
+        setModoEdicion(false);
+        setUsuarioEditandoPermisos(null);
+        setPermisosActuales(null);
+      }}
+      onConfirm={handleConfirmarConPermisos}
+      selectedCount={modoEdicion ? 1 : selectedUsuarios.length}
+      departamentoDestino={modoEdicion ? usuarioEditandoPermisos?.usuario?.departamento : departamentoActual}
+      permisosIniciales={modoEdicion ? permisosActuales : null}
+      modoEdicion={modoEdicion}
+      usuarioEditando={usuarioEditandoPermisos?.usuario}
+    />
     </View>
   );
 }
