@@ -761,9 +761,28 @@ export const styles = {
     padding: 12,
     borderRadius: 8
   },
-  notasText: {
+notasText: {
     fontSize: 13,
     color: '#78716c',
     lineHeight: 20
+  },
+
+  // ============================================
+  // BOTÓN EDITAR PERMISOS
+  // ============================================
+  editPermisosButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    backgroundColor: '#f59e0b',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8
+  },
+  editPermisosButtonText: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 6
   }
 };
