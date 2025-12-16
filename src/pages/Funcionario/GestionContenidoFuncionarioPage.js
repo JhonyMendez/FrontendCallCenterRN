@@ -264,7 +264,7 @@ const cargarDatosIniciales = async () => {
 
 const cargarContenidos = async () => {
   try {
-    // 🔥 NUEVO: Verificar permisos antes de cargar
+
     const permisos = agentesPermitidos.find(p => p.id_agente === selectedAgente);
     
     if (!permisos || !permisos.puede_ver_contenido) {
@@ -541,6 +541,17 @@ const abrirModal = async (contenido = null) => {
   };
 
   const publicarContenido = async (id) => {
+    // 🔥 NUEVO: Verificar permisos antes de publicar
+    const contenido = contenidos.find(c => c.id_contenido === id);
+    if (!contenido) return;
+    
+    const permisos = agentesPermitidos.find(p => p.id_agente === contenido.id_agente);
+    
+    if (!permisos || !permisos.puede_publicar_contenido) {
+      Alert.alert('Sin permisos', 'No tienes permiso para publicar contenidos de este agente');
+      return;
+    }
+    
     Alert.alert(
       'Confirmar publicación',
       '¿Estás seguro de publicar este contenido?',
@@ -562,6 +573,42 @@ const abrirModal = async (contenido = null) => {
       ]
     );
   };
+
+  const eliminarContenido = async (id) => {
+    // 🔥 Verificar permisos antes de eliminar
+    const contenido = contenidos.find(c => c.id_contenido === id);
+    if (!contenido) return;
+    
+    const permisos = agentesPermitidos.find(p => p.id_agente === contenido.id_agente);
+    
+    if (!permisos || !permisos.puede_eliminar_contenido) {
+      Alert.alert('Sin permisos', 'No tienes permiso para eliminar contenidos de este agente');
+      return;
+    }
+    
+    Alert.alert(
+      '⚠️ Confirmar eliminación',
+      '¿Estás seguro de eliminar este contenido? Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await contenidoService.delete(id);
+              mostrarNotificacionExito('Contenido eliminado correctamente');
+              cargarContenidos();
+            } catch (error) {
+              console.error('Error eliminando:', error);
+              Alert.alert('Error', 'No se pudo eliminar el contenido');
+            }
+          }
+        }
+      ]
+    );
+  };
+
 // 🔥 PANTALLAS DE ESTADO
 if (loading || estadoCarga !== 'ok') {
   return (
@@ -961,18 +1008,24 @@ return (
                   </Text>
                 </View>
               ) : (
-                contenidos.map(contenido => (
+              contenidos.map(contenido => {
+                const permisos = agentesPermitidos.find(p => p.id_agente === contenido.id_agente);
+                
+                return (
                   <GestionContenidoCard
                     key={contenido.id_contenido}
                     contenido={contenido}
+                    permisos={permisos}
                     onEdit={abrirModal}
                     onPublish={publicarContenido}
+                    onDelete={eliminarContenido}  // 🔥 AGREGAR ESTA LÍNEA
                     onView={(cont) => {
                       setContenidoView(cont);
                       setModalViewVisible(true);
                     }}
                   />
-                ))
+                );
+              })
               )}
             </View>
           </View>

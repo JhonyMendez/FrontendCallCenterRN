@@ -24,18 +24,7 @@ export default function SidebarFuncionario({ isOpen }) {
 
   // ✅ Menú exclusivo para Funcionario
   const menuItems = [
-    {
-      id: 'exportar',
-      label: 'Exportar datos',
-      icon: 'download-outline',
-      route: '/funcionario/exportar',
-    },
-    {
-      id: 'metricas',
-      label: 'Métricas',
-      icon: 'stats-chart-outline',
-      route: '/funcionario/metricas',
-    },
+
     {
       id: 'agente',
       label: 'Agente',
@@ -47,6 +36,19 @@ export default function SidebarFuncionario({ isOpen }) {
         },
       ],
     },
+
+    {
+      id: 'conversacion',
+      label: 'Conversaciones',
+      icon: 'sparkles-outline',
+      submenu: [
+        {
+          label: 'Interactuar con conversaciones',
+          route: '/funcionario/gestionconversacion',
+        },
+      ],
+    },
+
   ];
 
   const toggleMenu = (menuId) => {
