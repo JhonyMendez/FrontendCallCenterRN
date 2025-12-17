@@ -71,4 +71,45 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
   },
+
+    // ============================================
+  // NUEVOS ESTILOS PARA NOTIFICACIONES Y FILTROS
+  // ============================================
+  
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+
+  filtrosContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+
+  filtroButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+
+  filtroButtonActive: {
+    backgroundColor: '#4A90E2',
+    borderColor: '#4A90E2',
+  },
+
+  filtroButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+
+  filtroButtonTextActive: {
+    color: '#FFFFFF',
+  },
 });
