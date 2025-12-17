@@ -61,8 +61,12 @@ const mostrarToast = (message, type = 'error') => {
   const [confirmPassword, setConfirmPassword] = useState('');
   
   // Datos de Roles (Paso 4)
-  const [rolesSeleccionados, setRolesSeleccionados] = useState([]);
+ const [rolesSeleccionados, setRolesSeleccionados] = useState([]);
   const [estado, setEstado] = useState('activo');
+
+  const esEdicion = Boolean(usuario?.id_usuario);
+
+// ==================== ANIMACIONES ====================
 
   // ==================== ANIMACIONES ====================
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -288,8 +292,8 @@ const extraerMensajeError = (error) => {
         newErrors.email = 'Email inválido';
       }
 
-      
-      if (!usuario) {
+      if (!esEdicion) {
+        // Modo CREAR: contraseña obligatoria
         if (!password) {
           newErrors.password = 'La contraseña es requerida';
         } else {
@@ -305,6 +309,24 @@ const extraerMensajeError = (error) => {
         }
         if (password !== confirmPassword) {
           newErrors.confirmPassword = 'Las contraseñas no coinciden';
+        }
+      } else {
+        // Modo EDITAR: solo validar SI se ingresó una contraseña
+        if (password && password.trim()) {
+          if (password.length < 8) {
+            newErrors.password = 'Mínimo 8 caracteres';
+          } else if (!/[A-Z]/.test(password)) {
+            newErrors.password = 'Debe contener una mayúscula';
+          } else if (!/[a-z]/.test(password)) {
+            newErrors.password = 'Debe contener una minúscula';
+          } else if (!/[0-9]/.test(password)) {
+            newErrors.password = 'Debe contener un número';
+          }
+          
+          // Solo validar confirmación si se ingresó contraseña
+          if (password !== confirmPassword) {
+            newErrors.confirmPassword = 'Las contraseñas no coinciden';
+          }
         }
       }
     }
@@ -821,12 +843,14 @@ const actualizarUsuario = async () => {
         </View>
       </View>
 
-      <View style={styles.infoCard}>
-        <Ionicons name="information-circle" size={20} color="#667eea" />
-        <Text style={styles.infoCardText}>
-          Tipos válidos: docente, administrativo, estudiante, externo
-        </Text>
-      </View>
+      {!esEdicion && (
+        <View style={styles.infoCard}>
+          <Ionicons name="shield-checkmark" size={20} color="#667eea" />
+          <Text style={styles.infoCardText}>
+            La contraseña debe tener mínimo 8 caracteres, una mayúscula, una minúscula y un número
+          </Text>
+        </View>
+      )}
     </View>
   );
 
@@ -882,17 +906,42 @@ const actualizarUsuario = async () => {
       </View>
 
       <View style={styles.formRow}>
-        <View style={styles.formColumn}>
-          <Text style={styles.label}>
-            CONTRASEÑA {!usuario && <Text style={styles.labelRequired}>*</Text>}
-          </Text>
-          <View style={[styles.inputContainer, errors.password && styles.inputError]}>
-            <Ionicons name="lock-closed-outline" size={20} color="#667eea" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Mínimo 8 caracteres"
-              placeholderTextColor="#9CA3AF"
-              value={password}
+      <View style={styles.formColumn}>
+        <Text style={styles.label}>
+          CONTRASEÑA {!esEdicion && <Text style={styles.labelRequired}>*</Text>}
+        </Text>
+        
+        {/* ✅ MOSTRAR INDICADOR SI ES EDICIÓN */}
+        {esEdicion && !password && (
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#f0fdf4',
+            padding: 12,
+            borderRadius: 8,
+            marginBottom: 8,
+            borderWidth: 1,
+            borderColor: '#10b981',
+          }}>
+            <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+            <Text style={{
+              marginLeft: 8,
+              fontSize: 14,
+              color: '#059669',
+              fontWeight: '600',
+            }}>
+              ✓ Contraseña actual establecida (encriptada)
+            </Text>
+          </View>
+        )}
+        
+        <View style={[styles.inputContainer, errors.password && styles.inputError]}>
+          <Ionicons name="lock-closed-outline" size={20} color="#667eea" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder={esEdicion ? "Nueva contraseña (dejar vacío para mantener actual)" : "Mínimo 8 caracteres *"}
+            placeholderTextColor="#9CA3AF"
+            value={password}
               onChangeText={(text) => {
                 setPassword(text);
                 if (errors.password) setErrors({...errors, password: undefined});
@@ -924,6 +973,15 @@ const actualizarUsuario = async () => {
           {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
         </View>
       </View>
+      
+      {esEdicion && (
+        <View style={styles.infoCard}>
+          <Ionicons name="information-circle" size={20} color="#10b981" />
+          <Text style={styles.infoCardText}>
+            💡 Deja los campos de contraseña vacíos si no deseas cambiarla
+          </Text>
+        </View>
+      )}
 
       <View style={styles.infoCard}>
         <Ionicons name="shield-checkmark" size={20} color="#667eea" />

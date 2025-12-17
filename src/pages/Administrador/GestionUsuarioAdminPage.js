@@ -89,14 +89,18 @@ const GestionUsuarioPage = () => {
     }
   }, [skip, limit]);
 
-  // ==================== FILTRADO ====================
+// ==================== FILTRADO ====================
   useEffect(() => {
     filtrarUsuarios();
   }, [usuarios, busqueda, filtroRol]);
 
+  useEffect(() => {
+    setTotalUsuarios(usuariosFiltrados.length);
+  }, [usuariosFiltrados]);
 
 
-  const filtrarUsuarios = () => {
+
+const filtrarUsuarios = () => {
     const limiteCheck = rateLimiter.check(30);
     if (!limiteCheck.allowed) {
       Alert.alert('Límite excedido', limiteCheck.message);
@@ -106,11 +110,8 @@ const GestionUsuarioPage = () => {
     const lista = Array.isArray(usuarios) ? usuarios : [];
     let resultado = [...lista];
 
-    // ✅ FILTRAR: Solo mostrar usuarios ACTIVOS
+    // ✅ FILTRAR INACTIVOS (ya está en tu código)
     resultado = resultado.filter(u => u.estado?.toLowerCase() !== 'inactivo');
-
-    // Filtrar por búsqueda
-
 
     // Filtrar por búsqueda
     if (busqueda.trim()) {
@@ -468,20 +469,24 @@ const confirmarReactivar = (usuario) => {
   };
 
 
-  // ✅ CONTAR USUARIOS POR ROL (usando id_rol en lugar de nombre)
-  const contarPorRol = (idRol) => {
-    const lista = Array.isArray(usuarios) ? usuarios : [];
-    if (idRol === 'todos') return lista.length;
+// ✅ CONTAR USUARIOS POR ROL (solo activos, sin aplicar filtros de búsqueda/rol)
+const contarPorRol = (idRol) => {
+  // ✅ Filtrar SOLO por estado activo, ignorando búsqueda y filtro de rol
+  const lista = Array.isArray(usuarios) 
+    ? usuarios.filter(u => u.estado?.toLowerCase() !== 'inactivo')
+    : [];
+  
+  if (idRol === 'todos') return lista.length;
 
-    // Validar que idRol sea un número válido
-    const rolIdSeguro = parseInt(idRol);
-    if (isNaN(rolIdSeguro)) return 0;
+  // Validar que idRol sea un número válido
+  const rolIdSeguro = parseInt(idRol);
+  if (isNaN(rolIdSeguro)) return 0;
 
-    return lista.filter(u => 
-      Array.isArray(u.roles) &&
-      u.roles.some(r => r.id_rol === rolIdSeguro)
-    ).length;
-  };
+  return lista.filter(u => 
+    Array.isArray(u.roles) &&
+    u.roles.some(r => r.id_rol === rolIdSeguro)
+  ).length;
+};
 
   // ✅ PAGINACIÓN
   const totalPaginas = Math.ceil(totalUsuarios / limit);
@@ -575,9 +580,9 @@ const confirmarReactivar = (usuario) => {
                     <Users size={32} color="#FFFFFF" />
                     <View>
                       <Text style={styles.headerTitle}>Gestión de Usuarios</Text>
-                        <Text style={styles.headerSubtitle}>
-                          {parseInt(totalUsuarios) || 0} usuarios registrados
-                        </Text>
+                      <Text style={styles.headerSubtitle}>
+                        {usuariosFiltrados.length} usuarios activos
+                      </Text>
                     </View>
                   </View>
                   <TouchableOpacity 
