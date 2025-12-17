@@ -1,11 +1,11 @@
 // UBICACIÓN: src/pages/SuperAdministrador/GestionAgentePage.js
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
+  Image,
   Modal,
   ScrollView,
   Switch,
@@ -36,7 +36,7 @@ export default function GestionAgentePage() {
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [showColorPicker, setShowColorPicker] = useState(false);
-  
+
   // Modales
   const [showFormModal, setShowFormModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -44,278 +44,7 @@ export default function GestionAgentePage() {
   const [selectedAgente, setSelectedAgente] = useState(null);
 
   // Form Data
-const [formData, setFormData] = useState({
-  nombre_agente: '',
-  tipo_agente: 'especializado',
-  area_especialidad: '',
-  descripcion: '',
-  modelo_ia: 'llama3:8b',
-  temperatura: '0.7',
-  max_tokens: '4000',
-  prompt_mision: '',
-  prompt_reglas: ['', ''], 
-  prompt_tono: 'amigable',
-  prompt_especializado: '',
-  herramientas_disponibles: '',
-  idioma_principal: 'es',
-  zona_horaria: 'America/Guayaquil',
-  activo: true,
-  icono: '🤖',
-  id_departamento: '',
-  avatar_url: '',
-  color_tema: '#667eea',
-  mensaje_bienvenida: '',
-  mensaje_despedida: '',
-  mensaje_derivacion: '',
-  mensaje_fuera_horario: '',
-  palabras_clave_trigger: '',
-  prioridad_routing: '0',
-  puede_ejecutar_acciones: false,
-  acciones_disponibles: '',
-  requiere_autenticacion: false,
-});
-  const [formErrors, setFormErrors] = useState({});
-  const [usuarioActual, setUsuarioActual] = useState(null);
-  const [stats, setStats] = useState({
-    total: 0,
-    activos: 0,
-    router: 0,
-    especializados: 0,
-  });
-
-  // ============ CONSTANTES ============
-  const iconos = ['🤖', '🧠', '💼', '📊', '🎯', '🔧', '📚', '💡', '🌟', '⚡', '🎨', '🔬'];
-
-  // ============ EFFECTS ============
-  useEffect(() => {
-    cargarAgentes();
-    cargarEstadisticas();
-  }, [filterTipo, filterEstado]);
-
-  useEffect(() => {
-    cargarDepartamentos();
-  }, []);
-
-useEffect(() => {
-  const cargarUsuario = async () => {
-    try {
-      // Intentar TODAS las posibles claves
-      const posiblesClaves = [
-        '@datos_sesion',
-        'datos_sesion', 
-        '@user_session',
-        'user_data',
-        'currentUser'
-      ];
-      
-      let usuarioEncontrado = null;
-      
-      for (const clave of posiblesClaves) {
-        const data = await AsyncStorage.getItem(clave); 
-        
-        if (data) {
-          try {
-            const parsed = JSON.parse(data);
-            
-            // Buscar el usuario en diferentes estructuras
-            if (parsed.usuario) {
-              usuarioEncontrado = parsed.usuario;
-              break;
-            } else if (parsed.user) {
-              usuarioEncontrado = parsed.user;
-              break;
-            } else if (parsed.id_usuario) {
-              usuarioEncontrado = parsed;
-              break;
-            }
-          } catch (e) {
-            console.log('Error parseando:', clave);
-          }
-        }
-      }
-      
-      if (usuarioEncontrado) {
-        console.log('✅ Usuario encontrado:', usuarioEncontrado);
-        setUsuarioActual(usuarioEncontrado);
-      } else {
-        console.log('⚠️ No se encontró usuario en AsyncStorage');
-        
-        // Debug: Mostrar TODAS las claves disponibles
-        const allKeys = await AsyncStorage.getAllKeys();
-        console.log('📋 Claves disponibles en AsyncStorage:', allKeys);
-        
-        for (const key of allKeys) {
-          const val = await AsyncStorage.getItem(key);
-          console.log(`  ${key}:`, val?.substring(0, 100) + '...'); 
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error al cargar usuario:', error);
-    }
-  };
-  
-  cargarUsuario();
-}, []);
-
-  // ============ HELPERS ============
-// Validar URLs de imagen usando SecurityValidator
-  const isValidImageUrl = (url) => {
-    if (!url) return false;
-    
-    // Primero verificar que sea una URL segura
-    if (!SecurityValidator.isSecureUrl(url)) {
-      return false;
-    }
-    
-    // Luego verificar que sea una imagen válida
-    return SecurityValidator.isValidImageUrl(url);
-  };
-
-  // ============ FUNCIONES DE CARGA ============
-  const cargarAgentes = async () => {
-  try {
-    setLoading(true);
-    const params = {};
-    
-    if (filterTipo !== 'todos') {
-      params.tipo_agente = filterTipo;
-    }
-    
-    if (filterEstado !== 'todos') {
-      params.activo = filterEstado === 'activo';
-    }
-    
-    const data = await agenteService.getAll(params);
-    
-    // Manejar diferentes estructuras de respuesta
-    const agentesArray = Array.isArray(data) ? data : (data?.data || []);
-    setAgentes(agentesArray);
-    
-  } catch (err) {
-    console.error('Error al cargar agentes:', err);
-    Alert.alert('Error', 'No se pudieron cargar los agentes');
-    setAgentes([]);
-  } finally {
-    setLoading(false);
-  }
-};
-
-const cargarEstadisticas = async () => {
-  try {
-    console.log('📊 Cargando estadísticas...');
-    const data = await agenteService.getEstadisticasGenerales();
-    
-    console.log('📦 Respuesta completa:', JSON.stringify(data, null, 2));
-    
-    // Manejar diferentes estructuras de respuesta
-    const statsData = data?.data || data;
-    
-    console.log('📊 statsData extraído:', JSON.stringify(statsData, null, 2));
-    
-    // ✅ MAPEO CORRECTO DE CAMPOS
-    if (statsData && typeof statsData === 'object') {
-      const nuevasStats = {
-        // Intenta diferentes variaciones de nombres
-        total: Number(
-          statsData.total_agentes ?? 
-          statsData.total ?? 
-          statsData.totalAgentes ?? 
-          0
-        ),
-        activos: Number(
-          statsData.agentes_activos ?? 
-          statsData.activos ?? 
-          statsData.agentesActivos ?? 
-          0
-        ),
-        router: Number(
-          statsData.agentes_router ?? 
-          statsData.router ?? 
-          statsData.routers ?? 
-          statsData.tipoRouter ?? 
-          0
-        ),
-        especializados: Number(
-          statsData.agentes_especializados ?? 
-          statsData.especializados ?? 
-          statsData.tipoEspecializado ?? 
-          0
-        ),
-      };
-      
-      console.log('✅ Estadísticas procesadas:', nuevasStats);
-      
-      // ✅ Validar que al menos hay datos
-      if (nuevasStats.total > 0 || nuevasStats.activos > 0) {
-        setStats(nuevasStats);
-        return;
-      }
-    }
-    
-    // Si llegamos aquí, intenta el fallback
-    throw new Error('No se pudieron extraer estadísticas válidas');
-    
-  } catch (err) {
-    console.error('❌ Error al cargar estadísticas:', err);
-    console.error('📋 Tipo de error:', err.constructor.name);
-    console.error('📋 Mensaje:', err.message);
-    
-    // ✅ FALLBACK: Calcular desde todos los agentes
-    console.log('🔄 Intentando calcular estadísticas desde agentes...');
-    
-    try {
-      const todosAgentes = await agenteService.getAll({});
-      
-      console.log('📦 Agentes obtenidos para estadísticas (primeros 2):', 
-        JSON.stringify(todosAgentes.slice(0, 2), null, 2)
-      );
-      
-      const agentesArray = Array.isArray(todosAgentes) 
-        ? todosAgentes 
-        : (todosAgentes?.data || []);
-      
-      console.log('📊 Array de agentes:', agentesArray.length, 'elementos');
-      
-      const calculadas = {
-        total: agentesArray.length,
-        activos: agentesArray.filter(a => a.activo).length,
-        router: agentesArray.filter(a => a.tipo_agente === 'router').length,
-        especializados: agentesArray.filter(a => a.tipo_agente === 'especializado').length,
-      };
-      
-      console.log('✅ Estadísticas calculadas manualmente:', calculadas);
-      setStats(calculadas);
-      
-    } catch (fallbackErr) {
-      console.error('❌ Error en fallback:', fallbackErr);
-      
-      // ✅ ÚLTIMO RECURSO: Establecer valores en 0
-      console.log('⚠️ Estableciendo estadísticas en 0');
-      setStats({
-        total: 0,
-        activos: 0,
-        router: 0,
-        especializados: 0,
-      });
-    }
-  }
-};
-
-// ============  Cargar departamentos para el formulario ===========
-
-  const cargarDepartamentos = async () => {
-    try {
-      const data = await departamentoService.getAll({ activo: true });
-      setDepartamentos(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error('Error al cargar departamentos:', err);
-      setDepartamentos([]);
-    }
-  };
-
-  // ============ FUNCIONES DE FORMULARIO ============
-const resetForm = () => {
-  setFormData({
+  const [formData, setFormData] = useState({
     nombre_agente: '',
     tipo_agente: 'especializado',
     area_especialidad: '',
@@ -344,18 +73,219 @@ const resetForm = () => {
     puede_ejecutar_acciones: false,
     acciones_disponibles: '',
     requiere_autenticacion: false,
-    creado_por: null,
-    actualizado_por: null,
   });
-  setFormErrors({});
+  const [formErrors, setFormErrors] = useState({});
+  const [usuarioActual, setUsuarioActual] = useState(null);
+  const [stats, setStats] = useState({
+    total: 0,
+    activos: 0,
+    router: 0,
+    especializados: 0,
+  });
+
+  // ============ CONSTANTES ============
+  const iconos = ['🤖', '🧠', '💼', '📊', '🎯', '🔧', '📚', '💡', '🌟', '⚡', '🎨', '🔬'];
+
+  // ============ EFFECTS ============
+  useEffect(() => {
+    cargarAgentes();
+    cargarEstadisticas();
+  }, [filterTipo, filterEstado]);
+
+  useEffect(() => {
+    cargarDepartamentos();
+  }, []);
+
+  useEffect(() => {
+    const cargarUsuario = async () => {
+      try {
+        // Intentar TODAS las posibles claves
+        const posiblesClaves = [
+          '@datos_sesion',
+          'datos_sesion',
+          '@user_session',
+          'user_data',
+          'currentUser'
+        ];
+
+        let usuarioEncontrado = null;
+
+        for (const clave of posiblesClaves) {
+          const data = await AsyncStorage.getItem(clave); // ✅ AsyncStorage
+
+          if (data) {
+            try {
+              const parsed = JSON.parse(data);
+
+              // Buscar el usuario en diferentes estructuras
+              if (parsed.usuario) {
+                usuarioEncontrado = parsed.usuario;
+                break;
+              } else if (parsed.user) {
+                usuarioEncontrado = parsed.user;
+                break;
+              } else if (parsed.id_usuario) {
+                usuarioEncontrado = parsed;
+                break;
+              }
+            } catch (e) {
+              console.log('Error parseando:', clave);
+            }
+          }
+        }
+
+        if (usuarioEncontrado) {
+          console.log('✅ Usuario encontrado:', usuarioEncontrado);
+          setUsuarioActual(usuarioEncontrado);
+        } else {
+          console.log('⚠️ No se encontró usuario en AsyncStorage');
+
+          // Debug: Mostrar TODAS las claves disponibles
+          const allKeys = await AsyncStorage.getAllKeys();
+          console.log('📋 Claves disponibles en AsyncStorage:', allKeys);
+
+          for (const key of allKeys) {
+            const val = await AsyncStorage.getItem(key);
+            console.log(`  ${key}:`, val?.substring(0, 100) + '...'); // Mostrar primeros 100 chars
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error al cargar usuario:', error);
+      }
+    };
+
+    cargarUsuario();
+  }, []);
+
+  // ============ HELPERS ============
+  // Validar URLs de imagen usando SecurityValidator
+  const isValidImageUrl = (url) => {
+    if (!url) return false;
+
+    // Primero verificar que sea una URL segura
+    if (!SecurityValidator.isSecureUrl(url)) {
+      return false;
+    }
+
+    // Luego verificar que sea una imagen válida
+    return SecurityValidator.isValidImageUrl(url);
+  };
+
+  // ============ FUNCIONES DE CARGA ============
+  const cargarAgentes = async () => {
+    try {
+      setLoading(true);
+      const params = {};
+
+      if (filterTipo !== 'todos') {
+        params.tipo_agente = filterTipo;
+      }
+
+      if (filterEstado !== 'todos') {
+        params.activo = filterEstado === 'activo';
+      }
+
+      const data = await agenteService.getAll(params);
+
+      // Manejar diferentes estructuras de respuesta
+      const agentesArray = Array.isArray(data) ? data : (data?.data || []);
+      setAgentes(agentesArray);
+
+    } catch (err) {
+      console.error('Error al cargar agentes:', err);
+      Alert.alert('Error', 'No se pudieron cargar los agentes');
+      setAgentes([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+const cargarEstadisticas = async () => {
+  try {
+    console.log('📊 Cargando estadísticas desde agentes...');
+    
+    const todosAgentes = await agenteService.getAll({});
+    
+    const agentesArray = Array.isArray(todosAgentes) 
+      ? todosAgentes 
+      : (todosAgentes?.data || []);
+    
+    const calculadas = {
+      total: agentesArray.length,
+      activos: agentesArray.filter(a => a.activo === true || a.activo === 1).length,
+      router: agentesArray.filter(a => a.tipo_agente === 'router').length,
+      especializados: agentesArray.filter(a => a.tipo_agente === 'especializado').length,
+    };
+    
+    console.log('✅ Estadísticas calculadas:', calculadas);
+    setStats(calculadas);
+    
+  } catch (err) {
+    console.error('❌ Error al cargar estadísticas:', err);
+    setStats({
+      total: 0,
+      activos: 0,
+      router: 0,
+      especializados: 0,
+    });
+  }
 };
 
+  // ============  Cargar departamentos para el formulario ===========
+
+  const cargarDepartamentos = async () => {
+    try {
+      const data = await departamentoService.getAll({ activo: true });
+      setDepartamentos(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error al cargar departamentos:', err);
+      setDepartamentos([]);
+    }
+  };
+
+  // ============ FUNCIONES DE FORMULARIO ============
+  const resetForm = () => {
+    setFormData({
+      nombre_agente: '',
+      tipo_agente: 'especializado',
+      area_especialidad: '',
+      descripcion: '',
+      modelo_ia: 'llama3:8b',
+      temperatura: '0.7',
+      max_tokens: '4000',
+      prompt_mision: '',
+      prompt_reglas: ['', ''],
+      prompt_tono: 'amigable',
+      prompt_especializado: '',
+      herramientas_disponibles: '',
+      idioma_principal: 'es',
+      zona_horaria: 'America/Guayaquil',
+      activo: true,
+      icono: '🤖',
+      id_departamento: '',
+      avatar_url: '',
+      color_tema: '#667eea',
+      mensaje_bienvenida: '',
+      mensaje_despedida: '',
+      mensaje_derivacion: '',
+      mensaje_fuera_horario: '',
+      palabras_clave_trigger: '',
+      prioridad_routing: '0',
+      puede_ejecutar_acciones: false,
+      acciones_disponibles: '',
+      requiere_autenticacion: false,
+      creado_por: null,
+      actualizado_por: null,
+    });
+    setFormErrors({});
+  };
+
   // Validar formulario
-// Validar formulario con SecurityValidator
-const validateForm = () => {
-  
-  // Usar el validador de seguridad
-  const validation = SecurityValidator.validateAgenteForm(formData, formMode);   
+  // Validar formulario con SecurityValidator
+  const validateForm = () => {
+
+    // Usar el validador de seguridad
+    const validation = SecurityValidator.validateAgenteForm(formData, formMode);
     ({
       isValid: validation.isValid,
       errorsCount: Object.keys(validation.errors).length,
@@ -365,10 +295,10 @@ const validateForm = () => {
     // Si hay errores de departamento duplicado en modo creación
     if (formMode === 'create' && formData.id_departamento) {
       const departamentoYaTieneAgente = agentes.some(
-        a => a.id_departamento && 
-             a.id_departamento.toString() === formData.id_departamento.toString()
+        a => a.id_departamento &&
+          a.id_departamento.toString() === formData.id_departamento.toString()
       );
-      
+
       if (departamentoYaTieneAgente) {
         validation.errors.id_departamento = '⚠️ Este departamento ya tiene un agente asignado';
         validation.isValid = false;
@@ -377,19 +307,19 @@ const validateForm = () => {
 
     // Si está editando y intenta cambiar departamento
     if (formMode === 'edit' && selectedAgente?.id_departamento) {
-      if (formData.id_departamento && 
-          selectedAgente.id_departamento.toString() !== formData.id_departamento.toString()) {
+      if (formData.id_departamento &&
+        selectedAgente.id_departamento.toString() !== formData.id_departamento.toString()) {
         validation.errors.id_departamento = '⚠️ No se puede cambiar el departamento';
         validation.isValid = false;
       }
     }
     setFormErrors(validation.errors);
-    
+
     if (!validation.isValid) {
     } else {
       console.log('✅ Validación exitosa');
     }
-    
+
     return validation.isValid;
   };
 
@@ -422,7 +352,7 @@ const validateForm = () => {
     // Extraer REGLAS
     const reglasMatch = prompt_sistema.match(/REGLAS:\s*([\s\S]*?)(?=\n\nTONO:|$)/);
     let prompt_reglas = ['', ''];
-    
+
     if (reglasMatch) {
       const reglasTexto = reglasMatch[1].trim();
       const reglasArray = reglasTexto
@@ -430,13 +360,13 @@ const validateForm = () => {
         .filter(linea => linea.trim().startsWith('-'))
         .map(linea => linea.replace(/^-\s*/, '').trim())
         .filter(r => r.length > 0);
-      
+
       prompt_reglas = reglasArray.length >= 2 ? reglasArray : ['', ''];
     }
 
     // Extraer TONO
     let prompt_tono = 'amigable';
-    
+
     if (prompt_sistema.includes('formal') || prompt_sistema.includes('profesional')) {
       prompt_tono = 'formal';
     } else if (prompt_sistema.includes('técnico') || prompt_sistema.includes('tecnico')) {
@@ -454,135 +384,135 @@ const validateForm = () => {
   };
 
   // Editar agente
-const handleEdit = (agente) => {
-  
-  setFormMode('edit');
-  setSelectedAgente(agente);
-  
-  // ⭐ PARSEAR prompt_sistema para obtener los componentes
-  const { prompt_mision, prompt_reglas, prompt_tono, prompt_especializado } = parsePromptSistema(agente.prompt_sistema);
-  
-  setFormData({
-    nombre_agente: agente.nombre_agente || '',
-    tipo_agente: agente.tipo_agente || 'especializado',
-    area_especialidad: agente.area_especialidad || '',
-    descripcion: agente.descripcion || '',
-    modelo_ia: 'llama3:8b', 
-    temperatura: (() => {
-      const temp = agente.temperatura?.toString() || '0.6';
-      // ✅ Validar que sea uno de los valores permitidos, sino usar el más cercano
-      const valoresPermitidos = ['0.6', '0.9', '1.2'];
-      
-      if (valoresPermitidos.includes(temp)) {
-        return temp;
-      }
-      
-      // Si el valor no está en los permitidos, buscar el más cercano
-      const tempNum = parseFloat(temp);
-      if (tempNum < 0.75) return '0.6';      // Más cercano a 0.6
-      if (tempNum < 1.05) return '0.9';      // Más cercano a 0.9
-      return '1.2';                           // Más cercano a 1.2
-    })(),
-    max_tokens: agente.max_tokens?.toString() || '4000',
-    
-    prompt_mision: prompt_mision,
-    prompt_reglas: prompt_reglas,
-    prompt_tono: prompt_tono,
-    prompt_especializado: prompt_especializado,
-    
-    herramientas_disponibles: agente.herramientas_disponibles || '',
-    idioma_principal: agente.idioma_principal || 'es',
-    zona_horaria: agente.zona_horaria || 'America/Guayaquil',
-    activo: agente.activo !== undefined ? agente.activo : true,
-    icono: agente.icono || '🤖',
-    id_departamento: agente.id_departamento?.toString() || '',
-    avatar_url: agente.avatar_url || '',
-    color_tema: agente.color_tema || '#667eea',
-    mensaje_bienvenida: agente.mensaje_bienvenida || '',
-    mensaje_despedida: agente.mensaje_despedida || '',
-    mensaje_derivacion: agente.mensaje_derivacion || '',
-    mensaje_fuera_horario: agente.mensaje_fuera_horario || '',
-    palabras_clave_trigger: agente.palabras_clave_trigger || '',
-    prioridad_routing: agente.prioridad_routing?.toString() || '0',
-    puede_ejecutar_acciones: agente.puede_ejecutar_acciones || false,
-    acciones_disponibles: agente.acciones_disponibles || '',
-    requiere_autenticacion: agente.requiere_autenticacion || false,
-    creado_por: agente.creado_por || null,
-    actualizado_por: null,
-  });
-  
-  setShowFormModal(true);
-};
+  const handleEdit = (agente) => {
+
+    setFormMode('edit');
+    setSelectedAgente(agente);
+
+    // ⭐ PARSEAR prompt_sistema para obtener los componentes
+    const { prompt_mision, prompt_reglas, prompt_tono, prompt_especializado } = parsePromptSistema(agente.prompt_sistema);
+
+    setFormData({
+      nombre_agente: agente.nombre_agente || '',
+      tipo_agente: agente.tipo_agente || 'especializado',
+      area_especialidad: agente.area_especialidad || '',
+      descripcion: agente.descripcion || '',
+      modelo_ia: 'llama3:8b',
+      temperatura: (() => {
+        const temp = agente.temperatura?.toString() || '0.6';
+        // ✅ Validar que sea uno de los valores permitidos, sino usar el más cercano
+        const valoresPermitidos = ['0.6', '0.9', '1.2'];
+
+        if (valoresPermitidos.includes(temp)) {
+          return temp;
+        }
+
+        // Si el valor no está en los permitidos, buscar el más cercano
+        const tempNum = parseFloat(temp);
+        if (tempNum < 0.75) return '0.6';      // Más cercano a 0.6
+        if (tempNum < 1.05) return '0.9';      // Más cercano a 0.9
+        return '1.2';                           // Más cercano a 1.2
+      })(),
+      max_tokens: agente.max_tokens?.toString() || '4000',
+
+      prompt_mision: prompt_mision,
+      prompt_reglas: prompt_reglas,
+      prompt_tono: prompt_tono,
+      prompt_especializado: prompt_especializado,
+
+      herramientas_disponibles: agente.herramientas_disponibles || '',
+      idioma_principal: agente.idioma_principal || 'es',
+      zona_horaria: agente.zona_horaria || 'America/Guayaquil',
+      activo: agente.activo !== undefined ? agente.activo : true,
+      icono: agente.icono || '🤖',
+      id_departamento: agente.id_departamento?.toString() || '',
+      avatar_url: agente.avatar_url || '',
+      color_tema: agente.color_tema || '#667eea',
+      mensaje_bienvenida: agente.mensaje_bienvenida || '',
+      mensaje_despedida: agente.mensaje_despedida || '',
+      mensaje_derivacion: agente.mensaje_derivacion || '',
+      mensaje_fuera_horario: agente.mensaje_fuera_horario || '',
+      palabras_clave_trigger: agente.palabras_clave_trigger || '',
+      prioridad_routing: agente.prioridad_routing?.toString() || '0',
+      puede_ejecutar_acciones: agente.puede_ejecutar_acciones || false,
+      acciones_disponibles: agente.acciones_disponibles || '',
+      requiere_autenticacion: agente.requiere_autenticacion || false,
+      creado_por: agente.creado_por || null,
+      actualizado_por: null,
+    });
+
+    setShowFormModal(true);
+  };
 
 
-// Función para obtener departamentos disponibles
-const getDepartamentosDisponibles = () => {
-  
-  // Si estamos editando y el agente ya tiene departamento asignado
-  if (formMode === 'edit' && selectedAgente?.id_departamento) {
-    const deptAsignado = departamentos.find(d => 
-      d.id_departamento.toString() === selectedAgente.id_departamento.toString()
-    );
-    return deptAsignado ? [deptAsignado] : [];
-  }
-  
-  
-  // Obtener IDs de departamentos ocupados
-  const departamentosOcupados = agentes
-    .filter(a => {
-      const tieneDepto = a.id_departamento != null && a.id_departamento !== '';
-      if (tieneDepto) {
-      }
-      return tieneDepto;
-    })
-    .map(a => a.id_departamento.toString());
-    
-  // Filtrar departamentos disponibles
-  const disponibles = departamentos.filter(d => {
-    const deptId = d.id_departamento.toString();
-    const estaOcupado = departamentosOcupados.includes(deptId);
-    return !estaOcupado;
-  });
-  
-  return disponibles;
-};
+  // Función para obtener departamentos disponibles
+  const getDepartamentosDisponibles = () => {
+
+    // Si estamos editando y el agente ya tiene departamento asignado
+    if (formMode === 'edit' && selectedAgente?.id_departamento) {
+      const deptAsignado = departamentos.find(d =>
+        d.id_departamento.toString() === selectedAgente.id_departamento.toString()
+      );
+      return deptAsignado ? [deptAsignado] : [];
+    }
+
+
+    // Obtener IDs de departamentos ocupados
+    const departamentosOcupados = agentes
+      .filter(a => {
+        const tieneDepto = a.id_departamento != null && a.id_departamento !== '';
+        if (tieneDepto) {
+        }
+        return tieneDepto;
+      })
+      .map(a => a.id_departamento.toString());
+
+    // Filtrar departamentos disponibles
+    const disponibles = departamentos.filter(d => {
+      const deptId = d.id_departamento.toString();
+      const estaOcupado = departamentosOcupados.includes(deptId);
+      return !estaOcupado;
+    });
+
+    return disponibles;
+  };
 
 
   // Guardar agente (crear o actualizar)
   const handleSaveForm = async () => {
-    
+
     if (!validateForm()) {
       Alert.alert('Error de validación', 'Por favor, corrige los errores en el formulario');
       return;
     }
-    
+
     // Verificar que hay un usuario logueado
-// Obtener ID del usuario desde el token
-const userId = await getUserIdFromToken();
+    // Obtener ID del usuario desde el token
+    const userId = await getUserIdFromToken();
 
-if (!userId) {
-  console.warn("❌ No se pudo obtener el ID del usuario desde el token");
-  Alert.alert("Error", "No se pudo identificar al usuario autenticado.");
-  return;
-}
+    if (!userId) {
+      console.warn("❌ No se pudo obtener el ID del usuario desde el token");
+      Alert.alert("Error", "No se pudo identificar al usuario autenticado.");
+      return;
+    }
 
-// Registrar el usuario que realiza la acción
-let usuarioParaGuardar = {
-  id_usuario: userId
-};
+    // Registrar el usuario que realiza la acción
+    let usuarioParaGuardar = {
+      id_usuario: userId
+    };
 
     try {
-      
+
       // CONSTRUIR EL PROMPT_SISTEMA 
       const { nombre_agente, area_especialidad, prompt_mision, prompt_reglas, prompt_tono, prompt_especializado } = formData;
 
       const contextoBase = `Eres ${nombre_agente} del TEC AZUAY, especializado en ${area_especialidad}.`;
       const misionTexto = `\n\nMISIÓN:\n${prompt_mision}`;
-      const especializacionTexto = prompt_especializado 
+      const especializacionTexto = prompt_especializado
         ? `\n\nESPECIALIZACIÓN:\n${prompt_especializado}`
         : '';
       const reglasLimpias = prompt_reglas.filter(r => r.trim() !== '');
-      const reglasTexto = reglasLimpias.length > 0 
+      const reglasTexto = reglasLimpias.length > 0
         ? `\n\nREGLAS:\n${reglasLimpias.map(r => `- ${r}`).join('\n')}`
         : '';
       const tonoMap = {
@@ -599,20 +529,20 @@ let usuarioParaGuardar = {
         prompt_sistema: prompt_sistema_final
       };
 
-    // ⭐ ESTABLECER CAMPOS DE AUDITORÍA ANTES DE SANITIZAR
-    if (formMode === 'create') {
-      dataPreSanitizar.creado_por = usuarioParaGuardar.id_usuario;
-      console.log('➕ MODO CREAR - Estableciendo creado_por PRE-sanitizar:', dataPreSanitizar.creado_por);
-    } else {
-      dataPreSanitizar.actualizado_por = usuarioParaGuardar.id_usuario;
-      console.log('✏️ MODO EDITAR - Estableciendo actualizado_por PRE-sanitizar:', dataPreSanitizar.actualizado_por);
-    }
-      
+      // ⭐ ESTABLECER CAMPOS DE AUDITORÍA ANTES DE SANITIZAR
+      if (formMode === 'create') {
+        dataPreSanitizar.creado_por = usuarioParaGuardar.id_usuario;
+        console.log('➕ MODO CREAR - Estableciendo creado_por PRE-sanitizar:', dataPreSanitizar.creado_por);
+      } else {
+        dataPreSanitizar.actualizado_por = usuarioParaGuardar.id_usuario;
+        console.log('✏️ MODO EDITAR - Estableciendo actualizado_por PRE-sanitizar:', dataPreSanitizar.actualizado_por);
+      }
+
       console.log('📦 Datos PRE-sanitizar:', dataPreSanitizar);
-      
+
       // Sanitizar
       const dataToSave = SecurityValidator.sanitizeAgenteData(dataPreSanitizar);
-      
+
 
       // ENVIAR AL BACKEND
       let response;
@@ -626,7 +556,7 @@ let usuarioParaGuardar = {
       setSuccessMessage(formMode === 'create' ? '✅ Agente creado correctamente' : '✅ Agente actualizado correctamente');
       setShowSuccessMessage(true);
       setShowFormModal(false);
-      
+
       await cargarAgentes();
       await cargarEstadisticas();
       resetForm();
@@ -634,12 +564,12 @@ let usuarioParaGuardar = {
       setTimeout(() => {
         setShowSuccessMessage(false);
       }, 3000);
-      
+
     } catch (err) {
 
-      
+
       Alert.alert(
-        'Error al guardar', 
+        'Error al guardar',
         `No se pudo guardar el agente.\n\nDetalles: ${err?.response?.data?.message || err?.message || 'Error desconocido'}`
       );
     }
@@ -667,7 +597,7 @@ let usuarioParaGuardar = {
               setShowDetailModal(false);
               cargarAgentes();
               cargarEstadisticas();
-              
+
               setTimeout(() => {
                 setShowSuccessMessage(false);
               }, 3000);
@@ -687,14 +617,14 @@ let usuarioParaGuardar = {
         ...agente,
         activo: newStatus,
       });
-      
+
       setSuccessMessage(
         `✅ Agente ${newStatus ? 'activado' : 'desactivado'} correctamente`
       );
       setShowSuccessMessage(true);
       cargarAgentes();
       cargarEstadisticas();
-      
+
       setTimeout(() => {
         setShowSuccessMessage(false);
       }, 3000);
@@ -706,17 +636,17 @@ let usuarioParaGuardar = {
   // ============ UTILIDADES ============
 
   const handleSearchChange = (text) => {
-      const sanitized = SecurityValidator.sanitizeText(text);
-      const truncated = SecurityValidator.truncateText(sanitized, 100);
-      setSearchTerm(truncated);
-    };
+    const sanitized = SecurityValidator.sanitizeText(text);
+    const truncated = SecurityValidator.truncateText(sanitized, 100);
+    setSearchTerm(truncated);
+  };
 
   const filteredAgentes = agentes.filter((agente) => {
     const matchSearch =
       agente.nombre_agente?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       agente.area_especialidad?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       agente.tipo_agente?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     return matchSearch;
   });
 
@@ -767,19 +697,20 @@ let usuarioParaGuardar = {
   // ============ RENDER ============
   return (
     <View style={contentStyles.wrapper}>
-      
+
       {/* ============ SIDEBAR ============ */}
-      <AdminSidebar 
+      <AdminSidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
       />
 
       {/* ============ CONTENIDO PRINCIPAL ============ */}
       <View style={[
-        contentStyles.mainContent, 
+
+        contentStyles.mainContent,
         sidebarOpen && contentStyles.mainContentWithSidebar
       ]}>
-        
+
         {/* ============ BOTÓN TOGGLE SIDEBAR ============ */}
         <TouchableOpacity
           style={{
@@ -801,8 +732,12 @@ let usuarioParaGuardar = {
           <Ionicons name={sidebarOpen ? "close" : "menu"} size={24} color="#ffffff" />
         </TouchableOpacity>
 
-        <View style={styles.container}>
-          
+        <ScrollView
+          style={styles.container}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 100 }}
+        >
+
           {/* ============ HEADER ============ */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
@@ -862,10 +797,10 @@ let usuarioParaGuardar = {
                 styles.statIconWrapper,
                 { backgroundColor: getStatIconColor('total').bg }
               ]}>
-                <Ionicons 
-                  name="apps" 
-                  size={24} 
-                  color={getStatIconColor('total').color} 
+                <Ionicons
+                  name="apps"
+                  size={24}
+                  color={getStatIconColor('total').color}
                 />
               </View>
               <View style={styles.statContent}>
@@ -879,10 +814,10 @@ let usuarioParaGuardar = {
                 styles.statIconWrapper,
                 { backgroundColor: getStatIconColor('activos').bg }
               ]}>
-                <Ionicons 
-                  name="power" 
-                  size={24} 
-                  color={getStatIconColor('activos').color} 
+                <Ionicons
+                  name="power"
+                  size={24}
+                  color={getStatIconColor('activos').color}
                 />
               </View>
               <View style={styles.statContent}>
@@ -896,10 +831,10 @@ let usuarioParaGuardar = {
                 styles.statIconWrapper,
                 { backgroundColor: getStatIconColor('router').bg }
               ]}>
-                <Ionicons 
-                  name="filter" 
-                  size={24} 
-                  color={getStatIconColor('router').color} 
+                <Ionicons
+                  name="filter"
+                  size={24}
+                  color={getStatIconColor('router').color}
                 />
               </View>
               <View style={styles.statContent}>
@@ -913,10 +848,10 @@ let usuarioParaGuardar = {
                 styles.statIconWrapper,
                 { backgroundColor: getStatIconColor('especializados').bg }
               ]}>
-                <Ionicons 
-                  name="people" 
-                  size={24} 
-                  color={getStatIconColor('especializados').color} 
+                <Ionicons
+                  name="people"
+                  size={24}
+                  color={getStatIconColor('especializados').color}
                 />
               </View>
               <View style={styles.statContent}>
@@ -958,101 +893,106 @@ let usuarioParaGuardar = {
               🔍 Filtros de búsqueda
             </Text>
 
-            <View style={styles.filterContainer}>
-              {/* Filtros de Tipo de Agente */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={{
-                  fontSize: 12,
-                  fontWeight: '500',
-                  color: 'rgba(255, 255, 255, 0.6)',
-                  marginRight: 4,
-                }}>
-                  Tipo:
-                </Text>
-                {[
-                  { key: 'todos', label: 'Todos', icon: 'apps' },
-                  { key: 'router', label: 'Router', icon: 'filter' },
-                  { key: 'especializado', label: 'Especializado', icon: 'star' },
-                  { key: 'hibrido', label: 'Híbrido', icon: 'git-merge' },
-                ].map((filter) => (
-                  <TouchableOpacity
-                    key={filter.key}
-                    style={[
-                      styles.filterButton,
-                      filterTipo === filter.key && styles.filterButtonActive,
-                    ]}
-                    onPress={() => setFilterTipo(filter.key)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons 
-                      name={filter.icon} 
-                      size={14} 
-                      color={filterTipo === filter.key ? 'white' : 'rgba(255, 255, 255, 0.6)'} 
-                    />
-                    <Text
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 12 }}
+            >
+              <View style={styles.filterContainer}>
+                {/* Filtros de Tipo de Agente */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: '500',
+                    color: 'rgba(255, 255, 255, 0.6)',
+                    marginRight: 4,
+                  }}>
+                    Tipo:
+                  </Text>
+                  {[
+                    { key: 'todos', label: 'Todos', icon: 'apps' },
+                    { key: 'router', label: 'Router', icon: 'filter' },
+                    { key: 'especializado', label: 'Especializado', icon: 'star' },
+                    { key: 'hibrido', label: 'Híbrido', icon: 'git-merge' },
+                  ].map((filter) => (
+                    <TouchableOpacity
+                      key={filter.key}
                       style={[
-                        styles.filterText,
-                        filterTipo === filter.key && styles.filterTextActive,
+                        styles.filterButton,
+                        filterTipo === filter.key && styles.filterButtonActive,
                       ]}
+                      onPress={() => setFilterTipo(filter.key)}
+                      activeOpacity={0.7}
                     >
-                      {filter.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                      <Ionicons
+                        name={filter.icon}
+                        size={14}
+                        color={filterTipo === filter.key ? 'white' : 'rgba(255, 255, 255, 0.6)'}
+                      />
+                      <Text
+                        style={[
+                          styles.filterText,
+                          filterTipo === filter.key && styles.filterTextActive,
+                        ]}
+                      >
+                        {filter.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
-              {/* Separador Visual */}
-              <View style={{
-                width: 2,
-                height: 32,
-                backgroundColor: 'rgba(102, 126, 234, 0.3)',
-                marginHorizontal: 12,
-                borderRadius: 1,
-              }} />
+                {/* Separador Visual */}
+                <View style={{
+                  width: 2,
+                  height: 32,
+                  backgroundColor: 'rgba(102, 126, 234, 0.3)',
+                  marginHorizontal: 12,
+                  borderRadius: 1,
+                }} />
 
-              {/* Filtros de Estado */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={{
-                  fontSize: 12,
-                  fontWeight: '500',
-                  color: 'rgba(255, 255, 255, 0.6)',
-                  marginRight: 4,
-                }}>
-                  Estado:
-                </Text>
-                {[
-                  { key: 'todos', label: 'Todos', icon: 'list' },
-                  { key: 'activo', label: 'Activos', icon: 'checkmark-circle' },
-                  { key: 'inactivo', label: 'Inactivos', icon: 'close-circle' },
-                ].map((filter) => (
-                  <TouchableOpacity
-                    key={`estado-${filter.key}`}
-                    style={[
-                      styles.filterButton,
-                      filterEstado === filter.key && styles.filterButtonActive,
-                    ]}
-                    onPress={() => setFilterEstado(filter.key)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons 
-                      name={filter.icon} 
-                      size={14} 
-                      color={filterEstado === filter.key ? 'white' : 'rgba(255, 255, 255, 0.6)'} 
-                    />
-                    <Text
+                {/* Filtros de Estado */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: '500',
+                    color: 'rgba(255, 255, 255, 0.6)',
+                    marginRight: 4,
+                  }}>
+                    Estado:
+                  </Text>
+                  {[
+                    { key: 'todos', label: 'Todos', icon: 'list' },
+                    { key: 'activo', label: 'Activos', icon: 'checkmark-circle' },
+                    { key: 'inactivo', label: 'Inactivos', icon: 'close-circle' },
+                  ].map((filter) => (
+                    <TouchableOpacity
+                      key={`estado-${filter.key}`}
                       style={[
-                        styles.filterText,
-                        filterEstado === filter.key && styles.filterTextActive,
+                        styles.filterButton,
+                        filterEstado === filter.key && styles.filterButtonActive,
                       ]}
+                      onPress={() => setFilterEstado(filter.key)}
+                      activeOpacity={0.7}
                     >
-                      {filter.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                      <Ionicons
+                        name={filter.icon}
+                        size={14}
+                        color={filterEstado === filter.key ? 'white' : 'rgba(255, 255, 255, 0.6)'}
+                      />
+                      <Text
+                        style={[
+                          styles.filterText,
+                          filterEstado === filter.key && styles.filterTextActive,
+                        ]}
+                      >
+                        {filter.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
-            </View>
+            </ScrollView>
           </View>
-
 
           {/* ============ LISTA ============ */}
           {loading ? (
@@ -1060,34 +1000,30 @@ let usuarioParaGuardar = {
               <ActivityIndicator size="large" color="#667eea" />
               <Text style={styles.loadingText}>Cargando agentes...</Text>
             </View>
+          ) : filteredAgentes.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="file-tray-outline" size={80} color="rgba(255, 255, 255, 0.2)" />
+              <Text style={styles.emptyText}>No se encontraron agentes</Text>
+              <Text style={styles.emptySubtext}>
+                {searchTerm ? 'Intenta con otros términos de búsqueda' : 'Crea tu primer agente virtual'}
+              </Text>
+            </View>
           ) : (
-            <FlatList
-              data={filteredAgentes}
-              keyExtractor={(item) => item.id_agente?.toString() || Math.random().toString()}
-              renderItem={({ item }) => (
+            <View style={{ paddingHorizontal: 16 }}>
+              {filteredAgentes.map((item) => (
                 <GestionAgenteCard
+                  key={item.id_agente?.toString() || Math.random().toString()}
                   agente={item}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                   onView={handleView}
                   onToggleStatus={handleToggleStatus}
                 />
-              )}
-              contentContainerStyle={styles.listContent}
-              showsVerticalScrollIndicator={false}
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="file-tray-outline" size={80} color="rgba(255, 255, 255, 0.2)" />
-                  <Text style={styles.emptyText}>No se encontraron agentes</Text>
-                  <Text style={styles.emptySubtext}>
-                    {searchTerm ? 'Intenta con otros términos de búsqueda' : 'Crea tu primer agente virtual'}
-                  </Text>
-                </View>
-              }
-            />
+              ))}
+            </View>
           )}
 
-        </View>
+        </ScrollView>
       </View>
 
       {/* ============ MODAL FORMULARIO (CREAR/EDITAR) ============ */}
@@ -1109,11 +1045,11 @@ let usuarioParaGuardar = {
             </View>
 
             <ScrollView style={modalStyles.content} showsVerticalScrollIndicator={false}>
-              
-            {/* ============ INFORMACIÓN BÁSICA ============ */}
+
+              {/* ============ INFORMACIÓN BÁSICA ============ */}
               <View style={modalStyles.section}>
                 <Text style={modalStyles.sectionTitle}>📋 Información Básica</Text>
-                
+
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Nombre del Agente *</Text>
                   <TextInput
@@ -1164,28 +1100,28 @@ let usuarioParaGuardar = {
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Departamento Responsable</Text>
                   {formErrors.id_departamento && (
-                        <View style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 8,
-                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                          padding: 10,
-                          borderRadius: 8,
-                          marginTop: 8,
-                          borderLeftWidth: 3,
-                          borderLeftColor: '#ef4444',
-                        }}>
-                          <Ionicons name="warning" size={16} color="#ef4444" />
-                          <Text style={{
-                            color: '#ef4444',
-                            fontSize: 12,
-                            fontWeight: '600',
-                            flex: 1,
-                          }}>
-                            {formErrors.id_departamento}
-                          </Text>
-                        </View>
-                      )}
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
+                      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                      padding: 10,
+                      borderRadius: 8,
+                      marginTop: 8,
+                      borderLeftWidth: 3,
+                      borderLeftColor: '#ef4444',
+                    }}>
+                      <Ionicons name="warning" size={16} color="#ef4444" />
+                      <Text style={{
+                        color: '#ef4444',
+                        fontSize: 12,
+                        fontWeight: '600',
+                        flex: 1,
+                      }}>
+                        {formErrors.id_departamento}
+                      </Text>
+                    </View>
+                  )}
                   {/* Si está editando Y tiene departamento asignado - BLOQUEADO */}
                   {formMode === 'edit' && selectedAgente?.id_departamento ? (
                     <>
@@ -1243,46 +1179,47 @@ let usuarioParaGuardar = {
                           }
                           editable={false}
                         />
-                        <select
-                          value={formData.id_departamento}
-                          onChange={(e) => {
-                            setFormData({ ...formData, id_departamento: e.target.value });
-                          }}
+                        <TouchableOpacity
                           style={{
                             position: 'absolute',
                             top: 0,
                             left: 0,
                             width: '100%',
                             height: '100%',
-                            opacity: 0,
-                            cursor: 'pointer',
+                            justifyContent: 'center',
                           }}
-                        >
-                          <option value="">Sin asignar</option>
-                          {getDepartamentosDisponibles().map((dept) => (
-                          <option key={dept.id_departamento} value={dept.id_departamento}>
-                            {dept.nombre}{dept.codigo ? ` (${dept.codigo})` : ''}
-                          </option>
-                          ))}
-                        </select>
+                          onPress={() => {
+                            // Mostrar opciones usando Alert
+                            const opciones = getDepartamentosDisponibles();
+                            const botones = opciones.map(dept => ({
+                              text: `${dept.nombre}${dept.codigo ? ` (${dept.codigo})` : ''}`,
+                              onPress: () => setFormData({ ...formData, id_departamento: dept.id_departamento.toString() })
+                            }));
+
+                            botones.unshift({ text: 'Sin asignar', onPress: () => setFormData({ ...formData, id_departamento: '' }) });
+                            botones.push({ text: 'Cancelar', style: 'cancel' });
+
+                            Alert.alert('Seleccionar Departamento', '', botones);
+                          }}
+                        />
                       </View>
-                      
+
                       {/* Contador de departamentos */}
                       <View style={{
                         flexDirection: 'row',
                         alignItems: 'center',
                         gap: 8,
-                        backgroundColor: getDepartamentosDisponibles().length > 0 
-                          ? 'rgba(34, 197, 94, 0.1)' 
+                        backgroundColor: getDepartamentosDisponibles().length > 0
+                          ? 'rgba(34, 197, 94, 0.1)'
                           : 'rgba(239, 68, 68, 0.1)',
                         padding: 10,
                         borderRadius: 8,
                         marginTop: 8,
                       }}>
-                        <Ionicons 
-                          name={getDepartamentosDisponibles().length > 0 ? "checkmark-circle" : "close-circle"} 
-                          size={16} 
-                          color={getDepartamentosDisponibles().length > 0 ? "#22c55e" : "#ef4444"} 
+                        <Ionicons
+                          name={getDepartamentosDisponibles().length > 0 ? "checkmark-circle" : "close-circle"}
+                          size={16}
+                          color={getDepartamentosDisponibles().length > 0 ? "#22c55e" : "#ef4444"}
                         />
                         <Text style={{
                           color: getDepartamentosDisponibles().length > 0 ? "#22c55e" : "#ef4444",
@@ -1290,75 +1227,49 @@ let usuarioParaGuardar = {
                           fontWeight: '600',
                           flex: 1,
                         }}>
-                          {getDepartamentosDisponibles().length > 0 
+                          {getDepartamentosDisponibles().length > 0
                             ? `${getDepartamentosDisponibles().length} departamento(s) disponible(s)`
                             : 'No hay departamentos disponibles'}
                         </Text>
                       </View>
-                      
+
                       <Text style={modalStyles.helperText}>
                         🔒 Cada departamento solo puede tener un agente asignado
                       </Text>
                     </>
                   )}
                 </View>
-                
+
                 {/* ============ Icono  ============ */}
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Icono</Text>
-                  
+
                   {/* Contenedor scrolleable */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      overflowX: 'auto',
-                      overflowY: 'hidden',
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{
                       paddingVertical: 8,
                       paddingHorizontal: 4,
-                      cursor: 'grab',
-                      userSelect: 'none',
-                      scrollbarWidth: 'none',
-                      msOverflowStyle: 'none',
-                      WebkitOverflowScrolling: 'touch',
-                    }}
-                    onMouseDown={(e) => {
-                      const ele = e.currentTarget;
-                      ele.style.cursor = 'grabbing';
-                      const startX = e.pageX - ele.offsetLeft;
-                      const scrollLeft = ele.scrollLeft;
-
-                      const handleMouseMove = (e) => {
-                        const x = e.pageX - ele.offsetLeft;
-                        const walk = (x - startX) * 2;
-                        ele.scrollLeft = scrollLeft - walk;
-                      };
-
-                      const handleMouseUp = () => {
-                        ele.style.cursor = 'grab';
-                        document.removeEventListener('mousemove', handleMouseMove);
-                        document.removeEventListener('mouseup', handleMouseUp);
-                      };
-
-                      document.addEventListener('mousemove', handleMouseMove);
-                      document.addEventListener('mouseup', handleMouseUp);
                     }}
                   >
-                    {iconos.map((icon, index) => (
-                      <TouchableOpacity
-                        key={icon}
-                        style={[
-                          modalStyles.iconOption,
-                          formData.icono === icon && modalStyles.iconOptionSelected,
-                          { marginRight: index < iconos.length - 1 ? 8 : 0 }
-                        ]}
-                        onPress={() => setFormData({ ...formData, icono: icon })}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={modalStyles.iconText}>{icon}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </div>
-                  
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      {iconos.map((icon, index) => (
+                        <TouchableOpacity
+                          key={icon}
+                          style={[
+                            modalStyles.iconOption,
+                            formData.icono === icon && modalStyles.iconOptionSelected,
+                          ]}
+                          onPress={() => setFormData({ ...formData, icono: icon })}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={modalStyles.iconText}>{icon}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+
                   {/* Texto de ayuda */}
                   <Text style={modalStyles.helperText}>
                     👆 Mantén clic y arrastra para ver más iconos
@@ -1369,10 +1280,10 @@ let usuarioParaGuardar = {
               {/* ============ SECCIÓN: APARIENCIA ============ */}
               <View style={modalStyles.section}>
                 <Text style={modalStyles.sectionTitle}>🎨 Apariencia</Text>
-                
+
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>URL del Avatar</Text>
-                  
+
                   {/* Input con validación */}
                   <View style={{ gap: 12 }}>
                     <TextInput
@@ -1383,11 +1294,11 @@ let usuarioParaGuardar = {
                           borderColor: '#fbbf24',
                           borderWidth: 2,
                         }
-                      
+
                       ]}
 
-                      
-                      
+
+
                       placeholder="https://ejemplo.com/avatar.png o cualquier URL de imagen"
                       placeholderTextColor="rgba(255, 255, 255, 0.4)"
                       value={formData.avatar_url}
@@ -1396,10 +1307,10 @@ let usuarioParaGuardar = {
                       autoCapitalize="none"
                       autoCorrect={false}
                     />
-                      {formErrors.avatar_url && (
-                        <Text style={modalStyles.errorText}>{formErrors.avatar_url}</Text>
-                      )}
-                    
+                    {formErrors.avatar_url && (
+                      <Text style={modalStyles.errorText}>{formErrors.avatar_url}</Text>
+                    )}
+
                     {/* Preview del Avatar */}
                     {formData.avatar_url && formData.avatar_url.startsWith('http') && (
                       <View style={{
@@ -1412,23 +1323,17 @@ let usuarioParaGuardar = {
                         borderWidth: 1,
                         borderColor: 'rgba(102, 126, 234, 0.3)',
                       }}>
-                        <img
-                          src={formData.avatar_url}
-                          alt="Preview Avatar"
+                        <Image
+                          source={{ uri: formData.avatar_url }}
                           style={{
                             width: 60,
                             height: 60,
                             borderRadius: 30,
-                            objectFit: 'cover',
-                            border: '2px solid rgba(102, 126, 234, 0.5)',
+                            borderWidth: 2,
+                            borderColor: 'rgba(102, 126, 234, 0.5)',
                             backgroundColor: 'rgba(71, 85, 105, 0.5)',
                           }}
-                          onError={(e) => {
-                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="60" height="60"%3E%3Crect fill="%23475569" width="60" height="60"/%3E%3Ctext x="50%25" y="50%25" font-size="30" text-anchor="middle" dy=".3em" fill="%2394a3b8"%3E❌%3C/text%3E%3C/svg%3E';
-                          }}
-                          onLoad={(e) => {
-                            e.target.style.border = '2px solid #22c55e';
-                          }}
+                          resizeMode="cover"
                         />
                         <View style={{ flex: 1 }}>
                           <View style={{
@@ -1455,7 +1360,7 @@ let usuarioParaGuardar = {
                         </View>
                       </View>
                     )}
-                    
+
                     {/* Advertencia sobre URLs externas */}
                     {formData.avatar_url && !isValidImageUrl(formData.avatar_url) && formData.avatar_url.startsWith('http') && (
                       <View style={{
@@ -1488,7 +1393,7 @@ let usuarioParaGuardar = {
                       </View>
                     )}
                   </View>
-                  
+
                   <Text style={modalStyles.helperText}>
                     ✅ Acepta URLs de: Google Images, Pinterest, Instagram, Twitter, etc.
                   </Text>
@@ -1500,10 +1405,10 @@ let usuarioParaGuardar = {
                   </Text>
                 </View>
 
-{/* COLOR */}
+                {/* COLOR */}
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Color del Tema</Text>
-                  
+
                   {/* Input y Preview con botón de paleta */}
                   <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
                     <TextInput
@@ -1518,7 +1423,7 @@ let usuarioParaGuardar = {
                       maxLength={7}
                       autoCapitalize="none"
                     />
-                    
+
                     {/* Preview del color */}
                     <View style={{
                       width: 50,
@@ -1528,7 +1433,7 @@ let usuarioParaGuardar = {
                       borderWidth: 2,
                       borderColor: 'rgba(255, 255, 255, 0.2)',
                     }} />
-                    
+
                     {/* Botón para abrir paleta */}
                     <TouchableOpacity
                       style={{
@@ -1544,10 +1449,10 @@ let usuarioParaGuardar = {
                       onPress={() => setShowColorPicker(!showColorPicker)}
                       activeOpacity={0.7}
                     >
-                      <Ionicons 
-                        name={showColorPicker ? "close" : "color-palette"} 
-                        size={24} 
-                        color="#667eea" 
+                      <Ionicons
+                        name={showColorPicker ? "close" : "color-palette"}
+                        size={24}
+                        color="#667eea"
                       />
                     </TouchableOpacity>
                   </View>
@@ -1570,7 +1475,7 @@ let usuarioParaGuardar = {
                       }}>
                         🎨 Selecciona un Color
                       </Text>
-                      
+
                       {/* Fila 1: Colores Principales */}
                       <View style={{ marginBottom: 12 }}>
                         <Text style={{
@@ -1598,8 +1503,8 @@ let usuarioParaGuardar = {
                                 borderRadius: 8,
                                 backgroundColor: item.color,
                                 borderWidth: formData.color_tema === item.color ? 3 : 2,
-                                borderColor: formData.color_tema === item.color 
-                                  ? '#ffffff' 
+                                borderColor: formData.color_tema === item.color
+                                  ? '#ffffff'
                                   : 'rgba(255, 255, 255, 0.2)',
                                 justifyContent: 'center',
                                 alignItems: 'center',
@@ -1645,8 +1550,8 @@ let usuarioParaGuardar = {
                                 borderRadius: 8,
                                 backgroundColor: item.color,
                                 borderWidth: formData.color_tema === item.color ? 3 : 2,
-                                borderColor: formData.color_tema === item.color 
-                                  ? '#ffffff' 
+                                borderColor: formData.color_tema === item.color
+                                  ? '#ffffff'
                                   : 'rgba(255, 255, 255, 0.2)',
                                 justifyContent: 'center',
                                 alignItems: 'center',
@@ -1692,8 +1597,8 @@ let usuarioParaGuardar = {
                                 borderRadius: 8,
                                 backgroundColor: item.color,
                                 borderWidth: formData.color_tema === item.color ? 3 : 2,
-                                borderColor: formData.color_tema === item.color 
-                                  ? '#ffffff' 
+                                borderColor: formData.color_tema === item.color
+                                  ? '#ffffff'
                                   : 'rgba(255, 255, 255, 0.2)',
                                 justifyContent: 'center',
                                 alignItems: 'center',
@@ -1739,8 +1644,8 @@ let usuarioParaGuardar = {
                                 borderRadius: 8,
                                 backgroundColor: item.color,
                                 borderWidth: formData.color_tema === item.color ? 3 : 2,
-                                borderColor: formData.color_tema === item.color 
-                                  ? '#ffffff' 
+                                borderColor: formData.color_tema === item.color
+                                  ? '#ffffff'
                                   : 'rgba(255, 255, 255, 0.2)',
                                 justifyContent: 'center',
                                 alignItems: 'center',
@@ -1758,8 +1663,8 @@ let usuarioParaGuardar = {
                           ))}
                         </View>
                         {formErrors.color_tema && (
-                        <Text style={modalStyles.errorText}>{formErrors.color_tema}</Text>
-)}
+                          <Text style={modalStyles.errorText}>{formErrors.color_tema}</Text>
+                        )}
                       </View>
                     </View>
                   )}
@@ -1773,7 +1678,7 @@ let usuarioParaGuardar = {
               {/* ============ SECCIÓN: MENSAJES PREDEFINIDOS ============ */}
               <View style={modalStyles.section}>
                 <Text style={modalStyles.sectionTitle}>💬 Mensajes Predefinidos</Text>
-                
+
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Mensaje de Bienvenida *</Text>
                   <TextInput
@@ -1853,12 +1758,12 @@ let usuarioParaGuardar = {
                     Mensaje automático cuando se escribe fuera del horario
                   </Text>
                 </View>
-                </View>
+              </View>
 
               {/* Configuración de IA */}
               <View style={modalStyles.section}>
                 <Text style={modalStyles.sectionTitle}>🤖 Configuración de IA</Text>
-                
+
                 {/* ⭐ CAMPO BLOQUEADO DE MODELO IA ⭐ */}
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Modelo de IA</Text>
@@ -1903,23 +1808,23 @@ let usuarioParaGuardar = {
                     Este modelo está configurado por defecto y no se puede cambiar
                   </Text>
                 </View>
-                
+
                 {/* Temperatura (Creatividad) */}
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Temperatura (Creatividad) *</Text>
-                  
+
                   {/* Opciones de Temperatura */}
                   <View style={{ gap: 12 }}>
                     {/* OPCIÓN 1: Balanceado (0.6) - RECOMENDADO */}
                     <TouchableOpacity
                       style={[
                         {
-                          backgroundColor: formData.temperatura === '0.6' 
-                            ? 'rgba(102, 126, 234, 0.2)' 
+                          backgroundColor: formData.temperatura === '0.6'
+                            ? 'rgba(102, 126, 234, 0.2)'
                             : 'rgba(71, 85, 105, 0.3)',
                           borderWidth: 2,
-                          borderColor: formData.temperatura === '0.6' 
-                            ? '#667eea' 
+                          borderColor: formData.temperatura === '0.6'
+                            ? '#667eea'
                             : 'rgba(148, 163, 184, 0.3)',
                           borderRadius: 12,
                           padding: 16,
@@ -2005,12 +1910,12 @@ let usuarioParaGuardar = {
                     {/* OPCIÓN 2: Creativo (0.9) */}
                     <TouchableOpacity
                       style={{
-                        backgroundColor: formData.temperatura === '0.9' 
-                          ? 'rgba(168, 85, 247, 0.2)' 
+                        backgroundColor: formData.temperatura === '0.9'
+                          ? 'rgba(168, 85, 247, 0.2)'
                           : 'rgba(71, 85, 105, 0.3)',
                         borderWidth: 2,
-                        borderColor: formData.temperatura === '0.9' 
-                          ? '#a855f7' 
+                        borderColor: formData.temperatura === '0.9'
+                          ? '#a855f7'
                           : 'rgba(148, 163, 184, 0.3)',
                         borderRadius: 12,
                         padding: 16,
@@ -2086,12 +1991,12 @@ let usuarioParaGuardar = {
                     {/* OPCIÓN 3: Muy Creativo (1.2) */}
                     <TouchableOpacity
                       style={{
-                        backgroundColor: formData.temperatura === '1.2' 
-                          ? 'rgba(251, 146, 60, 0.2)' 
+                        backgroundColor: formData.temperatura === '1.2'
+                          ? 'rgba(251, 146, 60, 0.2)'
                           : 'rgba(71, 85, 105, 0.3)',
                         borderWidth: 2,
-                        borderColor: formData.temperatura === '1.2' 
-                          ? '#fb923c' 
+                        borderColor: formData.temperatura === '1.2'
+                          ? '#fb923c'
                           : 'rgba(148, 163, 184, 0.3)',
                         borderRadius: 12,
                         padding: 16,
@@ -2177,22 +2082,22 @@ let usuarioParaGuardar = {
                 </View>
 
 
-{/*MAXIMO DE TOKENS*/}
+                {/*MAXIMO DE TOKENS*/}
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Tokens Máximos</Text>
-                  
+
                   {/* Opciones de Tokens */}
                   <View style={{ gap: 12 }}>
                     {/* OPCIÓN 1: Respuestas Cortas (500) */}
                     <TouchableOpacity
                       style={[
                         {
-                          backgroundColor: formData.max_tokens === '500' 
-                            ? 'rgba(59, 130, 246, 0.2)' 
+                          backgroundColor: formData.max_tokens === '500'
+                            ? 'rgba(59, 130, 246, 0.2)'
                             : 'rgba(71, 85, 105, 0.3)',
                           borderWidth: 2,
-                          borderColor: formData.max_tokens === '500' 
-                            ? '#3b82f6' 
+                          borderColor: formData.max_tokens === '500'
+                            ? '#3b82f6'
                             : 'rgba(148, 163, 184, 0.3)',
                           borderRadius: 12,
                           padding: 16,
@@ -2270,12 +2175,12 @@ let usuarioParaGuardar = {
                     {/* OPCIÓN 2: FAQ (800) */}
                     <TouchableOpacity
                       style={{
-                        backgroundColor: formData.max_tokens === '800' 
-                          ? 'rgba(16, 185, 129, 0.2)' 
+                        backgroundColor: formData.max_tokens === '800'
+                          ? 'rgba(16, 185, 129, 0.2)'
                           : 'rgba(71, 85, 105, 0.3)',
                         borderWidth: 2,
-                        borderColor: formData.max_tokens === '800' 
-                          ? '#10b981' 
+                        borderColor: formData.max_tokens === '800'
+                          ? '#10b981'
                           : 'rgba(148, 163, 184, 0.3)',
                         borderRadius: 12,
                         padding: 16,
@@ -2345,12 +2250,12 @@ let usuarioParaGuardar = {
                     {/* OPCIÓN 3: Normal (1000) - RECOMENDADO */}
                     <TouchableOpacity
                       style={{
-                        backgroundColor: formData.max_tokens === '1000' 
-                          ? 'rgba(102, 126, 234, 0.2)' 
+                        backgroundColor: formData.max_tokens === '1000'
+                          ? 'rgba(102, 126, 234, 0.2)'
                           : 'rgba(71, 85, 105, 0.3)',
                         borderWidth: 2,
-                        borderColor: formData.max_tokens === '1000' 
-                          ? '#667eea' 
+                        borderColor: formData.max_tokens === '1000'
+                          ? '#667eea'
                           : 'rgba(148, 163, 184, 0.3)',
                         borderRadius: 12,
                         padding: 16,
@@ -2440,12 +2345,12 @@ let usuarioParaGuardar = {
                     {/* OPCIÓN 4: Detalladas (2000) */}
                     <TouchableOpacity
                       style={{
-                        backgroundColor: formData.max_tokens === '2000' 
-                          ? 'rgba(168, 85, 247, 0.2)' 
+                        backgroundColor: formData.max_tokens === '2000'
+                          ? 'rgba(168, 85, 247, 0.2)'
                           : 'rgba(71, 85, 105, 0.3)',
                         borderWidth: 2,
-                        borderColor: formData.max_tokens === '2000' 
-                          ? '#a855f7' 
+                        borderColor: formData.max_tokens === '2000'
+                          ? '#a855f7'
                           : 'rgba(148, 163, 184, 0.3)',
                         borderRadius: 12,
                         padding: 16,
@@ -2529,7 +2434,7 @@ let usuarioParaGuardar = {
                     <Text style={modalStyles.errorText}>{formErrors.max_tokens}</Text>
                   )}
                 </View>
-                
+
                 {/* PROMPT SISTEMA */}
                 {/* ⭐ CAMPO 1: MISIÓN */}
                 <View style={modalStyles.formGroup}>
@@ -2555,7 +2460,7 @@ let usuarioParaGuardar = {
                 {/* ⭐ CAMPO 2: REGLAS (Mínimo 2) */}
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Reglas de Comportamiento * (Mínimo 2)</Text>
-                  
+
                   {formData.prompt_reglas.map((regla, index) => (
                     <View key={index} style={{ marginBottom: 12 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -2605,7 +2510,7 @@ let usuarioParaGuardar = {
                       )}
                     </View>
                   ))}
-                  
+
                   {/* Botón agregar regla */}
                   <TouchableOpacity
                     style={{
@@ -2633,7 +2538,7 @@ let usuarioParaGuardar = {
                       Agregar otra regla
                     </Text>
                   </TouchableOpacity>
-                  
+
                   <Text style={modalStyles.helperText}>
                     Define comportamientos específicos (mínimo 2, máximo recomendado 5)
                   </Text>
@@ -2642,17 +2547,17 @@ let usuarioParaGuardar = {
                 {/* ⭐ CAMPO 3: TONO (Selector) */}
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Tono de Comunicación *</Text>
-                  
+
                   <View style={{ gap: 12 }}>
                     {/* Opción: Formal */}
                     <TouchableOpacity
                       style={{
-                        backgroundColor: formData.prompt_tono === 'formal' 
-                          ? 'rgba(59, 130, 246, 0.2)' 
+                        backgroundColor: formData.prompt_tono === 'formal'
+                          ? 'rgba(59, 130, 246, 0.2)'
                           : 'rgba(71, 85, 105, 0.3)',
                         borderWidth: 2,
-                        borderColor: formData.prompt_tono === 'formal' 
-                          ? '#3b82f6' 
+                        borderColor: formData.prompt_tono === 'formal'
+                          ? '#3b82f6'
                           : 'rgba(148, 163, 184, 0.3)',
                         borderRadius: 12,
                         padding: 16,
@@ -2695,12 +2600,12 @@ let usuarioParaGuardar = {
                     {/* Opción: Amigable (RECOMENDADO) */}
                     <TouchableOpacity
                       style={{
-                        backgroundColor: formData.prompt_tono === 'amigable' 
-                          ? 'rgba(102, 126, 234, 0.2)' 
+                        backgroundColor: formData.prompt_tono === 'amigable'
+                          ? 'rgba(102, 126, 234, 0.2)'
                           : 'rgba(71, 85, 105, 0.3)',
                         borderWidth: 2,
-                        borderColor: formData.prompt_tono === 'amigable' 
-                          ? '#667eea' 
+                        borderColor: formData.prompt_tono === 'amigable'
+                          ? '#667eea'
                           : 'rgba(148, 163, 184, 0.3)',
                         borderRadius: 12,
                         padding: 16,
@@ -2756,12 +2661,12 @@ let usuarioParaGuardar = {
                     {/* Opción: Técnico */}
                     <TouchableOpacity
                       style={{
-                        backgroundColor: formData.prompt_tono === 'tecnico' 
-                          ? 'rgba(168, 85, 247, 0.2)' 
+                        backgroundColor: formData.prompt_tono === 'tecnico'
+                          ? 'rgba(168, 85, 247, 0.2)'
                           : 'rgba(71, 85, 105, 0.3)',
                         borderWidth: 2,
-                        borderColor: formData.prompt_tono === 'tecnico' 
-                          ? '#a855f7' 
+                        borderColor: formData.prompt_tono === 'tecnico'
+                          ? '#a855f7'
                           : 'rgba(148, 163, 184, 0.3)',
                         borderRadius: 12,
                         padding: 16,
@@ -2801,7 +2706,7 @@ let usuarioParaGuardar = {
                       </Text>
                     </TouchableOpacity>
                   </View>
-                  
+
                   {formErrors.prompt_tono && (
                     <Text style={modalStyles.errorText}>{formErrors.prompt_tono}</Text>
                   )}
@@ -2815,7 +2720,7 @@ let usuarioParaGuardar = {
               {/* ⭐ NUEVO CAMPO: Especialización */}
               <View style={modalStyles.formGroup}>
                 <Text style={modalStyles.label}>
-                  Especialización del Agente 
+                  Especialización del Agente
                   <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 13 }}> (Opcional)</Text>
                 </Text>
                 <TextInput
@@ -2837,7 +2742,7 @@ let usuarioParaGuardar = {
                 <Text style={modalStyles.helperText}>
                   💡 Describe temas específicos, servicios o áreas de ayuda del agente
                 </Text>
-                
+
                 {/* Preview del texto */}
                 {formData.prompt_especializado && formData.prompt_especializado.length > 0 && (
                   <View style={{
@@ -2875,7 +2780,7 @@ let usuarioParaGuardar = {
               {/* Configuración Regional */}
               <View style={modalStyles.section}>
                 <Text style={modalStyles.sectionTitle}>🌍 Configuración Regional</Text>
-                
+
                 {/* Idioma Principal - BLOQUEADO */}
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Idioma Principal</Text>
@@ -2988,23 +2893,29 @@ let usuarioParaGuardar = {
             </ScrollView>
 
             <View style={modalStyles.footer}>
-              <TouchableOpacity
-                style={modalStyles.cancelButton}
-                onPress={() => setShowFormModal(false)}
-                activeOpacity={0.8}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 10, paddingHorizontal: 4, flexGrow: 1, justifyContent: 'flex-end' }}
               >
-                <Text style={modalStyles.cancelButtonText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={modalStyles.saveButton}
-                onPress={handleSaveForm}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="checkmark-circle" size={20} color="#ffffff" />
-                <Text style={modalStyles.saveButtonText}>
-                  {formMode === 'create' ? 'Crear Agente' : 'Guardar Cambios'}
-                </Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={modalStyles.cancelButton}
+                  onPress={() => setShowFormModal(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={modalStyles.cancelButtonText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={modalStyles.saveButton}
+                  onPress={handleSaveForm}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="checkmark-circle" size={20} color="#ffffff" />
+                  <Text style={modalStyles.saveButtonText}>
+                    {formMode === 'create' ? 'Crear Agente' : 'Guardar Cambios'}
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
             </View>
           </View>
         </View>
@@ -3022,7 +2933,7 @@ let usuarioParaGuardar = {
             {selectedAgente && (
               <>
                 <View style={modalStyles.header}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
                     <View style={{
                       width: 50,
                       height: 50,
@@ -3035,12 +2946,18 @@ let usuarioParaGuardar = {
                     }}>
                       <Text style={{ fontSize: 24 }}>{selectedAgente.icono || '🤖'}</Text>
                     </View>
-                    <View>
-                      <Text style={modalStyles.title}>{selectedAgente.nombre_agente}</Text>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text
+                        style={[modalStyles.title, { fontSize: 20 }]}
+                        numberOfLines={2}
+                        ellipsizeMode="tail"
+                      >
+                        {selectedAgente.nombre_agente}
+                      </Text>
                       <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
                         <View style={[
                           modalStyles.badge,
-                          { 
+                          {
                             backgroundColor: getTipoBadgeStyles(selectedAgente.tipo_agente).bg,
                             borderColor: getTipoBadgeStyles(selectedAgente.tipo_agente).border,
                           }
@@ -3054,9 +2971,9 @@ let usuarioParaGuardar = {
                         </View>
                         <View style={[
                           modalStyles.badge,
-                          { 
-                            backgroundColor: selectedAgente.activo 
-                              ? 'rgba(34, 197, 94, 0.2)' 
+                          {
+                            backgroundColor: selectedAgente.activo
+                              ? 'rgba(34, 197, 94, 0.2)'
                               : 'rgba(148, 163, 184, 0.2)',
                             borderColor: selectedAgente.activo ? '#22c55e' : '#94a3b8',
                           }
@@ -3084,7 +3001,7 @@ let usuarioParaGuardar = {
                 </View>
 
                 <ScrollView style={modalStyles.content} showsVerticalScrollIndicator={false}>
-                  
+
                   {/* Descripción */}
                   <View style={modalStyles.detailSection}>
                     <Text style={modalStyles.detailSectionTitle}>📝 Descripción</Text>
@@ -3157,180 +3074,180 @@ let usuarioParaGuardar = {
                     </View>
                   </View>
 
-{/* Configuración Regional */}
-              <View style={modalStyles.section}>
-                <Text style={modalStyles.sectionTitle}>🌍 Configuración Regional</Text>
-                
-                {/* Idioma Principal - BLOQUEADO */}
-                <View style={modalStyles.formGroup}>
-                  <Text style={modalStyles.label}>Idioma Principal</Text>
-                  <View style={{
-                    backgroundColor: 'rgba(71, 85, 105, 0.3)',
-                    borderWidth: 1,
-                    borderColor: 'rgba(148, 163, 184, 0.3)',
-                    borderRadius: 12,
-                    padding: 16,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <Text style={{ fontSize: 24 }}>🇪🇸</Text>
-                      <Text style={{
-                        color: '#94a3b8',
-                        fontSize: 15,
-                        fontWeight: '500',
-                      }}>
-                        Español
-                      </Text>
-                    </View>
-                    <View style={{
-                      backgroundColor: 'rgba(148, 163, 184, 0.2)',
-                      paddingHorizontal: 10,
-                      paddingVertical: 4,
-                      borderRadius: 6,
-                    }}>
-                      <Text style={{
-                        color: '#94a3b8',
-                        fontSize: 11,
-                        fontWeight: '600',
-                        textTransform: 'uppercase',
-                        letterSpacing: 0.5,
-                      }}>
-                        Bloqueado
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={modalStyles.helperText}>
-                    El idioma está configurado en Español por defecto
-                  </Text>
-                </View>
+                  {/* Configuración Regional */}
+                  <View style={modalStyles.section}>
+                    <Text style={modalStyles.sectionTitle}>🌍 Configuración Regional</Text>
 
-                {/* Zona Horaria - BLOQUEADA */}
-                <View style={modalStyles.formGroup}>
-                  <Text style={modalStyles.label}>Zona Horaria</Text>
-                  <View style={{
-                    backgroundColor: 'rgba(71, 85, 105, 0.3)',
-                    borderWidth: 1,
-                    borderColor: 'rgba(148, 163, 184, 0.3)',
-                    borderRadius: 12,
-                    padding: 16,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <Ionicons name="time-outline" size={20} color="#94a3b8" />
-                      <Text style={{
-                        color: '#94a3b8',
-                        fontSize: 15,
-                        fontWeight: '500',
+                    {/* Idioma Principal - BLOQUEADO */}
+                    <View style={modalStyles.formGroup}>
+                      <Text style={modalStyles.label}>Idioma Principal</Text>
+                      <View style={{
+                        backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(148, 163, 184, 0.3)',
+                        borderRadius: 12,
+                        padding: 16,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
                       }}>
-                        America/Guayaquil (GMT-5)
-                      </Text>
-                    </View>
-                    <View style={{
-                      backgroundColor: 'rgba(148, 163, 184, 0.2)',
-                      paddingHorizontal: 10,
-                      paddingVertical: 4,
-                      borderRadius: 6,
-                    }}>
-                      <Text style={{
-                        color: '#94a3b8',
-                        fontSize: 11,
-                        fontWeight: '600',
-                        textTransform: 'uppercase',
-                        letterSpacing: 0.5,
-                      }}>
-                        Bloqueado
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={modalStyles.helperText}>
-                    La zona horaria está configurada para Ecuador
-                  </Text>
-                </View>
-
-                {/* Estado del Agente - ACTIVO (Switch funcional) */}
-                <View style={modalStyles.formGroup}>
-                  <View style={modalStyles.switchContainer}>
-                    <View>
-                      <Text style={modalStyles.label}>Estado del Agente</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                          <Text style={{ fontSize: 24 }}>🇪🇸</Text>
+                          <Text style={{
+                            color: '#94a3b8',
+                            fontSize: 15,
+                            fontWeight: '500',
+                          }}>
+                            Español
+                          </Text>
+                        </View>
+                        <View style={{
+                          backgroundColor: 'rgba(148, 163, 184, 0.2)',
+                          paddingHorizontal: 10,
+                          paddingVertical: 4,
+                          borderRadius: 6,
+                        }}>
+                          <Text style={{
+                            color: '#94a3b8',
+                            fontSize: 11,
+                            fontWeight: '600',
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.5,
+                          }}>
+                            Bloqueado
+                          </Text>
+                        </View>
+                      </View>
                       <Text style={modalStyles.helperText}>
-                        {formData.activo ? 'Agente activo y disponible' : 'Agente desactivado'}
+                        El idioma está configurado en Español por defecto
                       </Text>
                     </View>
-                    <Switch
-                      value={formData.activo}
-                      onValueChange={(value) => setFormData({ ...formData, activo: value })}
-                      trackColor={{ false: '#475569', true: '#667eea' }}
-                      thumbColor={formData.activo ? '#ffffff' : '#cbd5e1'}
-                    />
-                  </View>
-                </View>
-              </View>
 
-              {/* Estadísticas */}
-              <View style={modalStyles.detailSection}>
-                <Text style={modalStyles.detailSectionTitle}>📊 Estadísticas y Auditoría</Text>
-                <View style={modalStyles.detailGrid}>
-                  <View style={modalStyles.detailItem}>
-                    <Ionicons name="chatbubbles" size={16} color="#667eea" />
-                    <View style={{ flex: 1 }}>
-                      <Text style={modalStyles.detailLabel}>Conversaciones</Text>
-                      <Text style={modalStyles.detailValue}>
-                        {selectedAgente.total_conversaciones || 0}
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  {/* ⭐ NUEVO: Creado por */}
-                  <View style={modalStyles.detailItem}>
-                    <Ionicons name="person-add" size={16} color="#22c55e" />
-                    <View style={{ flex: 1 }}>
-                      <Text style={modalStyles.detailLabel}>Creado por</Text>
-                      <Text style={modalStyles.detailValue}>
-                        {selectedAgente.creador_nombre || 'N/A'}
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  <View style={modalStyles.detailItem}>
-                    <Ionicons name="calendar" size={16} color="#667eea" />
-                    <View style={{ flex: 1 }}>
-                      <Text style={modalStyles.detailLabel}>Fecha de creación</Text>
-                      <Text style={modalStyles.detailValue}>
-                        {formatDate(selectedAgente.fecha_creacion)}
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  {/* ⭐ NUEVO: Última actualización */}
-                  {selectedAgente.actualizado_por && (
-                    <>
-                      <View style={modalStyles.detailItem}>
-                        <Ionicons name="create" size={16} color="#fb923c" />
-                        <View style={{ flex: 1 }}>
-                          <Text style={modalStyles.detailLabel}>Actualizado por</Text>
-                          <Text style={modalStyles.detailValue}>
-                            {selectedAgente.actualizador_nombre || 'N/A'}
+                    {/* Zona Horaria - BLOQUEADA */}
+                    <View style={modalStyles.formGroup}>
+                      <Text style={modalStyles.label}>Zona Horaria</Text>
+                      <View style={{
+                        backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(148, 163, 184, 0.3)',
+                        borderRadius: 12,
+                        padding: 16,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                          <Ionicons name="time-outline" size={20} color="#94a3b8" />
+                          <Text style={{
+                            color: '#94a3b8',
+                            fontSize: 15,
+                            fontWeight: '500',
+                          }}>
+                            America/Guayaquil (GMT-5)
+                          </Text>
+                        </View>
+                        <View style={{
+                          backgroundColor: 'rgba(148, 163, 184, 0.2)',
+                          paddingHorizontal: 10,
+                          paddingVertical: 4,
+                          borderRadius: 6,
+                        }}>
+                          <Text style={{
+                            color: '#94a3b8',
+                            fontSize: 11,
+                            fontWeight: '600',
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.5,
+                          }}>
+                            Bloqueado
                           </Text>
                         </View>
                       </View>
-                      
+                      <Text style={modalStyles.helperText}>
+                        La zona horaria está configurada para Ecuador
+                      </Text>
+                    </View>
+
+                    {/* Estado del Agente - ACTIVO (Switch funcional) */}
+                    <View style={modalStyles.formGroup}>
+                      <View style={modalStyles.switchContainer}>
+                        <View>
+                          <Text style={modalStyles.label}>Estado del Agente</Text>
+                          <Text style={modalStyles.helperText}>
+                            {formData.activo ? 'Agente activo y disponible' : 'Agente desactivado'}
+                          </Text>
+                        </View>
+                        <Switch
+                          value={formData.activo}
+                          onValueChange={(value) => setFormData({ ...formData, activo: value })}
+                          trackColor={{ false: '#475569', true: '#667eea' }}
+                          thumbColor={formData.activo ? '#ffffff' : '#cbd5e1'}
+                        />
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Estadísticas */}
+                  <View style={modalStyles.detailSection}>
+                    <Text style={modalStyles.detailSectionTitle}>📊 Estadísticas y Auditoría</Text>
+                    <View style={modalStyles.detailGrid}>
                       <View style={modalStyles.detailItem}>
-                        <Ionicons name="time" size={16} color="#667eea" />
+                        <Ionicons name="chatbubbles" size={16} color="#667eea" />
                         <View style={{ flex: 1 }}>
-                          <Text style={modalStyles.detailLabel}>Última actualización</Text>
+                          <Text style={modalStyles.detailLabel}>Conversaciones</Text>
                           <Text style={modalStyles.detailValue}>
-                            {formatDate(selectedAgente.fecha_actualizacion)}
+                            {selectedAgente.total_conversaciones || 0}
                           </Text>
                         </View>
                       </View>
-                    </>
-                  )}
-                </View>
-              </View>
+
+                      {/* ⭐ NUEVO: Creado por */}
+                      <View style={modalStyles.detailItem}>
+                        <Ionicons name="person-add" size={16} color="#22c55e" />
+                        <View style={{ flex: 1 }}>
+                          <Text style={modalStyles.detailLabel}>Creado por</Text>
+                          <Text style={modalStyles.detailValue}>
+                            {selectedAgente.creador_nombre || 'N/A'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={modalStyles.detailItem}>
+                        <Ionicons name="calendar" size={16} color="#667eea" />
+                        <View style={{ flex: 1 }}>
+                          <Text style={modalStyles.detailLabel}>Fecha de creación</Text>
+                          <Text style={modalStyles.detailValue}>
+                            {formatDate(selectedAgente.fecha_creacion)}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* ⭐ NUEVO: Última actualización */}
+                      {selectedAgente.actualizado_por && (
+                        <>
+                          <View style={modalStyles.detailItem}>
+                            <Ionicons name="create" size={16} color="#fb923c" />
+                            <View style={{ flex: 1 }}>
+                              <Text style={modalStyles.detailLabel}>Actualizado por</Text>
+                              <Text style={modalStyles.detailValue}>
+                                {selectedAgente.actualizador_nombre || 'N/A'}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View style={modalStyles.detailItem}>
+                            <Ionicons name="time" size={16} color="#667eea" />
+                            <View style={{ flex: 1 }}>
+                              <Text style={modalStyles.detailLabel}>Última actualización</Text>
+                              <Text style={modalStyles.detailValue}>
+                                {formatDate(selectedAgente.fecha_actualizacion)}
+                              </Text>
+                            </View>
+                          </View>
+                        </>
+                      )}
+                    </View>
+                  </View>
 
                   {/* Prompt del Sistema */}
                   {selectedAgente.prompt_sistema && (
@@ -3371,41 +3288,47 @@ let usuarioParaGuardar = {
                 </ScrollView>
 
                 <View style={modalStyles.footer}>
-                  <TouchableOpacity
-                    style={modalStyles.actionButton}
-                    onPress={() => {
-                      setShowDetailModal(false);
-                      handleEdit(selectedAgente);
-                    }}
-                    activeOpacity={0.8}
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ gap: 10, paddingHorizontal: 4 }}
                   >
-                    <Ionicons name="create-outline" size={20} color="#ffffff" />
-                    <Text style={modalStyles.actionButtonText}>Editar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      modalStyles.actionButton,
-                      { backgroundColor: selectedAgente.activo ? '#ef4444' : '#22c55e' }
-                    ]}
-                    onPress={() => {
-                      handleToggleStatus(selectedAgente);
-                      setShowDetailModal(false);
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="power" size={20} color="#ffffff" />
-                    <Text style={modalStyles.actionButtonText}>
-                      {selectedAgente.activo ? 'Desactivar' : 'Activar'}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[modalStyles.actionButton, { backgroundColor: '#dc2626' }]}
-                    onPress={() => handleDelete(selectedAgente)}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="trash-outline" size={20} color="#ffffff" />
-                    <Text style={modalStyles.actionButtonText}>Eliminar</Text>
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      style={modalStyles.actionButton}
+                      onPress={() => {
+                        setShowDetailModal(false);
+                        handleEdit(selectedAgente);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="create-outline" size={18} color="#ffffff" />
+                      <Text style={modalStyles.actionButtonText}>Editar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        modalStyles.actionButton,
+                        { backgroundColor: selectedAgente?.activo ? '#ef4444' : '#22c55e' }
+                      ]}
+                      onPress={() => {
+                        handleToggleStatus(selectedAgente);
+                        setShowDetailModal(false);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="power" size={18} color="#ffffff" />
+                      <Text style={modalStyles.actionButtonText}>
+                        {selectedAgente?.activo ? 'Desactivar' : 'Activar'}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[modalStyles.actionButton, { backgroundColor: '#dc2626' }]}
+                      onPress={() => handleDelete(selectedAgente)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="trash-outline" size={18} color="#ffffff" />
+                      <Text style={modalStyles.actionButtonText}>Eliminar</Text>
+                    </TouchableOpacity>
+                  </ScrollView>
                 </View>
               </>
             )}

@@ -425,11 +425,12 @@ export const modalStyles = StyleSheet.create({
     padding: 22, // era 20
   },
   container: {
-    backgroundColor: '#1a1535', // era #1e1b4b
-    borderRadius: 26, // era 24
-    width: '100%',
-    maxWidth: 620, // era 600
-    maxHeight: '90%',
+    backgroundColor: '#1a1535',
+    borderRadius: 26,
+    width: '90%',
+    maxWidth: 500,
+    maxHeight: '85%',
+    height: '85%',
     borderWidth: 1, // NUEVO
     borderColor: 'rgba(102, 126, 234, 0.3)', // NUEVO
     shadowColor: '#667eea',
@@ -456,8 +457,7 @@ export const modalStyles = StyleSheet.create({
     letterSpacing: -0.5, // NUEVO
   },
   content: {
-    padding: 26, // era 24
-    maxHeight: 500,
+    padding: 26,
   },
   section: {
     marginBottom: 26, // era 24
@@ -569,38 +569,35 @@ export const modalStyles = StyleSheet.create({
     borderWidth: 1.5, // NUEVO
     borderColor: 'rgba(102, 126, 234, 0.25)', // NUEVO
   },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 14, // era 12
-    padding: 26, // era 24
+footer: {
+    padding: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(102, 126, 234, 0.2)', // era rgba(255, 255, 255, 0.1)
-    backgroundColor: 'rgba(102, 126, 234, 0.05)', // NUEVO
-    borderBottomLeftRadius: 26, // NUEVO
-    borderBottomRightRadius: 26, // NUEVO
+    borderTopColor: 'rgba(102, 126, 234, 0.2)',
+    backgroundColor: 'rgba(102, 126, 234, 0.05)',
+    borderBottomLeftRadius: 26,
+    borderBottomRightRadius: 26,
   },
   cancelButton: {
-    paddingHorizontal: 26, // era 24
-    paddingVertical: 15, // era 14
-    borderRadius: 14, // era 12
-    backgroundColor: 'rgba(255, 255, 255, 0.08)', // era 0.1
-    borderWidth: 1.5, // NUEVO
-    borderColor: 'rgba(255, 255, 255, 0.15)', // NUEVO
-  },
-  cancelButtonText: {
+      paddingHorizontal: 18,
+      paddingVertical: 12,
+      borderRadius: 14,
+      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+      borderWidth: 1.5,
+      borderColor: 'rgba(255, 255, 255, 0.15)',
+    },
+cancelButtonText: {
     color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700', // era '600'
-    letterSpacing: 0.3, // NUEVO
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
-  saveButton: {
+saveButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10, // era 8
-    paddingHorizontal: 26, // era 24
-    paddingVertical: 15, // era 14
-    borderRadius: 14, // era 12
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 14,// era 12
     backgroundColor: '#667eea',
     shadowColor: '#667eea', // NUEVO
     shadowOffset: { width: 0, height: 6 }, // NUEVO
@@ -608,11 +605,11 @@ export const modalStyles = StyleSheet.create({
     shadowRadius: 12, // NUEVO
     elevation: 8, // NUEVO
   },
-  saveButtonText: {
+saveButtonText: {
     color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '800', // era '600'
-    letterSpacing: 0.3, // NUEVO
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   badge: {
     paddingHorizontal: 14, // era 12
@@ -633,7 +630,8 @@ export const modalStyles = StyleSheet.create({
     letterSpacing: 0.5, // NUEVO
   },
   detailSection: {
-    marginBottom: 26, // era 24
+    marginBottom: 20,
+    paddingHorizontal: 4,
   },
   detailSectionTitle: {
     fontSize: 17, // era 16
@@ -687,13 +685,13 @@ export const modalStyles = StyleSheet.create({
     lineHeight: 22, // era 20
     fontWeight: '500', // NUEVO
   },
-  actionButton: {
+actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10, // era 8
-    paddingHorizontal: 24, // era 20
-    paddingVertical: 14, // era 12
-    borderRadius: 14, // era 12
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: 14,
     backgroundColor: '#667eea',
     shadowColor: '#667eea', // NUEVO
     shadowOffset: { width: 0, height: 6 }, // NUEVO
@@ -701,11 +699,11 @@ export const modalStyles = StyleSheet.create({
     shadowRadius: 10, // NUEVO
     elevation: 6, // NUEVO
   },
-  actionButtonText: {
+actionButtonText: {
     color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '800', // era '600'
-    letterSpacing: 0.3, // NUEVO
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
 });
 
