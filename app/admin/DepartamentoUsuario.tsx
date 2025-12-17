@@ -1,4 +1,4 @@
-// app/superadmin/asignaciones.tsx
+// app/admin/DepartamentoUsuario.tsx
 import GestionAsignacionUsAdminPage from '@/src/pages/Administrador/GestionAsignacionUsAdminPage';
 import { Platform, StatusBar, StyleSheet, View } from 'react-native';
 

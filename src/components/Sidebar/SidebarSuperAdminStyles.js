@@ -157,3 +157,5 @@ export const contentStyles = StyleSheet.create({
     flex: 1,
   },
 });
+
+export default sidebarStyles;

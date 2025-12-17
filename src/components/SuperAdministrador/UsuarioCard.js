@@ -565,5 +565,5 @@ btnText: {
     gap: 4,
   },
 });
-export { UsuarioCard };
+
 export default UsuarioCard; 
