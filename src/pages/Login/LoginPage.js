@@ -77,6 +77,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [mostrarPassword, setMostrarPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(true); // Comienza en true
   const [intentosFallidos, setIntentosFallidos] = useState(0);
   const [bloqueadoHasta, setBloqueadoHasta] = useState(null);
@@ -539,6 +540,8 @@ const handleLogin = async () => {
           isBlocked={bloqueadoHasta && Date.now() < bloqueadoHasta}
           tiempoRestante={formatearTiempoRestante()}
           intentosRestantes={Math.max(0, MAX_INTENTOS_LOGIN - intentosFallidos)}
+          mostrarPassword={mostrarPassword}
+          setMostrarPassword={setMostrarPassword}
         />
       )}
     </View>

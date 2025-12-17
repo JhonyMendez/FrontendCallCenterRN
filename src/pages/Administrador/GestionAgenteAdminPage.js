@@ -1,5 +1,6 @@
 // UBICACIÓN: src/pages/SuperAdministrador/GestionAgentePage.js
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -96,53 +97,65 @@ const [formData, setFormData] = useState({
   }, []);
 
 useEffect(() => {
-  
-  try {
-    // Intentar TODAS las posibles claves
-    const posiblesClaves = [
-      '@datos_sesion',
-      'datos_sesion', 
-      '@user_session',
-      'user_data',
-      'currentUser'
-    ];
-    
-    let usuarioEncontrado = null;
-    
-    for (const clave of posiblesClaves) {
-      const data = localStorage.getItem(clave);
+  const cargarUsuario = async () => {
+    try {
+      // Intentar TODAS las posibles claves
+      const posiblesClaves = [
+        '@datos_sesion',
+        'datos_sesion', 
+        '@user_session',
+        'user_data',
+        'currentUser'
+      ];
       
-      if (data) {
-        try {
-          const parsed = JSON.parse(data);          
-          // Buscar el usuario en diferentes estructuras
-          if (parsed.usuario) {
-            usuarioEncontrado = parsed.usuario;
-            break;
-          } else if (parsed.user) {
-            usuarioEncontrado = parsed.user;
-            break;
-          } else if (parsed.id_usuario) {
-            usuarioEncontrado = parsed;
-            break;
+      let usuarioEncontrado = null;
+      
+      for (const clave of posiblesClaves) {
+        const data = await AsyncStorage.getItem(clave); 
+        
+        if (data) {
+          try {
+            const parsed = JSON.parse(data);
+            
+            // Buscar el usuario en diferentes estructuras
+            if (parsed.usuario) {
+              usuarioEncontrado = parsed.usuario;
+              break;
+            } else if (parsed.user) {
+              usuarioEncontrado = parsed.user;
+              break;
+            } else if (parsed.id_usuario) {
+              usuarioEncontrado = parsed;
+              break;
+            }
+          } catch (e) {
+            console.log('Error parseando:', clave);
           }
-        } catch (e) {        }
+        }
       }
-    }
-    
-    if (usuarioEncontrado) {
       
-      setUsuarioActual(usuarioEncontrado);
-    } else {      
-      // Mostrar TODAS las claves
-      Object.keys(localStorage).forEach(key => {
-        const val = localStorage.getItem(key);
-      });
+      if (usuarioEncontrado) {
+        console.log('✅ Usuario encontrado:', usuarioEncontrado);
+        setUsuarioActual(usuarioEncontrado);
+      } else {
+        console.log('⚠️ No se encontró usuario en AsyncStorage');
+        
+        // Debug: Mostrar TODAS las claves disponibles
+        const allKeys = await AsyncStorage.getAllKeys();
+        console.log('📋 Claves disponibles en AsyncStorage:', allKeys);
+        
+        for (const key of allKeys) {
+          const val = await AsyncStorage.getItem(key);
+          console.log(`  ${key}:`, val?.substring(0, 100) + '...'); 
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error al cargar usuario:', error);
     }
-  } catch (error) {
-    console.error('❌ Error:', error);
-  }
-  }, []);
+  };
+  
+  cargarUsuario();
+}, []);
 
   // ============ HELPERS ============
 // Validar URLs de imagen usando SecurityValidator
@@ -189,29 +202,79 @@ useEffect(() => {
 
 const cargarEstadisticas = async () => {
   try {
+    console.log('📊 Cargando estadísticas...');
     const data = await agenteService.getEstadisticasGenerales();
+    
+    console.log('📦 Respuesta completa:', JSON.stringify(data, null, 2));
     
     // Manejar diferentes estructuras de respuesta
     const statsData = data?.data || data;
     
-    if (statsData && statsData.total !== undefined) {
+    console.log('📊 statsData extraído:', JSON.stringify(statsData, null, 2));
+    
+    // ✅ MAPEO CORRECTO DE CAMPOS
+    if (statsData && typeof statsData === 'object') {
       const nuevasStats = {
-        total: Number(statsData.total) || 0,
-        activos: Number(statsData.activos) || 0,
-        router: Number(statsData.router) || 0,
-        especializados: Number(statsData.especializados) || 0,
+        // Intenta diferentes variaciones de nombres
+        total: Number(
+          statsData.total_agentes ?? 
+          statsData.total ?? 
+          statsData.totalAgentes ?? 
+          0
+        ),
+        activos: Number(
+          statsData.agentes_activos ?? 
+          statsData.activos ?? 
+          statsData.agentesActivos ?? 
+          0
+        ),
+        router: Number(
+          statsData.agentes_router ?? 
+          statsData.router ?? 
+          statsData.routers ?? 
+          statsData.tipoRouter ?? 
+          0
+        ),
+        especializados: Number(
+          statsData.agentes_especializados ?? 
+          statsData.especializados ?? 
+          statsData.tipoEspecializado ?? 
+          0
+        ),
       };
-      setStats(nuevasStats);
-    } else {
-      throw new Error('Formato no válido');
+      
+      console.log('✅ Estadísticas procesadas:', nuevasStats);
+      
+      // ✅ Validar que al menos hay datos
+      if (nuevasStats.total > 0 || nuevasStats.activos > 0) {
+        setStats(nuevasStats);
+        return;
+      }
     }
+    
+    // Si llegamos aquí, intenta el fallback
+    throw new Error('No se pudieron extraer estadísticas válidas');
+    
   } catch (err) {
     console.error('❌ Error al cargar estadísticas:', err);
-    // Fallback: calcular desde todos los agentes
+    console.error('📋 Tipo de error:', err.constructor.name);
+    console.error('📋 Mensaje:', err.message);
+    
+    // ✅ FALLBACK: Calcular desde todos los agentes
+    console.log('🔄 Intentando calcular estadísticas desde agentes...');
+    
     try {
       const todosAgentes = await agenteService.getAll({});
       
-      const agentesArray = Array.isArray(todosAgentes) ? todosAgentes : (todosAgentes?.data || []);
+      console.log('📦 Agentes obtenidos para estadísticas (primeros 2):', 
+        JSON.stringify(todosAgentes.slice(0, 2), null, 2)
+      );
+      
+      const agentesArray = Array.isArray(todosAgentes) 
+        ? todosAgentes 
+        : (todosAgentes?.data || []);
+      
+      console.log('📊 Array de agentes:', agentesArray.length, 'elementos');
       
       const calculadas = {
         total: agentesArray.length,
@@ -219,8 +282,21 @@ const cargarEstadisticas = async () => {
         router: agentesArray.filter(a => a.tipo_agente === 'router').length,
         especializados: agentesArray.filter(a => a.tipo_agente === 'especializado').length,
       };
+      
+      console.log('✅ Estadísticas calculadas manualmente:', calculadas);
       setStats(calculadas);
+      
     } catch (fallbackErr) {
+      console.error('❌ Error en fallback:', fallbackErr);
+      
+      // ✅ ÚLTIMO RECURSO: Establecer valores en 0
+      console.log('⚠️ Estableciendo estadísticas en 0');
+      setStats({
+        total: 0,
+        activos: 0,
+        router: 0,
+        especializados: 0,
+      });
     }
   }
 };

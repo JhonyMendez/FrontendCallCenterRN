@@ -64,11 +64,12 @@ const mostrarToast = (message, type = 'error') => {
  const [rolesSeleccionados, setRolesSeleccionados] = useState([]);
   const [estado, setEstado] = useState('activo');
 
-  const esEdicion = Boolean(usuario?.id_usuario);
+const esEdicion = Boolean(usuario?.id_usuario);
+
+const [mostrarPassword, setMostrarPassword] = useState(false);
+const [mostrarConfirmPassword, setMostrarConfirmPassword] = useState(false);
 
 // ==================== ANIMACIONES ====================
-
-  // ==================== ANIMACIONES ====================
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(100)).current;
 
@@ -168,7 +169,6 @@ const extraerMensajeError = (error) => {
   };
 
 
-  // ==================== CONSULTA DE CÉDULA ====================
 // ==================== CONSULTA DE CÉDULA ====================
   const consultarCedula = async () => {
     const cedulaLimpia = SecurityValidator.sanitizeText(cedula).replace(/[^0-9]/g, '');
@@ -181,11 +181,29 @@ const extraerMensajeError = (error) => {
     setConsultandoCedula(true);
     
     try {
-      // ✅ LLAMAR DIRECTAMENTE AL SERVICIO
+      // ✅ 1. PRIMERO VERIFICAR SI LA CÉDULA YA EXISTE EN LA BD
+      try {
+        const personaExistente = await personaService.getByCedula(cedulaLimpia);
+        
+        if (personaExistente && personaExistente.id_persona) {
+          mostrarToast('⚠️ Esta cédula ya está registrada en el sistema', 'error');
+          setConsultandoCedula(false);
+          return;
+        }
+      } catch (error) {
+        // Si no existe (error 404), continuamos con la consulta externa
+        console.log('Cédula no existe en BD local, consultando externamente...');
+      }
+      
+// ✅ 2. SI NO EXISTE, CONSULTAR EN SERVICIO EXTERNO
       const data = await cedulaService.consultarCedula(cedulaLimpia);
       
       if (!Array.isArray(data) || data.length === 0) {
-        throw new Error('No se encontró información para esta cédula');
+        // ✅ No hay datos externos, pero permitir continuar manualmente
+        setCedulaConsultada(true);
+        mostrarToast('ℹ️ No se encontró información externa. Puedes ingresar los datos manualmente', 'warning');
+        setConsultandoCedula(false);
+        return;
       }
       
       const persona = data[0];
@@ -223,8 +241,52 @@ const extraerMensajeError = (error) => {
       setConsultandoCedula(false);
     }
   };
-  // ==================== VALIDACIÓN POR PASO ====================
-  const validarPaso = (paso) => {
+
+  // ==================== VALIDACIÓN DE CÉDULA ECUATORIANA ====================
+  const validarCedulaEcuatoriana = (cedula) => {
+    // Limpiar y validar formato básico
+    const cedulaLimpia = cedula.replace(/[^0-9]/g, '');
+    
+    if (cedulaLimpia.length !== 10) {
+      return { valida: false, mensaje: 'La cédula debe tener 10 dígitos' };
+    }
+
+    // Validar que los dos primeros dígitos correspondan a una provincia válida (01-24)
+    const provincia = parseInt(cedulaLimpia.substring(0, 2));
+    if (provincia < 1 || provincia > 24) {
+      return { valida: false, mensaje: 'Código de provincia inválido (debe ser 01-24)' };
+    }
+
+    // Validar el tercer dígito (debe ser menor a 6 para personas naturales)
+    const tercerDigito = parseInt(cedulaLimpia.charAt(2));
+    if (tercerDigito > 5) {
+      return { valida: false, mensaje: 'Tercer dígito inválido para cédula de persona natural' };
+    }
+
+    // Algoritmo de validación módulo 10
+    const coeficientes = [2, 1, 2, 1, 2, 1, 2, 1, 2];
+    const digitoVerificador = parseInt(cedulaLimpia.charAt(9));
+    let suma = 0;
+
+    for (let i = 0; i < 9; i++) {
+      let valor = parseInt(cedulaLimpia.charAt(i)) * coeficientes[i];
+      if (valor >= 10) {
+        valor = valor - 9;
+      }
+      suma += valor;
+    }
+
+    const residuo = suma % 10;
+    const resultado = residuo === 0 ? 0 : 10 - residuo;
+
+    if (resultado !== digitoVerificador) {
+      return { valida: false, mensaje: 'Cédula inválida. Ingrese un número válido.' };
+    }
+
+    return { valida: true, mensaje: 'Cédula válida' };
+  };
+// ==================== VALIDACIÓN POR PASO ====================
+  const validarPaso = async (paso) => {
     const newErrors = {};
 
     if (paso === 1) {
@@ -239,11 +301,31 @@ const extraerMensajeError = (error) => {
       );
       const cedulaLimpia = SecurityValidator.sanitizeText(cedula).replace(/[-\s]/g, '');
       
-      // Validaciones existentes...
+      // ✅ VALIDACIÓN DE CÉDULA ECUATORIANA
       if (!cedulaLimpia) {
         newErrors.cedula = 'La cédula es requerida';
       } else if (cedulaLimpia.length !== 10 || !/^\d{10}$/.test(cedulaLimpia)) {
         newErrors.cedula = 'La cédula debe tener exactamente 10 dígitos';
+      } else {
+        // ✅ Validar con algoritmo ecuatoriano
+        const resultadoValidacion = validarCedulaEcuatoriana(cedulaLimpia);
+        if (!resultadoValidacion.valida) {
+          newErrors.cedula = resultadoValidacion.mensaje;
+        }
+        
+        // ✅ VERIFICAR SI LA CÉDULA YA EXISTE (solo en modo CREAR)
+        if (!esEdicion && resultadoValidacion.valida) {
+          try {
+            const todasPersonas = await personaService.getAll();
+            const personaExistente = todasPersonas.find(p => p.cedula === cedulaLimpia);
+            
+            if (personaExistente) {
+              newErrors.cedula = '⚠️ Esta cédula ya está registrada en el sistema';
+            }
+          } catch (error) {
+            console.log('Error verificando cédula:', error);
+          }
+        }
       }
       
       if (!nombreLimpio.trim()) newErrors.nombre = 'El nombre es requerido';
@@ -341,9 +423,10 @@ const extraerMensajeError = (error) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // ==================== NAVEGACIÓN ====================
-  const handleSiguiente = () => {
-    if (validarPaso(pasoActual)) {
+// ==================== NAVEGACIÓN ====================
+  const handleSiguiente = async () => {
+    const esValido = await validarPaso(pasoActual);
+    if (esValido) {
       setPasoActual(pasoActual + 1);
       setErrors({});
     } else {
@@ -614,21 +697,32 @@ const actualizarUsuario = async () => {
           { flex: 1 }
         ]}>
           <Ionicons name="card-outline" size={20} color="#667eea" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="10 dígitos (ej: 0102417144)"
-            placeholderTextColor="#9CA3AF"
-            value={cedula}
-            onChangeText={(text) => {
-              const limpio = SecurityValidator.sanitizeText(text).replace(/[^0-9]/g, '');
-              setCedula(limpio);
-              setCedulaConsultada(false); // Reset al cambiar
-              if (errors.cedula) setErrors({...errors, cedula: undefined});
-            }}
-            keyboardType="numeric"
-            maxLength={10}
-            editable={!usuario} // Solo editable en modo crear
-          />
+        <TextInput
+          style={styles.input}
+          placeholder="10 dígitos (ej: 0102417144)"
+          placeholderTextColor="#9CA3AF"
+          value={cedula}
+          onChangeText={(text) => {
+            const limpio = SecurityValidator.sanitizeText(text).replace(/[^0-9]/g, '');
+            setCedula(limpio);
+            setCedulaConsultada(false);
+            
+            // ✅ Validar en tiempo real cuando tenga 10 dígitos
+            if (limpio.length === 10) {
+              const resultado = validarCedulaEcuatoriana(limpio);
+              if (!resultado.valida) {
+                setErrors({...errors, cedula: resultado.mensaje});
+              } else {
+                setErrors({...errors, cedula: undefined});
+              }
+            } else if (errors.cedula) {
+              setErrors({...errors, cedula: undefined});
+            }
+          }}
+          keyboardType="numeric"
+          maxLength={10}
+          editable={!usuario}
+        />
         </View>
         
         {/* ✅ BOTÓN DE CONSULTA */}
@@ -670,7 +764,27 @@ const actualizarUsuario = async () => {
             <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
           </View>
         )}
-      </View>
+     </View>
+      
+      {/* ✅ INDICADOR DE VALIDEZ */}
+      {!usuario && cedula.length === 10 && !errors.cedula && (
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginTop: 8,
+          padding: 8,
+          backgroundColor: '#f0fdf4',
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: '#10b981',
+        }}>
+          <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+          <Text style={{ marginLeft: 6, fontSize: 12, color: '#059669', fontWeight: '600' }}>
+            ✓ Cédula ecuatoriana válida
+          </Text>
+        </View>
+      )}
+      
       {errors.cedula && <Text style={styles.errorText}>{errors.cedula}</Text>}
       
       {/* ✅ MENSAJE INFORMATIVO */}
@@ -938,40 +1052,64 @@ const actualizarUsuario = async () => {
         <View style={[styles.inputContainer, errors.password && styles.inputError]}>
           <Ionicons name="lock-closed-outline" size={20} color="#667eea" style={styles.inputIcon} />
           <TextInput
-            style={styles.input}
+            style={[styles.input, { flex: 1 }]}
             placeholder={esEdicion ? "Nueva contraseña (dejar vacío para mantener actual)" : "Mínimo 8 caracteres *"}
             placeholderTextColor="#9CA3AF"
             value={password}
-              onChangeText={(text) => {
-                setPassword(text);
-                if (errors.password) setErrors({...errors, password: undefined});
-              }}
-              secureTextEntry
+            onChangeText={(text) => {
+              setPassword(text);
+              if (errors.password) setErrors({...errors, password: undefined});
+            }}
+            secureTextEntry={!mostrarPassword}
+          />
+          {/* ✅ BOTÓN PARA MOSTRAR/OCULTAR */}
+          <TouchableOpacity
+            onPress={() => setMostrarPassword(!mostrarPassword)}
+            style={{ padding: 8 }}
+            activeOpacity={0.7}
+          >
+            <Ionicons 
+              name={mostrarPassword ? "eye-off-outline" : "eye-outline"} 
+              size={20} 
+              color="#667eea" 
             />
-          </View>
-          {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+          </TouchableOpacity>
         </View>
+        {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+      </View>
 
-        <View style={styles.formColumn}>
-          <Text style={styles.label}>
-            CONFIRMAR {!usuario && <Text style={styles.labelRequired}>*</Text>}
-          </Text>
-          <View style={[styles.inputContainer, errors.confirmPassword && styles.inputError]}>
-            <Ionicons name="lock-closed-outline" size={20} color="#667eea" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Repetir contraseña"
-              placeholderTextColor="#9CA3AF"
-              value={confirmPassword}
-              onChangeText={(text) => {
-                setConfirmPassword(text);
-                if (errors.confirmPassword) setErrors({...errors, confirmPassword: undefined});
-              }}
-              secureTextEntry
+      <View style={styles.formColumn}>
+        <Text style={styles.label}>
+          CONFIRMAR {!esEdicion && <Text style={styles.labelRequired}>*</Text>}
+        </Text>
+        <View style={[styles.inputContainer, errors.confirmPassword && styles.inputError]}>
+          <Ionicons name="lock-closed-outline" size={20} color="#667eea" style={styles.inputIcon} />
+          <TextInput
+            style={[styles.input, { flex: 1 }]}
+            placeholder={esEdicion ? "Confirmar nueva (opcional)" : "Repetir contraseña"}
+            placeholderTextColor="#9CA3AF"
+            value={confirmPassword}
+            onChangeText={(text) => {
+              setConfirmPassword(text);
+              if (errors.confirmPassword) setErrors({...errors, confirmPassword: undefined});
+            }}
+            secureTextEntry={!mostrarConfirmPassword}
+          />
+          {/* ✅ BOTÓN PARA MOSTRAR/OCULTAR */}
+          <TouchableOpacity
+            onPress={() => setMostrarConfirmPassword(!mostrarConfirmPassword)}
+            style={{ padding: 8 }}
+            activeOpacity={0.7}
+          >
+            <Ionicons 
+              name={mostrarConfirmPassword ? "eye-off-outline" : "eye-outline"} 
+              size={20} 
+              color="#667eea" 
             />
-          </View>
-          {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+          </TouchableOpacity>
         </View>
+        {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+      </View>
       </View>
       
       {esEdicion && (

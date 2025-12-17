@@ -15,6 +15,8 @@ export default function LoginCard({
   isBlocked,
   tiempoRestante,
   intentosRestantes,
+  mostrarPassword,
+  setMostrarPassword,
 }) {
   // Animaciones
   const floatAnim = useRef(new Animated.Value(0)).current;
@@ -175,13 +177,26 @@ export default function LoginCard({
                 <TextInput
                   placeholder="••••••••"
                   placeholderTextColor="#bbb"
-                  secureTextEntry
-                  style={loginStyles.input}
+                  secureTextEntry={!mostrarPassword}
+                  style={[loginStyles.input, { flex: 1 }]}
                   value={password}
                   onChangeText={setPassword}
                   editable={!isBlocked}
                   maxLength={100}
                 />
+                {/* Botón para mostrar/ocultar contraseña */}
+                <TouchableOpacity
+                  onPress={() => setMostrarPassword(!mostrarPassword)}
+                  style={{ padding: 8 }}
+                  activeOpacity={0.7}
+                  disabled={isBlocked}
+                >
+                  <Ionicons 
+                    name={mostrarPassword ? "eye-off-outline" : "eye-outline"} 
+                    size={20} 
+                    color={isBlocked ? "#ccc" : "#a29bfe"} 
+                  />
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -221,86 +236,77 @@ export default function LoginCard({
                 </Text>
               </View>
             )}
-
-            {/* Divisor elegante */}
-            <View style={loginStyles.divider}>
-              <View style={loginStyles.dividerLine} />
-              <Text style={loginStyles.dividerText}>o continúa con</Text>
-              <View style={loginStyles.dividerLine} />
-            </View>
-
-            {/* Botón de Google mejorado */}
-            <TouchableOpacity 
-              style={[
-                loginStyles.googleButton,
-                isBlocked && loginStyles.buttonDisabled
-              ]} 
-              activeOpacity={0.7}
-              disabled={isBlocked}
-            >
-              <View style={loginStyles.googleIconContainer}>
-                <Ionicons name="logo-google" size={22} color={isBlocked ? "#ccc" : "#DB4437"} />
-              </View>
-              <Text style={[
-                loginStyles.googleButtonText,
-                isBlocked && { color: '#ccc' }
-              ]}>
-                Continuar con Google
-              </Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Animated.View>
 
-      {/* Sección de ilustración ultra moderna */}
+{/* Sección simple con texto - TOTALMENTE RESPONSIVA */}
       <View style={loginStyles.illustrationSection}>
         {/* Elementos decorativos de fondo */}
         <Animated.View style={[loginStyles.floatingCircle1, { transform: [{ translateY: floatAnim }] }]} />
         <Animated.View style={[loginStyles.floatingCircle2, { transform: [{ translateY: floatAnim }] }]} />
         <View style={loginStyles.gridPattern} />
 
-        {/* Círculo principal con ilustración */}
-        <Animated.View style={[loginStyles.illustrationCircle, { transform: [{ scale: pulseAnim }] }]}>
-          <LinearGradient
-            colors={['rgba(102, 126, 234, 0.1)', 'rgba(118, 75, 162, 0.1)']}
-            style={loginStyles.circleGradient}
+        {/* Contenido central simple */}
+        <View style={{ 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          flex: 1, 
+          paddingHorizontal: 30,
+          paddingVertical: 40,
+        }}>
+          
+          {/* Icono grande animado */}
+          <Animated.View style={{ 
+            transform: [{ scale: pulseAnim }], 
+            marginBottom: 25,
+          }}>
+            <Ionicons 
+              name={isBlocked ? "lock-closed" : "school"} 
+              size={100} 
+              color="#667eea"
+              style={{
+                textShadowColor: 'rgba(102, 126, 234, 0.5)',
+                textShadowOffset: { width: 0, height: 0 },
+                textShadowRadius: 40,
+              }}
+            />
+          </Animated.View>
+
+          {/* Título grande */}
+          <Text 
+            style={{
+              fontSize: 48,
+              fontWeight: '900',
+              color: '#fff',
+              textAlign: 'center',
+              marginBottom: 15,
+              letterSpacing: -1,
+            }}
+            numberOfLines={1}
+            adjustsFontSizeToFit
           >
-            <View style={loginStyles.imageCard}>
-              <LinearGradient
-                colors={['#17a2b8', '#138496']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={loginStyles.cardGradient}
-              >
-                {/* Sol/Luna */}
-                <Animated.View style={[loginStyles.imageCircle, { transform: [{ scale: pulseAnim }] }]}>
-                  <LinearGradient
-                    colors={['#ffd93d', '#ff6b35']}
-                    style={loginStyles.sunGradient}
-                  />
-                </Animated.View>
+            TEC-AI
+          </Text>
 
-                {/* Montañas mejoradas */}
-                <View style={loginStyles.mountainContainer}>
-                  <View style={loginStyles.mountain1} />
-                  <View style={loginStyles.mountain2} />
-                  <View style={loginStyles.mountain3} />
-                </View>
-              </LinearGradient>
-            </View>
-          </LinearGradient>
-        </Animated.View>
-
-        {/* Texto decorativo */}
-        <Text style={loginStyles.illustrationText}>
-          {isBlocked ? "Seguridad activada" : "Seguridad y confianza"}
-        </Text>
-        <Text style={loginStyles.illustrationSubtext}>
-          {isBlocked 
-            ? "Protegiendo tu cuenta de accesos no autorizados" 
-            : "Tu información está protegida"
-          }
-        </Text>
+          {/* Frase impactante */}
+          <Text 
+            style={{
+              fontSize: 18,
+              color: '#E5E7EB',
+              textAlign: 'center',
+              lineHeight: 28,
+              fontWeight: '300',
+              paddingHorizontal: 15,
+            }}
+            numberOfLines={3}
+          >
+            {isBlocked 
+              ? "Tu cuenta está protegida"
+              : "Educación inteligente, resultados extraordinarios"
+            }
+          </Text>
+        </View>
       </View>
     </View>
   );
