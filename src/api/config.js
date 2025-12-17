@@ -143,6 +143,18 @@ export const ENDPOINTS = {
     BY_AGENTE: (idAgente) => `/usuario-agente/agente/${idAgente}`,
   },
 
+
+  // Escalamiento a Humanos
+  ESCALAMIENTO: {
+    BASE: '/escalamiento',
+    CONVERSACIONES_ESCALADAS: '/escalamiento/conversaciones-escaladas',
+    CONVERSACION_DETALLE: (sessionId) => `/escalamiento/conversacion/${encodeURIComponent(sessionId)}`,
+    RESPONDER: (sessionId) => `/escalamiento/conversacion/${encodeURIComponent(sessionId)}/responder`,
+    RESOLVER: (sessionId) => `/escalamiento/conversacion/${encodeURIComponent(sessionId)}/resolver`,
+    MIS_NOTIFICACIONES: '/escalamiento/mis-notificaciones',
+    MARCAR_LEIDA: (idNotificacion) => `/escalamiento/notificacion/${idNotificacion}/marcar-leida`,
+  },
+
   // Usuario-Roles
   USUARIO_ROLES: {
     BASE: '/usuario-roles',
