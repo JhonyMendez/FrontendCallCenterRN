@@ -25,6 +25,14 @@ export default function SidebarFuncionario({ isOpen }) {
   // ✅ Menú exclusivo para Funcionario
   const menuItems = [
 
+
+    {
+      id: 'Dashboard',
+      label: 'dashboard',
+      icon: 'sparkles-outline',
+      route: '/funcionario/dashboard',
+    },
+
     {
       id: 'agente',
       label: 'Agente',

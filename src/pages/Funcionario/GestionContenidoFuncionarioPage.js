@@ -38,6 +38,125 @@ const PRIORITY_LABELS = {
   1:  { label: '🔵 Opcional', desc: 'Información complementaria', color: '#0ea5e9' }
 };
 
+//Errores de Notificacion
+const ErrorNotification = ({ message, onClose }) => {
+  if (!message) return null;
+  
+  return (
+    <View style={{
+      position: 'absolute',
+      top: 80,
+      right: 20,
+      backgroundColor: '#ef4444',
+      paddingHorizontal: 24,
+      paddingVertical: 16,
+      borderRadius: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      shadowColor: '#ef4444',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.6,
+      shadowRadius: 16,
+      elevation: 12,
+      zIndex: 9999,
+      minWidth: 300,
+      maxWidth: 400,
+    }}>
+      <View style={{
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.3)',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}>
+        <Text style={{ fontSize: 24 }}>🚫</Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{
+          color: 'white',
+          fontWeight: '700',
+          fontSize: 15,
+          letterSpacing: 0.3,
+        }}>
+          Acceso Denegado
+        </Text>
+        <Text style={{
+          color: 'rgba(255, 255, 255, 0.9)',
+          fontSize: 12,
+          marginTop: 2,
+          lineHeight: 16,
+        }}>
+          {message}
+        </Text>
+      </View>
+      <TouchableOpacity onPress={onClose}>
+        <Ionicons name="close" size={20} color="white" />
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+//Notificacion de Éxito
+const SuccessNotification = ({ message, onClose }) => {
+  if (!message) return null;
+  
+  return (
+    <View style={{
+      position: 'absolute',
+      top: 80,
+      right: 20,
+      backgroundColor: '#10b981',
+      paddingHorizontal: 24,
+      paddingVertical: 16,
+      borderRadius: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      shadowColor: '#10b981',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.6,
+      shadowRadius: 16,
+      elevation: 12,
+      zIndex: 9999,
+      minWidth: 300,
+      maxWidth: 400,
+    }}>
+      <View style={{
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.3)',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}>
+        <Text style={{ fontSize: 24 }}>✅</Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{
+          color: 'white',
+          fontWeight: '700',
+          fontSize: 15,
+          letterSpacing: 0.3,
+        }}>
+          Operación Exitosa
+        </Text>
+        <Text style={{
+          color: 'rgba(255, 255, 255, 0.9)',
+          fontSize: 12,
+          marginTop: 2,
+          lineHeight: 16,
+        }}>
+          {message}
+        </Text>
+      </View>
+      <TouchableOpacity onPress={onClose}>
+        <Ionicons name="close" size={20} color="white" />
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 
 const GestionContenidoPage = () => {
@@ -85,6 +204,9 @@ const GestionContenidoPage = () => {
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
+  const [showErrorNotification, setShowErrorNotification] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
   const [errores, setErrores] = useState({
     id_categoria: '',
     titulo: '',
@@ -101,16 +223,26 @@ const GestionContenidoPage = () => {
     setContenidoView(null);
   };
 
-  const mostrarNotificacionExito = (mensaje) => {
-    setSuccessMessage(mensaje);
-    setShowSuccessNotification(true);
-    
-    setTimeout(() => {
-      setShowSuccessNotification(false);
-    }, 3000);
-  };
+const mostrarNotificacionExito = (mensaje) => {
+  setSuccessMessage(mensaje);
+  setShowSuccessNotification(true);
+  
+  setTimeout(() => {
+    setShowSuccessNotification(false);
+  }, 3000);
+};
 
-  const sanitizeInput = (text) => {
+const mostrarNotificacionError = (mensaje) => {
+  setErrorMessage(mensaje);
+  setShowErrorNotification(true);
+  
+  setTimeout(() => {
+    setShowErrorNotification(false);
+  }, 4000); 
+};
+
+const sanitizeInput = (text) => {
+
     return text
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
       .replace(/<[^>]*>/g, '')
@@ -264,11 +396,12 @@ const cargarDatosIniciales = async () => {
 
 const cargarContenidos = async () => {
   try {
-
     const permisos = agentesPermitidos.find(p => p.id_agente === selectedAgente);
     
     if (!permisos || !permisos.puede_ver_contenido) {
-      Alert.alert('Sin permisos', 'No tienes permiso para ver contenidos de este agente');
+      mostrarNotificacionError(
+        'No tienes permisos para ver contenidos de este agente. Contacta a tu administrador.'
+      );
       setContenidos([]);
       return;
     }
@@ -305,12 +438,16 @@ const abrirModal = async (contenido = null) => {
   const permisos = agentesPermitidos.find(p => p.id_agente === agenteId);
   
   if (contenido && (!permisos || !permisos.puede_editar_contenido)) {
-    Alert.alert('Sin permisos', 'No tienes permiso para editar contenidos de este agente');
+    mostrarNotificacionError(
+      'No tienes permisos para editar contenidos de este agente. Contacta a tu administrador para solicitar acceso.'
+    );
     return;
   }
   
   if (!contenido && (!permisos || !permisos.puede_crear_contenido)) {
-    Alert.alert('Sin permisos', 'No tienes permiso para crear contenidos en este agente');
+    mostrarNotificacionError(
+      'No tienes permisos para crear contenidos en este agente. Contacta a tu administrador para solicitar acceso.'
+    );
     return;
   }
   
@@ -548,7 +685,9 @@ const abrirModal = async (contenido = null) => {
     const permisos = agentesPermitidos.find(p => p.id_agente === contenido.id_agente);
     
     if (!permisos || !permisos.puede_publicar_contenido) {
-      Alert.alert('Sin permisos', 'No tienes permiso para publicar contenidos de este agente');
+      mostrarNotificacionError(
+        'No tienes permisos para publicar contenidos de este agente. Solicita permisos de publicación a tu administrador.'
+      );
       return;
     }
     
@@ -582,7 +721,9 @@ const abrirModal = async (contenido = null) => {
     const permisos = agentesPermitidos.find(p => p.id_agente === contenido.id_agente);
     
     if (!permisos || !permisos.puede_eliminar_contenido) {
-      Alert.alert('Sin permisos', 'No tienes permiso para eliminar contenidos de este agente');
+      mostrarNotificacionError(
+        'No tienes permisos para eliminar contenidos de este agente. Solicita permisos de eliminación a tu administrador.'
+      );
       return;
     }
     
@@ -975,10 +1116,9 @@ return (
             const puedeCrear = permisos?.puede_crear_contenido;
             
             return (
-                <TouchableOpacity
-                onPress={() => puedeCrear ? abrirModal() : Alert.alert(
-                    'Sin permisos',
-                    'No tienes permiso para crear contenidos en este agente'
+              <TouchableOpacity
+                onPress={() => puedeCrear ? abrirModal() : mostrarNotificacionError(
+                  'No tienes permisos para crear contenidos en este agente. Contacta a tu administrador para solicitar acceso.'
                 )}
                 style={[
                     styles.btnNuevo,
@@ -2273,55 +2413,38 @@ return (
   </View>
 </Modal>
 
-      {/* 🔥 NUEVO: Notificación de éxito flotante */}
+      {/* Notificación de ERROR */}
+      <ErrorNotification 
+        message={errorMessage}
+        onClose={() => setShowErrorNotification(false)}
+      />
+      {showErrorNotification && (
+        <View style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.3)',
+          zIndex: 9998,
+        }} />
+      )}
+
+      {/* Notificación de ÉXITO */}
+      <SuccessNotification 
+        message={successMessage}
+        onClose={() => setShowSuccessNotification(false)}
+      />
       {showSuccessNotification && (
         <View style={{
           position: 'absolute',
-          top: 80,
-          right: 20,
-          backgroundColor: '#10b981',
-          paddingHorizontal: 24,
-          paddingVertical: 16,
-          borderRadius: 16,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 12,
-          shadowColor: '#10b981',
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.6,
-          shadowRadius: 16,
-          elevation: 12,
-          zIndex: 9999,
-          minWidth: 300,
-        }}>
-          <View style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: 'rgba(255, 255, 255, 0.3)',
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}>
-            <Text style={{ fontSize: 24 }}>✅</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{
-              color: 'white',
-              fontWeight: '700',
-              fontSize: 15,
-              letterSpacing: 0.3,
-            }}>
-              {successMessage}
-            </Text>
-            <Text style={{
-              color: 'rgba(255, 255, 255, 0.8)',
-              fontSize: 11,
-              marginTop: 2,
-            }}>
-              Se cerró automáticamente
-            </Text>
-          </View>
-        </View>
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.3)',
+          zIndex: 9998,
+        }} />
       )}
       </View>
     </View>
@@ -2329,3 +2452,4 @@ return (
 };
 
 export default GestionContenidoPage;
+

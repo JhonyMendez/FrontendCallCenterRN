@@ -395,22 +395,19 @@ const crearUsuario = async () => {
     );
     const emailLimpio = SecurityValidator.sanitizeText(email).toLowerCase().trim();
 
-    // ✅ VALIDAR que no se asignen roles prohibidos
+
     const rolesProhibidos = rolesSeleccionados.filter(idRol => {
       const rol = roles.find(r => r.id_rol === idRol);
-      if (!rol) return true; // Si no existe el rol, bloquearlo
+      if (!rol) return true;
       
       const nombreRolLower = (rol.nombre_rol || '').toLowerCase();
       const nivel = rol.nivel_jerarquia || rol.nivel_acceso || 999;
       
-      return nivel < 3 || 
-             nombreRolLower.includes('super') || 
-             nombreRolLower.includes('administrador') ||
-             nombreRolLower.includes('admin');
+      return nivel === 1 || nombreRolLower.includes('super');
     });
 
     if (rolesProhibidos.length > 0) {
-      throw new Error('No tienes permiso para asignar roles de administrador o superadministrador');
+      throw new Error('No tienes permiso para asignar roles de superadministrador');
     }
 
     const usuarioCompletoData = {
@@ -515,7 +512,7 @@ const actualizarUsuario = async () => {
     const rolesActuales = usuario.roles?.map(r => r.id_rol) || [];
     const rolesAAgregar = rolesSeleccionados.filter(r => !rolesActuales.includes(r));
 
-    // ✅ VALIDAR roles prohibidos AQUÍ (antes de calcular rolesAEliminar)
+    // ✅ VALIDAR roles prohibidos (SOLO SUPERADMINISTRADOR)
     const rolesProhibidos = rolesAAgregar.filter(idRol => {
       const rol = roles.find(r => r.id_rol === idRol);
       if (!rol) return true;
@@ -523,16 +520,14 @@ const actualizarUsuario = async () => {
       const nombreRolLower = (rol.nombre_rol || '').toLowerCase();
       const nivel = rol.nivel_jerarquia || rol.nivel_acceso || 999;
       
-      return nivel < 3 || 
-             nombreRolLower.includes('super') || 
-             nombreRolLower.includes('administrador');
+      return nivel === 1 || nombreRolLower.includes('super');
     });
 
     if (rolesProhibidos.length > 0) {
-      throw new Error('No tienes permiso para asignar roles de administrador');
+      throw new Error('No tienes permiso para asignar roles de superadministrador');
     }
 
-    // ✅ AHORA SÍ calcular los roles a eliminar
+    // ✅ Calcular los roles a eliminar
     const rolesAEliminar = rolesActuales.filter(r => !rolesSeleccionados.includes(r));
 
     for (const id_rol of rolesAEliminar) {

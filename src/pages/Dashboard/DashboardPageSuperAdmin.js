@@ -8,11 +8,13 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { apiClient } from '../../api/client';
+import { agenteService } from '../../api/services/agenteService';
 import authService from '../../api/services/authService';
+import { departamentoService } from '../../api/services/departamentoService';
+import { usuarioService } from '../../api/services/usuarioService';
 import {
   HeaderCard,
   InfoCard,
-  QuickActionCard,
   SectionHeader,
   StatCard
 } from '../../components/Dashboard/DashboardSuperAdminCard';
@@ -26,21 +28,22 @@ export default function DashboardPageSuperAdmin() {
 
   // State
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [usuario, setUsuario] = useState({
-    nombre_completo: 'Alejandro Mendoza',
-    username: 'admin',
-    role: 'Super Administrador'
+    nombre_completo: '',
+    username: '',
+    role: '',
+    id_usuario: null
   });
   
   const [stats, setStats] = useState({
-    totalUsuarios: 127,
-    totalAgentes: 8,
-    totalDepartamentos: 8,
-    conversacionesHoy: 45,
-    interaccionesHoy: 342,
-    ticketsAbiertos: 23,
-    satisfaccion: 94
+    totalUsuarios: 0,
+    totalAgentes: 0,
+    totalDepartamentos: 0,
+    conversacionesHoy: 0,
+    interaccionesHoy: 0,
+    ticketsAbiertos: 0,
+    satisfaccion: 0
   });
 
   useEffect(() => {
@@ -49,26 +52,130 @@ export default function DashboardPageSuperAdmin() {
 
   const cargarDatos = async () => {
     try {
-      console.log('Datos cargados');
+      setLoading(true);
+      console.log('🔄 [Dashboard] Iniciando carga de datos...');
+      
+      // ⭐ ESTRATEGIA 1: Primero intentar desde localStorage (MÁS RÁPIDO)
+      console.log('🔄 [Dashboard] Intentando cargar desde localStorage...');
+      let usuarioConfigLoaded = false;
+      
+      try {
+        const posiblesClaves = ['@datos_sesion', 'datos_sesion', '@user_session'];
+        
+        for (const clave of posiblesClaves) {
+          const data = localStorage.getItem(clave);
+          
+          if (data) {
+            const parsed = JSON.parse(data);
+            console.log(`📦 [Dashboard] Datos en ${clave}:`, parsed);
+            console.log(`📦 [Dashboard] parsed.usuario:`, parsed.usuario);
+            console.log(`📦 [Dashboard] parsed.rolPrincipal:`, parsed.rolPrincipal);
+            
+            if (parsed.usuario) {
+              const usuarioConfig = {
+                id_usuario: parsed.usuario.id_usuario,
+                // ⭐ Intentar múltiples variantes del nombre
+                nombre_completo: parsed.usuario.nombre_completo || 
+                                parsed.usuario.nombreCompleto || 
+                                parsed.usuario.nombre || 
+                                parsed.usuario.fullName || 
+                                'Usuario',
+                // ⭐ Intentar múltiples variantes del username
+                username: parsed.usuario.username || 
+                         parsed.usuario.userName || 
+                         parsed.usuario.user_name || 
+                         parsed.usuario.email?.split('@')[0] || 
+                         'usuario',
+                role: parsed.rolPrincipal?.nombre_rol || 
+                     parsed.rolPrincipal?.nombreRol || 
+                     parsed.usuario.role || 
+                     'Super Administrador'
+              };
+              console.log('✅ [Dashboard] Usuario configurado desde localStorage:', usuarioConfig);
+              setUsuario(usuarioConfig);
+              usuarioConfigLoaded = true;
+              break;
+            }
+          }
+        }
+      } catch (localStorageError) {
+        console.warn('⚠️ [Dashboard] Error leyendo localStorage:', localStorageError);
+      }
+      
+      // ⭐ ESTRATEGIA 2: Si no se encontró en localStorage, intentar desde authService
+      if (!usuarioConfigLoaded) {
+        console.log('🔄 [Dashboard] Intentando cargar desde authService...');
+        const datosSesion = await authService.obtenerDatosSesion();
+        console.log('📦 [Dashboard] Datos de sesión:', datosSesion);
+        
+        if (datosSesion && datosSesion.usuario) {
+          const usuarioConfig = {
+            id_usuario: datosSesion.usuario.id_usuario,
+            nombre_completo: datosSesion.usuario.nombre_completo || '',
+            username: datosSesion.usuario.username || '',
+            role: datosSesion.rolPrincipal?.nombre_rol || 'Super Administrador'
+          };
+          console.log('✅ [Dashboard] Usuario configurado desde authService:', usuarioConfig);
+          setUsuario(usuarioConfig);
+          usuarioConfigLoaded = true;
+        }
+      }
+      
+      if (!usuarioConfigLoaded) {
+        console.warn('⚠️ [Dashboard] No se pudo obtener información del usuario');
+      }
+      
+      // Cargar estadísticas en paralelo desde el backend
+      console.log('📊 [Dashboard] Iniciando carga de estadísticas...');
+      
+      console.log('📤 [Dashboard] Llamando a usuarioService.listarCompleto()...');
+      const usuarios = await usuarioService.listarCompleto({ limit: 1 }).catch((err) => {
+        console.error('❌ [Dashboard] Error al cargar usuarios:', err);
+        return { total: 0 };
+      });
+      console.log('📦 [Dashboard] Usuarios recibidos:', usuarios);
+      
+      console.log('📤 [Dashboard] Llamando a agenteService.getAll()...');
+      const agentes = await agenteService.getAll().catch((err) => {
+        console.error('❌ [Dashboard] Error al cargar agentes:', err);
+        return [];
+      });
+      console.log('📦 [Dashboard] Agentes recibidos:', agentes);
+      
+      console.log('📤 [Dashboard] Llamando a departamentoService.getAll()...');
+      const departamentos = await departamentoService.getAll().catch((err) => {
+        console.error('❌ [Dashboard] Error al cargar departamentos:', err);
+        return [];
+      });
+      console.log('📦 [Dashboard] Departamentos recibidos:', departamentos);
+      
+      // Actualizar estadísticas con datos reales
+      const newStats = {
+        totalUsuarios: usuarios.total || 0,
+        totalAgentes: Array.isArray(agentes) ? agentes.length : (agentes.total || 0),
+        totalDepartamentos: Array.isArray(departamentos) ? departamentos.length : 0,
+        conversacionesHoy: 0, // TODO: Implementar endpoint en backend
+        interaccionesHoy: 0, // TODO: Implementar endpoint en backend
+        ticketsAbiertos: 0, // TODO: Implementar endpoint en backend
+        satisfaccion: 0 // TODO: Implementar endpoint en backend
+      };
+      
+      console.log('📊 [Dashboard] Actualizando stats:', newStats);
+      setStats(newStats);
+      
+      console.log('✅ [Dashboard] Datos cargados correctamente');
     } catch (error) {
-      console.error('Error cargando datos:', error);
+      console.error('❌ [Dashboard] Error CRÍTICO cargando datos:', error);
+      console.error('❌ [Dashboard] Stack trace:', error.stack);
+    } finally {
+      console.log('🏁 [Dashboard] Finalizando carga (loading = false)');
+      setLoading(false);
     }
   };
 
-  const handleRefresh = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setStats({
-        totalUsuarios: Math.floor(Math.random() * 50) + 100,
-        totalAgentes: Math.floor(Math.random() * 5) + 5,
-        totalDepartamentos: Math.floor(Math.random() * 5) + 5,
-        conversacionesHoy: Math.floor(Math.random() * 30) + 30,
-        interaccionesHoy: Math.floor(Math.random() * 200) + 250,
-        ticketsAbiertos: Math.floor(Math.random() * 20) + 10,
-        satisfaccion: Math.floor(Math.random() * 10) + 90
-      });
-      setLoading(false);
-    }, 1000);
+  const handleRefresh = async () => {
+    console.log('🔄 Refrescando datos...');
+    await cargarDatos();
   };
 
   const handleLogout = async () => {
@@ -89,7 +196,7 @@ export default function DashboardPageSuperAdmin() {
       subtitle: 'Usuarios registrados',
       icon: 'people',
       color: '#3b82f6',
-      trend: 12
+      trend: 0
     },
     {
       title: 'Agentes IA',
@@ -97,7 +204,7 @@ export default function DashboardPageSuperAdmin() {
       subtitle: 'Agentes activos',
       icon: 'hardware-chip',
       color: '#8b5cf6',
-      trend: 5
+      trend: 0
     },
     {
       title: 'Departamentos',
@@ -113,48 +220,12 @@ export default function DashboardPageSuperAdmin() {
       subtitle: 'Hoy',
       icon: 'chatbubbles',
       color: '#f59e0b',
-      trend: -8
-    }
-  ];
-
-  // Acciones rápidas
-  const quickActions = [
-    {
-      id: 1,
-      title: 'Gestionar Usuarios',
-      description: 'Ver y administrar usuarios',
-      icon: 'people-circle',
-      color: '#3b82f6',
-      route: '/(superadmin)/usuarios'
-    },
-    {
-      id: 2,
-      title: 'Configurar Agentes',
-      description: 'Configuración de IA',
-      icon: 'settings',
-      color: '#8b5cf6',
-      route: '/(superadmin)/agentes'
-    },
-    {
-      id: 3,
-      title: 'Ver Métricas',
-      description: 'Estadísticas detalladas',
-      icon: 'bar-chart',
-      color: '#10b981',
-      route: '/(superadmin)/metricas'
-    },
-    {
-      id: 4,
-      title: 'Organización',
-      description: 'Estructura y departamentos',
-      icon: 'git-network',
-      color: '#ec4899',
-      route: '/(superadmin)/organizacion'
+      trend: 0
     }
   ];
 
   // Loading state
-  if (loading && stats.totalUsuarios === 0) {
+  if (loading) {
     return (
       <View style={dashboardStyles.loadingContainer}>
         <ActivityIndicator size="large" color="#667eea" />
@@ -276,55 +347,6 @@ export default function DashboardPageSuperAdmin() {
                 color="#10b981"
                 subtitle="Promedio mensual"
               />
-            </View>
-          </View>
-
-          {/* Quick Actions Section */}
-          <SectionHeader
-            title="Acciones Rápidas"
-            subtitle="Accesos directos"
-            icon="flash"
-          />
-
-          <View style={dashboardStyles.quickActionsGrid}>
-            {quickActions.map((action) => (
-              <QuickActionCard
-                key={action.id}
-                title={action.title}
-                description={action.description}
-                icon={action.icon}
-                color={action.color}
-                onClick={() => console.log(`Navigate to: ${action.route}`)}
-              />
-            ))}
-          </View>
-
-          {/* Footer */}
-          <View style={dashboardStyles.footer}>
-            <View style={dashboardStyles.footerActions}>
-              <TouchableOpacity
-                style={[dashboardStyles.footerButton, dashboardStyles.logoutButton]}
-                onPress={handleLogout}
-              >
-                <Ionicons name="log-out" size={20} color="#ef4444" />
-                <Text style={dashboardStyles.logoutButtonText}>Cerrar sesión</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[dashboardStyles.footerButton, dashboardStyles.secondaryButton]}
-                onPress={() => console.log('Settings')}
-              >
-                <Ionicons name="settings" size={20} color="#64748b" />
-                <Text style={dashboardStyles.secondaryButtonText}>Configuración</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[dashboardStyles.footerButton, dashboardStyles.secondaryButton]}
-                onPress={() => console.log('Notifications')}
-              >
-                <Ionicons name="notifications" size={20} color="#64748b" />
-                <Text style={dashboardStyles.secondaryButtonText}>Notificaciones</Text>
-              </TouchableOpacity>
             </View>
           </View>
 
