@@ -1170,290 +1170,290 @@ export default function GestionAgentePage() {
                       </Text>
                     </>
                   ) : (
-/* Si está creando O no tiene departamento - SELECTOR CON MODAL */
-<>
-  {/* Botón para abrir el modal */}
-  <TouchableOpacity
-    style={{
-      marginTop: 8,
-      backgroundColor: 'rgba(71, 85, 105, 0.3)',
-      borderWidth: 2,
-      borderColor: 'rgba(148, 163, 184, 0.3)',
-      borderRadius: 12,
-      padding: 16,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    }}
-    onPress={() => setShowDeptPicker(true)}
-    activeOpacity={0.8}
-  >
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
-      <Ionicons name="business-outline" size={20} color="#667eea" />
-      <Text style={{
-        color: formData.id_departamento ? '#ffffff' : 'rgba(255, 255, 255, 0.5)',
-        fontSize: 15,
-        fontWeight: '500',
-        flex: 1,
-      }}>
-        {formData.id_departamento
-          ? departamentos.find(d => d.id_departamento.toString() === formData.id_departamento)?.nombre || 'Seleccionar...'
-          : 'Seleccionar departamento...'}
-      </Text>
-    </View>
-    <Ionicons name="chevron-down" size={20} color="#667eea" />
-  </TouchableOpacity>
+                    /* Si está creando O no tiene departamento - SELECTOR CON MODAL */
+                    <>
+                      {/* Botón para abrir el modal */}
+                      <TouchableOpacity
+                        style={{
+                          marginTop: 8,
+                          backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                          borderWidth: 2,
+                          borderColor: 'rgba(148, 163, 184, 0.3)',
+                          borderRadius: 12,
+                          padding: 16,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                        }}
+                        onPress={() => setShowDeptPicker(true)}
+                        activeOpacity={0.8}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                          <Ionicons name="business-outline" size={20} color="#667eea" />
+                          <Text style={{
+                            color: formData.id_departamento ? '#ffffff' : 'rgba(255, 255, 255, 0.5)',
+                            fontSize: 15,
+                            fontWeight: '500',
+                            flex: 1,
+                          }}>
+                            {formData.id_departamento
+                              ? departamentos.find(d => d.id_departamento.toString() === formData.id_departamento)?.nombre || 'Seleccionar...'
+                              : 'Seleccionar departamento...'}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-down" size={20} color="#667eea" />
+                      </TouchableOpacity>
 
-  {/* Modal con lista de departamentos */}
-  <Modal
-    visible={showDeptPicker}
-    animationType="slide"
-    transparent={true}
-    onRequestClose={() => setShowDeptPicker(false)}
-  >
-    <View style={{
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.7)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 20,
-    }}>
-      <View style={{
-        backgroundColor: '#1e293b',
-        borderRadius: 16,
-        width: '100%',
-        maxWidth: 500,
-        maxHeight: '80%',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.5,
-        shadowRadius: 16,
-        elevation: 16,
-      }}>
-        {/* Header del modal */}
-        <View style={{
-          backgroundColor: 'rgba(102, 126, 234, 0.2)',
-          padding: 16,
-          borderTopLeftRadius: 16,
-          borderTopRightRadius: 16,
-          borderBottomWidth: 1,
-          borderBottomColor: 'rgba(102, 126, 234, 0.3)',
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}>
-          <Text style={{ color: '#667eea', fontSize: 16, fontWeight: '700' }}>
-            📋 Seleccionar Departamento
-          </Text>
-          <TouchableOpacity
-            onPress={() => setShowDeptPicker(false)}
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              backgroundColor: 'rgba(148, 163, 184, 0.2)',
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
-            <Ionicons name="close" size={20} color="#ffffff" />
-          </TouchableOpacity>
-        </View>
+                      {/* Modal con lista de departamentos */}
+                      <Modal
+                        visible={showDeptPicker}
+                        animationType="slide"
+                        transparent={true}
+                        onRequestClose={() => setShowDeptPicker(false)}
+                      >
+                        <View style={{
+                          flex: 1,
+                          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          padding: 20,
+                        }}>
+                          <View style={{
+                            backgroundColor: '#1e293b',
+                            borderRadius: 16,
+                            width: '100%',
+                            maxWidth: 500,
+                            maxHeight: '80%',
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 8 },
+                            shadowOpacity: 0.5,
+                            shadowRadius: 16,
+                            elevation: 16,
+                          }}>
+                            {/* Header del modal */}
+                            <View style={{
+                              backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                              padding: 16,
+                              borderTopLeftRadius: 16,
+                              borderTopRightRadius: 16,
+                              borderBottomWidth: 1,
+                              borderBottomColor: 'rgba(102, 126, 234, 0.3)',
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                            }}>
+                              <Text style={{ color: '#667eea', fontSize: 16, fontWeight: '700' }}>
+                                📋 Seleccionar Departamento
+                              </Text>
+                              <TouchableOpacity
+                                onPress={() => setShowDeptPicker(false)}
+                                style={{
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: 16,
+                                  backgroundColor: 'rgba(148, 163, 184, 0.2)',
+                                  justifyContent: 'center',
+                                  alignItems: 'center',
+                                }}
+                              >
+                                <Ionicons name="close" size={20} color="#ffffff" />
+                              </TouchableOpacity>
+                            </View>
 
-        {/* Información */}
-        <View style={{
-          padding: 12,
-          backgroundColor: 'rgba(102, 126, 234, 0.1)',
-          borderBottomWidth: 1,
-          borderBottomColor: 'rgba(148, 163, 184, 0.2)',
-        }}>
-          <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 13 }}>
-            {getDepartamentosDisponibles().length} departamento(s) disponible(s)
-          </Text>
-        </View>
+                            {/* Información */}
+                            <View style={{
+                              padding: 12,
+                              backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                              borderBottomWidth: 1,
+                              borderBottomColor: 'rgba(148, 163, 184, 0.2)',
+                            }}>
+                              <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 13 }}>
+                                {getDepartamentosDisponibles().length} departamento(s) disponible(s)
+                              </Text>
+                            </View>
 
-        {/* Lista de departamentos */}
-        <ScrollView
-          style={{ maxHeight: 400 }}
-          showsVerticalScrollIndicator={true}
-        >
-          {/* Opción: Sin asignar */}
-          <TouchableOpacity
-            style={{
-              padding: 16,
-              borderBottomWidth: 1,
-              borderBottomColor: 'rgba(148, 163, 184, 0.2)',
-              backgroundColor: !formData.id_departamento
-                ? 'rgba(102, 126, 234, 0.3)'
-                : 'transparent',
-            }}
-            onPress={() => {
-              setFormData({ ...formData, id_departamento: '' });
-              setShowDeptPicker(false);
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{
-                width: 24,
-                height: 24,
-                borderRadius: 12,
-                borderWidth: 2,
-                borderColor: !formData.id_departamento ? '#667eea' : '#94a3b8',
-                backgroundColor: !formData.id_departamento ? '#667eea' : 'transparent',
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}>
-                {!formData.id_departamento && (
-                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
-                )}
-              </View>
-              <Text style={{
-                color: !formData.id_departamento ? '#ffffff' : 'rgba(255, 255, 255, 0.7)',
-                fontSize: 15,
-                fontWeight: !formData.id_departamento ? '600' : '400',
-                flex: 1,
-              }}>
-                Sin asignar
-              </Text>
-              {!formData.id_departamento && (
-                <Ionicons name="checkmark-circle" size={24} color="#22c55e" />
-              )}
-            </View>
-          </TouchableOpacity>
+                            {/* Lista de departamentos */}
+                            <ScrollView
+                              style={{ maxHeight: 400 }}
+                              showsVerticalScrollIndicator={true}
+                            >
+                              {/* Opción: Sin asignar */}
+                              <TouchableOpacity
+                                style={{
+                                  padding: 16,
+                                  borderBottomWidth: 1,
+                                  borderBottomColor: 'rgba(148, 163, 184, 0.2)',
+                                  backgroundColor: !formData.id_departamento
+                                    ? 'rgba(102, 126, 234, 0.3)'
+                                    : 'transparent',
+                                }}
+                                onPress={() => {
+                                  setFormData({ ...formData, id_departamento: '' });
+                                  setShowDeptPicker(false);
+                                }}
+                              >
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                  <View style={{
+                                    width: 24,
+                                    height: 24,
+                                    borderRadius: 12,
+                                    borderWidth: 2,
+                                    borderColor: !formData.id_departamento ? '#667eea' : '#94a3b8',
+                                    backgroundColor: !formData.id_departamento ? '#667eea' : 'transparent',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                  }}>
+                                    {!formData.id_departamento && (
+                                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
+                                    )}
+                                  </View>
+                                  <Text style={{
+                                    color: !formData.id_departamento ? '#ffffff' : 'rgba(255, 255, 255, 0.7)',
+                                    fontSize: 15,
+                                    fontWeight: !formData.id_departamento ? '600' : '400',
+                                    flex: 1,
+                                  }}>
+                                    Sin asignar
+                                  </Text>
+                                  {!formData.id_departamento && (
+                                    <Ionicons name="checkmark-circle" size={24} color="#22c55e" />
+                                  )}
+                                </View>
+                              </TouchableOpacity>
 
-          {/* Departamentos disponibles */}
-          {getDepartamentosDisponibles().length > 0 ? (
-            getDepartamentosDisponibles().map((dept, index) => (
-              <TouchableOpacity
-                key={`dept-modal-${index}`}
-                style={{
-                  padding: 16,
-                  borderBottomWidth: 1,
-                  borderBottomColor: 'rgba(148, 163, 184, 0.2)',
-                  backgroundColor: formData.id_departamento === dept.id_departamento.toString()
-                    ? 'rgba(102, 126, 234, 0.3)'
-                    : 'transparent',
-                }}
-                onPress={() => {
-                  setFormData({ ...formData, id_departamento: dept.id_departamento.toString() });
-                  setShowDeptPicker(false);
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: 12,
-                    borderWidth: 2,
-                    borderColor: formData.id_departamento === dept.id_departamento.toString() ? '#667eea' : '#94a3b8',
-                    backgroundColor: formData.id_departamento === dept.id_departamento.toString() ? '#667eea' : 'transparent',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  }}>
-                    {formData.id_departamento === dept.id_departamento.toString() && (
-                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
-                    )}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{
-                      color: formData.id_departamento === dept.id_departamento.toString() ? '#ffffff' : 'rgba(255, 255, 255, 0.9)',
-                      fontSize: 15,
-                      fontWeight: formData.id_departamento === dept.id_departamento.toString() ? '600' : '400',
-                    }}>
-                      {dept.nombre}
-                    </Text>
-                    {dept.codigo && (
-                      <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}>
-                        Código: {dept.codigo}
+                              {/* Departamentos disponibles */}
+                              {getDepartamentosDisponibles().length > 0 ? (
+                                getDepartamentosDisponibles().map((dept, index) => (
+                                  <TouchableOpacity
+                                    key={`dept-modal-${index}`}
+                                    style={{
+                                      padding: 16,
+                                      borderBottomWidth: 1,
+                                      borderBottomColor: 'rgba(148, 163, 184, 0.2)',
+                                      backgroundColor: formData.id_departamento === dept.id_departamento.toString()
+                                        ? 'rgba(102, 126, 234, 0.3)'
+                                        : 'transparent',
+                                    }}
+                                    onPress={() => {
+                                      setFormData({ ...formData, id_departamento: dept.id_departamento.toString() });
+                                      setShowDeptPicker(false);
+                                    }}
+                                  >
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                      <View style={{
+                                        width: 24,
+                                        height: 24,
+                                        borderRadius: 12,
+                                        borderWidth: 2,
+                                        borderColor: formData.id_departamento === dept.id_departamento.toString() ? '#667eea' : '#94a3b8',
+                                        backgroundColor: formData.id_departamento === dept.id_departamento.toString() ? '#667eea' : 'transparent',
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                      }}>
+                                        {formData.id_departamento === dept.id_departamento.toString() && (
+                                          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
+                                        )}
+                                      </View>
+                                      <View style={{ flex: 1 }}>
+                                        <Text style={{
+                                          color: formData.id_departamento === dept.id_departamento.toString() ? '#ffffff' : 'rgba(255, 255, 255, 0.9)',
+                                          fontSize: 15,
+                                          fontWeight: formData.id_departamento === dept.id_departamento.toString() ? '600' : '400',
+                                        }}>
+                                          {dept.nombre}
+                                        </Text>
+                                        {dept.codigo && (
+                                          <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}>
+                                            Código: {dept.codigo}
+                                          </Text>
+                                        )}
+                                      </View>
+                                      {formData.id_departamento === dept.id_departamento.toString() && (
+                                        <Ionicons name="checkmark-circle" size={24} color="#22c55e" />
+                                      )}
+                                    </View>
+                                  </TouchableOpacity>
+                                ))
+                              ) : (
+                                <View style={{ padding: 40, alignItems: 'center' }}>
+                                  <Ionicons name="folder-open-outline" size={64} color="rgba(255, 255, 255, 0.3)" />
+                                  <Text style={{
+                                    color: 'rgba(255, 255, 255, 0.6)',
+                                    fontSize: 16,
+                                    marginTop: 16,
+                                    textAlign: 'center',
+                                    fontWeight: '500',
+                                  }}>
+                                    No hay departamentos disponibles
+                                  </Text>
+                                  <Text style={{
+                                    color: 'rgba(255, 255, 255, 0.4)',
+                                    fontSize: 14,
+                                    marginTop: 8,
+                                    textAlign: 'center',
+                                  }}>
+                                    Todos ya tienen un agente asignado
+                                  </Text>
+                                </View>
+                              )}
+                            </ScrollView>
+
+                            {/* Footer con botón cerrar */}
+                            <View style={{
+                              padding: 16,
+                              borderTopWidth: 1,
+                              borderTopColor: 'rgba(148, 163, 184, 0.2)',
+                              backgroundColor: 'rgba(30, 41, 59, 0.5)',
+                            }}>
+                              <TouchableOpacity
+                                style={{
+                                  backgroundColor: 'rgba(148, 163, 184, 0.2)',
+                                  padding: 12,
+                                  borderRadius: 8,
+                                  alignItems: 'center',
+                                }}
+                                onPress={() => setShowDeptPicker(false)}
+                              >
+                                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '600' }}>
+                                  Cerrar
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        </View>
+                      </Modal>
+
+                      {/* Contador */}
+                      <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 8,
+                        backgroundColor: getDepartamentosDisponibles().length > 0 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                        padding: 10,
+                        borderRadius: 8,
+                        marginTop: 8,
+                      }}>
+                        <Ionicons
+                          name={getDepartamentosDisponibles().length > 0 ? "checkmark-circle" : "close-circle"}
+                          size={16}
+                          color={getDepartamentosDisponibles().length > 0 ? "#22c55e" : "#ef4444"}
+                        />
+                        <Text style={{
+                          color: getDepartamentosDisponibles().length > 0 ? "#22c55e" : "#ef4444",
+                          fontSize: 12,
+                          fontWeight: '600',
+                          flex: 1,
+                        }}>
+                          {getDepartamentosDisponibles().length > 0
+                            ? `${getDepartamentosDisponibles().length} departamento(s) disponible(s)`
+                            : 'No hay departamentos disponibles'}
+                        </Text>
+                      </View>
+
+                      <Text style={modalStyles.helperText}>
+                        🔒 Cada departamento solo puede tener un agente asignado
                       </Text>
-                    )}
-                  </View>
-                  {formData.id_departamento === dept.id_departamento.toString() && (
-                    <Ionicons name="checkmark-circle" size={24} color="#22c55e" />
-                  )}
-                </View>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <View style={{ padding: 40, alignItems: 'center' }}>
-              <Ionicons name="folder-open-outline" size={64} color="rgba(255, 255, 255, 0.3)" />
-              <Text style={{
-                color: 'rgba(255, 255, 255, 0.6)',
-                fontSize: 16,
-                marginTop: 16,
-                textAlign: 'center',
-                fontWeight: '500',
-              }}>
-                No hay departamentos disponibles
-              </Text>
-              <Text style={{
-                color: 'rgba(255, 255, 255, 0.4)',
-                fontSize: 14,
-                marginTop: 8,
-                textAlign: 'center',
-              }}>
-                Todos ya tienen un agente asignado
-              </Text>
-            </View>
-          )}
-        </ScrollView>
-
-        {/* Footer con botón cerrar */}
-        <View style={{
-          padding: 16,
-          borderTopWidth: 1,
-          borderTopColor: 'rgba(148, 163, 184, 0.2)',
-          backgroundColor: 'rgba(30, 41, 59, 0.5)',
-        }}>
-          <TouchableOpacity
-            style={{
-              backgroundColor: 'rgba(148, 163, 184, 0.2)',
-              padding: 12,
-              borderRadius: 8,
-              alignItems: 'center',
-            }}
-            onPress={() => setShowDeptPicker(false)}
-          >
-            <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '600' }}>
-              Cerrar
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  </Modal>
-
-  {/* Contador */}
-  <View style={{
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: getDepartamentosDisponibles().length > 0 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 8,
-  }}>
-    <Ionicons
-      name={getDepartamentosDisponibles().length > 0 ? "checkmark-circle" : "close-circle"}
-      size={16}
-      color={getDepartamentosDisponibles().length > 0 ? "#22c55e" : "#ef4444"}
-    />
-    <Text style={{
-      color: getDepartamentosDisponibles().length > 0 ? "#22c55e" : "#ef4444",
-      fontSize: 12,
-      fontWeight: '600',
-      flex: 1,
-    }}>
-      {getDepartamentosDisponibles().length > 0
-        ? `${getDepartamentosDisponibles().length} departamento(s) disponible(s)`
-        : 'No hay departamentos disponibles'}
-    </Text>
-  </View>
-
-  <Text style={modalStyles.helperText}>
-    🔒 Cada departamento solo puede tener un agente asignado
-  </Text>
-</>
+                    </>
                   )}
                 </View>
 

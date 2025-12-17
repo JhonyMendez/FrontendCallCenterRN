@@ -471,7 +471,6 @@ const confirmarReactivar = (usuario) => {
 
 // ✅ CONTAR USUARIOS POR ROL (solo activos, sin aplicar filtros de búsqueda/rol)
 const contarPorRol = (idRol) => {
-  // ✅ Filtrar SOLO por estado activo, ignorando búsqueda y filtro de rol
   const lista = Array.isArray(usuarios) 
     ? usuarios.filter(u => u.estado?.toLowerCase() !== 'inactivo')
     : [];
