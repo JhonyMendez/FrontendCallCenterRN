@@ -24,39 +24,65 @@ export default function SidebarFuncionario({ isOpen }) {
 
   // ✅ Menú exclusivo para Funcionario
   const menuItems = [
-
-
     {
-      id: 'Dashboard',
-      label: 'dashboard',
-      icon: 'sparkles-outline',
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: 'grid-outline',
       route: '/funcionario/dashboard',
     },
-
     {
       id: 'agente',
-      label: 'Agente',
-      icon: 'sparkles-outline',
+      label: 'Gestión de Agente',
+      icon: 'planet-outline',
       submenu: [
         {
-          label: 'Añadir información',
+          label: 'Gestionar contenidos',
+          icon: 'add-circle-outline',
           route: '/funcionario/gestionContenidoFuncionario',
         },
       ],
     },
-
     {
       id: 'conversacion',
       label: 'Conversaciones',
-      icon: 'sparkles-outline',
+      icon: 'chatbubbles-outline',
       submenu: [
         {
-          label: 'Interactuar con conversaciones',
+          label: 'Ver conversaciones',
+          icon: 'list-outline',
           route: '/funcionario/gestionconversacion',
         },
       ],
     },
-
+    {
+      id: 'metricas',
+      label: 'Métricas',
+      icon: 'analytics-outline',
+      submenu: [
+        {
+          label: 'Estadísticas',
+          icon: 'bar-chart-outline',
+          route: '/funcionario/estadisticas',
+        },
+        {
+          label: 'Reportes',
+          icon: 'document-attach-outline',
+          route: '/funcionario/reportes',
+        },
+      ],
+    },
+    {
+      id: 'exportar',
+      label: 'Exportar Datos',
+      icon: 'download-outline',
+      submenu: [
+        {
+          label: 'Exportar conversaciones',
+          icon: 'cloud-download-outline',
+          route: '/funcionario/exportar/conversaciones',
+        },
+      ],
+    },
   ];
 
   const toggleMenu = (menuId) => {
@@ -68,19 +94,22 @@ export default function SidebarFuncionario({ isOpen }) {
 
   const handleNavigation = (route) => {
     try {
+      console.log('🔄 [Sidebar Funcionario] Navegando a:', route);
       router.push(route);
     } catch (error) {
-      console.error('Error al navegar:', error);
+      console.error('❌ [Sidebar Funcionario] Error al navegar:', error);
     }
   };
 
   const handleLogout = async () => {
     try {
+      console.log('🔄 [Sidebar Funcionario] Cerrando sesión...');
       await apiClient.removeToken();
       await authService.limpiarSesion();
       router.replace('/auth/login');
+      console.log('✅ [Sidebar Funcionario] Sesión cerrada correctamente');
     } catch (error) {
-      console.error('Error al cerrar sesión:', error);
+      console.error('❌ [Sidebar Funcionario] Error al cerrar sesión:', error);
     }
   };
 
@@ -89,7 +118,7 @@ export default function SidebarFuncionario({ isOpen }) {
       {/* Header */}
       <View style={sidebarStyles.header}>
         <View style={sidebarStyles.iconWrapperGradient}>
-          <Ionicons name="briefcase-outline" size={24} color="#ffffff" />
+          <Ionicons name="briefcase" size={24} color="#ffffff" />
         </View>
         <View style={sidebarStyles.headerTitle}>
           <Text style={sidebarStyles.title}>Funcionario</Text>
@@ -109,6 +138,7 @@ export default function SidebarFuncionario({ isOpen }) {
 
             return (
               <View key={item.id} style={sidebarStyles.menuItem}>
+                {/* Botón principal del menú */}
                 <TouchableOpacity
                   style={sidebarStyles.menuButton}
                   onPress={() =>
@@ -134,6 +164,7 @@ export default function SidebarFuncionario({ isOpen }) {
                   )}
                 </TouchableOpacity>
 
+                {/* Submenú expandido */}
                 {hasSubmenu && isExpanded && (
                   <View style={sidebarStyles.submenu}>
                     {item.submenu.map((subitem, index) => (
@@ -145,8 +176,8 @@ export default function SidebarFuncionario({ isOpen }) {
                       >
                         <View style={sidebarStyles.submenuIcon}>
                           <Ionicons
-                            name="chevron-forward"
-                            size={12}
+                            name={subitem.icon || 'chevron-forward'}
+                            size={16}
                             color="#c7d2fe"
                           />
                         </View>
