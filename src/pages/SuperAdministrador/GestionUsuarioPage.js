@@ -11,7 +11,9 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Modal,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -20,14 +22,14 @@ import {
 
 import { rolService } from '../../api/services/rolService';
 import { usuarioService } from '../../api/services/usuarioService';
-import GestionUsuariosCard from '../../components/SuperAdministrador/GestionUsuarioCard';
+import GestionUsuarioCard from '../../components/SuperAdministrador/GestionUsuarioCard';
 import UsuarioCard from '../../components/SuperAdministrador/UsuarioCard';
 
 import SuperAdminSidebar from '../../components/Sidebar/sidebarSuperAdmin';
 import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles';
+import { getUserIdFromToken } from '../../components/utils/authHelper';
 import SecurityValidator from '../../components/utils/SecurityValidator';
 import { styles } from '../../styles/GestionUsuariosStyles';
-
 
 const GestionUsuarioPage = () => {
   // ==================== ESTADOS ====================
@@ -45,9 +47,24 @@ const GestionUsuarioPage = () => {
   // ✅ NUEVOS ESTADOS PARA PAGINACIÓN
   const [skip, setSkip] = useState(0);
   const [limit, setLimit] = useState(50); // Por defecto 50 usuarios
-  const [paginaActual, setPaginaActual] = useState(1);
+const [paginaActual, setPaginaActual] = useState(1);
 
-  // ==================== ANIMACIONES ====================
+// ==================== ESTADOS PARA MODALES ====================
+const [modalConfirm, setModalConfirm] = useState({
+  visible: false,
+  title: '',
+  message: '',
+  onConfirm: null,
+  type: 'danger'
+});
+
+const [modalNotification, setModalNotification] = useState({
+  visible: false,
+  message: '',
+  type: 'success'
+});
+
+// ==================== ANIMACIONES ====================
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const rateLimiter = useRef(SecurityValidator.createRateLimiter()).current;
 
@@ -76,9 +93,8 @@ const GestionUsuarioPage = () => {
   }, [usuarios, busqueda, filtroRol]);
 
 
-
   const filtrarUsuarios = () => {
-    const limiteCheck = rateLimiter.check(30); // 30 búsquedas por minuto
+    const limiteCheck = rateLimiter.check(30); 
     if (!limiteCheck.allowed) {
       Alert.alert('Límite excedido', limiteCheck.message);
       return;
@@ -86,6 +102,8 @@ const GestionUsuarioPage = () => {
 
     const lista = Array.isArray(usuarios) ? usuarios : [];
     let resultado = [...lista];
+
+    resultado = resultado.filter(u => u.estado?.toLowerCase() !== 'inactivo');
 
 
     // Filtrar por búsqueda
@@ -121,6 +139,9 @@ const GestionUsuarioPage = () => {
 
     setUsuariosFiltrados(resultado);
   };
+
+
+
 
   // ==================== FUNCIONES DE CARGA ====================
   const cargarDatosIniciales = async () => {
@@ -230,31 +251,150 @@ const GestionUsuarioPage = () => {
       cerrarFormulario();
     }
   };
-
-  const confirmarEliminar = (usuario) => {
-    // Validar que usuario tenga id válido
+const confirmarEliminar = async (usuario) => {
+    console.log('🔵 [confirmarEliminar] INICIADO');
+    console.log('🔵 Usuario recibido:', usuario);
+    
     if (!usuario || !usuario.id_usuario) {
-      Alert.alert('Error', 'Usuario inválido');
+      console.log('❌ Usuario inválido, mostrando notificación');
+      setModalNotification({
+        visible: true,
+        message: 'Error: Usuario inválido',
+        type: 'error'
+      });
+      return;
+    }
+
+    // ✅ VALIDAR QUE NO SE ELIMINE A SÍ MISMO
+    try {
+      const miIdUsuario = await getUserIdFromToken();
+      
+      if (usuario.id_usuario === miIdUsuario) {
+        console.log('❌ Intento de auto-eliminación bloqueado');
+        setModalNotification({
+          visible: true,
+          message: '❌ No puedes eliminarte a ti mismo',
+          type: 'error'
+        });
+        return;
+      }
+    } catch (error) {
+      console.error('Error obteniendo ID del usuario actual:', error);
+    }
+
+    const usernameSeguro = SecurityValidator.sanitizeText(usuario.username || 'este usuario');
+    
+    console.log('✅ Mostrando modal de confirmación');
+    console.log('✅ Modal state antes:', modalConfirm);
+    
+    setModalConfirm({
+      visible: true,
+      title: 'Confirmar Eliminación',
+      message: `¿Estás seguro de eliminar al usuario ${usernameSeguro}?\n\nEste usuario será Eliminado permanentemente.`,
+      onConfirm: () => {
+        console.log('🔵 onConfirm ejecutado');
+        setModalConfirm({ ...modalConfirm, visible: false });
+        eliminarUsuario(usuario.id_usuario);
+      },
+      type: 'danger'
+    });
+    
+    console.log('✅ setModalConfirm ejecutado');
+  };
+
+const eliminarUsuario = async (id_usuario) => {
+    console.log('🔍 [eliminarUsuario] Iniciando eliminación...');
+    console.log('🔍 [eliminarUsuario] ID recibido:', id_usuario);
+    
+    // Validar ID
+    const idSeguro = parseInt(id_usuario);
+    console.log('🔍 [eliminarUsuario] ID parseado:', idSeguro);
+    
+    if (isNaN(idSeguro) || idSeguro <= 0) {
+      console.error('❌ ID inválido:', idSeguro);
+      Alert.alert('Error', 'ID de usuario inválido');
+      return;
+    }
+
+    console.log('✅ [eliminarUsuario] ID validado, llamando al servicio...');
+    setLoading(true);
+    
+    try {
+      console.log('📤 [eliminarUsuario] Llamando a usuarioService.delete...');
+      const response = await usuarioService.delete(idSeguro);
+      
+      console.log('✅ [eliminarUsuario] Respuesta del servicio:', response);
+      
+      // Actualizar el estado local para que aparezca como inactivo
+      console.log('🔄 [eliminarUsuario] Actualizando estado local...');
+      setUsuarios(prevUsuarios => {
+        const nuevosUsuarios = prevUsuarios.map(u => {
+          if (u.id_usuario === idSeguro) {
+            console.log('🔄 Usuario encontrado, cambiando estado a inactivo:', u.username);
+            return { 
+              ...u, 
+              estado: 'inactivo',
+              persona: u.persona ? { ...u.persona, estado: 'inactivo' } : null
+            };
+          }
+          return u;
+        });
+        console.log('✅ [eliminarUsuario] Estado local actualizado');
+        return nuevosUsuarios;
+      });
+      
+      setModalNotification({
+        visible: true,
+        message: 'Usuario eliminado correctamente',
+        type: 'success'
+      });
+      console.log('✅ [eliminarUsuario] Proceso completado');
+      
+    } catch (error) {
+      console.error('❌ [eliminarUsuario] ERROR COMPLETO:', error);
+      console.error('❌ [eliminarUsuario] Error.message:', error.message);
+      console.error('❌ [eliminarUsuario] Error.data:', error.data);
+      
+      const mensajeError = SecurityValidator.sanitizeText(
+        error.message || 'No se pudo eliminar el usuario'
+      );
+     setModalNotification({
+        visible: true,
+        message: mensajeError,
+        type: 'error'
+      });
+    } finally {
+      console.log('🏁 [eliminarUsuario] Finally - Quitando loading');
+      setLoading(false);
+    }
+  };
+
+
+const confirmarReactivar = (usuario) => {
+    if (!usuario || !usuario.id_usuario) {
+      setModalNotification({
+        visible: true,
+        message: 'Error: Usuario inválido',
+        type: 'error'
+      });
       return;
     }
 
     const usernameSeguro = SecurityValidator.sanitizeText(usuario.username || 'este usuario');
     
-    Alert.alert(
-      'Confirmar Eliminación',
-      `¿Estás seguro de eliminar al usuario ${usernameSeguro}?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Eliminar', 
-          style: 'destructive',
-          onPress: () => eliminarUsuario(usuario.id_usuario)
-        }
-      ]
-    );
+    setModalConfirm({
+      visible: true,
+      title: 'Confirmar Reactivación',
+      message: `¿Estás seguro de reactivar al usuario ${usernameSeguro}?`,
+      onConfirm: () => {
+        setModalConfirm({ ...modalConfirm, visible: false });
+        reactivarUsuario(usuario.id_usuario);
+      },
+      type: 'success'
+    });
   };
 
-  const eliminarUsuario = async (id_usuario) => {
+  const reactivarUsuario = async (id_usuario) => {
     // Validar ID
     const idSeguro = parseInt(id_usuario);
     if (isNaN(idSeguro) || idSeguro <= 0) {
@@ -262,16 +402,42 @@ const GestionUsuarioPage = () => {
       return;
     }
 
+    setLoading(true);
     try {
-      await usuarioService.delete(idSeguro);
-      Alert.alert('Éxito', 'Usuario eliminado correctamente');
-      await cargarUsuarios();
-    } catch (error) {
-      console.error('Error eliminando usuario:', error);
-      const mensajeError = SecurityValidator.sanitizeText(
-        error.message || 'No se pudo eliminar el usuario'
+      const response = await usuarioService.reactivar(idSeguro);
+      
+      console.log('✅ Usuario reactivado:', response);
+      
+      // Actualizar el estado local para que aparezca como activo
+      setUsuarios(prevUsuarios => 
+        prevUsuarios.map(u => 
+          u.id_usuario === idSeguro 
+            ? { 
+                ...u, 
+                estado: 'activo',
+                persona: u.persona ? { ...u.persona, estado: 'activo' } : null
+              }
+            : u
+        )
       );
-      Alert.alert('Error', mensajeError);
+      
+      setModalNotification({
+        visible: true,
+        message: 'Usuario reactivado correctamente',
+        type: 'success'
+      });
+    } catch (error) {
+      console.error('❌ Error reactivando usuario:', error);
+      const mensajeError = SecurityValidator.sanitizeText(
+        error.message || 'No se pudo reactivar el usuario'
+      );
+      setModalNotification({
+        visible: true,
+        message: mensajeError,
+        type: 'error'
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -358,7 +524,7 @@ const GestionUsuarioPage = () => {
             <Text style={styles.loadingText}>Cargando usuarios...</Text>
           </View>
         ) : mostrarFormulario ? (
-          <GestionUsuariosCard
+          <GestionUsuarioCard
             usuario={usuarioSeleccionado}
             roles={roles}
             onCerrar={cerrarFormulario}
@@ -492,6 +658,7 @@ const GestionUsuarioPage = () => {
                     usuario={usuario}
                     onEditar={() => abrirFormularioEditar(usuario)}
                     onEliminar={() => confirmarEliminar(usuario)}
+                    onReactivar={() => confirmarReactivar(usuario)}
                     index={index}
                   />
                 ))
@@ -523,10 +690,275 @@ const GestionUsuarioPage = () => {
               )}
             </ScrollView>
           </ScrollView>
-        )}
+)}
       </View>
+
+      {/* Modales */}
+      {console.log('🟡 Renderizando modales - modalConfirm:', modalConfirm)}
+      {console.log('🟡 Renderizando modales - modalNotification:', modalNotification)}
+      <ConfirmModal
+        visible={modalConfirm.visible}
+        title={modalConfirm.title}
+        message={modalConfirm.message}
+        onConfirm={modalConfirm.onConfirm}
+        onCancel={() => setModalConfirm({ ...modalConfirm, visible: false })}
+        confirmText={modalConfirm.type === 'success' ? 'Reactivar' : 'Eliminar'}
+        cancelText="Cancelar"
+        type={modalConfirm.type}
+      />
+
+      <NotificationModal
+        visible={modalNotification.visible}
+        message={modalNotification.message}
+        type={modalNotification.type}
+        onClose={() => setModalNotification({ ...modalNotification, visible: false })}
+      />
     </View>
   );
 };
+
+// ==================== MODALES CUSTOM ====================
+const ConfirmModal = ({ visible, title, message, onConfirm, onCancel, confirmText = 'Confirmar', cancelText = 'Cancelar', type = 'danger' }) => {
+  console.log('🟢 [ConfirmModal] Renderizado - visible:', visible);
+  console.log('🟢 [ConfirmModal] Props:', { title, message, type });
+  
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      scaleAnim.setValue(0);
+    }
+  }, [visible]);
+
+  const getColors = () => {
+    if (type === 'danger') {
+      return {
+        icon: 'warning',
+        iconColor: '#ef4444',
+        confirmBg: '#ef4444',
+      };
+    }
+    return {
+      icon: 'checkmark-circle',
+      iconColor: '#10b981',
+      confirmBg: '#10b981',
+    };
+  };
+
+  const colors = getColors();
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={modalStyles.overlay}>
+        <Animated.View style={[modalStyles.modalContainer, { transform: [{ scale: scaleAnim }] }]}>
+          <View style={[modalStyles.iconContainer, { backgroundColor: `${colors.iconColor}20` }]}>
+            <Ionicons name={colors.icon} size={48} color={colors.iconColor} />
+          </View>
+
+          <Text style={modalStyles.title}>{title}</Text>
+          <Text style={modalStyles.message}>{message}</Text>
+
+          <View style={modalStyles.buttonContainer}>
+            <TouchableOpacity style={modalStyles.btnCancel} onPress={onCancel} activeOpacity={0.8}>
+              <Text style={modalStyles.btnCancelText}>{cancelText}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[modalStyles.btnConfirm, { backgroundColor: colors.confirmBg }]}
+              onPress={onConfirm}
+              activeOpacity={0.8}
+            >
+              <Text style={modalStyles.btnConfirmText}>{confirmText}</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+};
+
+const NotificationModal = ({ visible, message, type = 'success', onClose }) => {
+  const slideAnim = useRef(new Animated.Value(-100)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }).start();
+
+      const timer = setTimeout(() => {
+        Animated.timing(slideAnim, {
+          toValue: -100,
+          duration: 300,
+          useNativeDriver: true,
+        }).start(() => onClose());
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [visible]);
+
+  const getConfig = () => {
+    if (type === 'error') {
+      return {
+        icon: 'close-circle',
+        iconColor: '#ef4444',
+        bgColor: '#fef2f2',
+        borderColor: '#ef4444',
+      };
+    }
+    return {
+      icon: 'checkmark-circle',
+      iconColor: '#10b981',
+      bgColor: '#f0fdf4',
+      borderColor: '#10b981',
+    };
+  };
+
+  const config = getConfig();
+
+  if (!visible) return null;
+
+  return (
+    <View style={modalStyles.notificationOverlay}>
+      <Animated.View
+        style={[
+          modalStyles.notificationContainer,
+          {
+            backgroundColor: config.bgColor,
+            borderColor: config.borderColor,
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
+      >
+        <Ionicons name={config.icon} size={32} color={config.iconColor} />
+        <Text style={modalStyles.notificationMessage}>{message}</Text>
+        <TouchableOpacity onPress={onClose} style={modalStyles.closeBtn}>
+          <Ionicons name="close" size={20} color="#6b7280" />
+        </TouchableOpacity>
+      </Animated.View>
+    </View>
+  );
+};
+
+// Estilos para los modales
+const modalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  iconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  message: {
+    fontSize: 15,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  btnCancel: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+  },
+  btnCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  btnConfirm: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  btnConfirmText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  notificationOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    paddingTop: 60,
+    zIndex: 9999,
+    pointerEvents: 'box-none',
+  },
+  notificationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    maxWidth: 400,
+    minWidth: 300,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+    gap: 12,
+  },
+  notificationMessage: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  closeBtn: {
+    padding: 4,
+  },
+});
 
 export default GestionUsuarioPage;

@@ -31,7 +31,7 @@ export default function AdminSidebar({ isOpen }) {
       id: 'dashboard',
       label: 'Dashboard',
       icon: 'grid-outline',
-      route: '/admin/dashboard',
+      route: '/admin/dashboardAdmin',
     },
     {
       id: 'usuarios',
@@ -39,7 +39,7 @@ export default function AdminSidebar({ isOpen }) {
       icon: 'people-outline',
       submenu: [
         { label: 'Ver Usuarios', route: '/admin/usuariosAdmin' },
-        { label: 'Asignacion de Usuarios', route: '/superadmin/DepartamentoUsuarioAdmin' }
+        { label: 'Asignacion de Usuarios', route: '/admin/DepartamentoUsuario' }
       ]
     },
     {
@@ -47,8 +47,7 @@ export default function AdminSidebar({ isOpen }) {
       label: 'Departamentos',
       icon: 'business-outline',
       submenu: [
-        { label: 'Mis Departamentos', route: '/admin/departamentoAdmin' },
-        { label: 'Asignar Usuarios', route: '/admin/departamentos/asignar' },
+        { label: 'Gestion de Departamentos', route: '/admin/departamentoAdmin' },
       ]
     },
 
@@ -71,16 +70,6 @@ export default function AdminSidebar({ isOpen }) {
         { label: 'Reportes Generales', route: '/admin/reportes' },
         { label: 'Actividad de Usuarios', route: '/admin/reportes/actividad' },
         { label: 'Métricas del Departamento', route: '/admin/reportes/metricas' },
-      ]
-    },
-    {
-      id: 'configuracion',
-      label: 'Configuración',
-      icon: 'settings-outline',
-      submenu: [
-        { label: 'Perfil', route: '/admin/configuracion/perfil' },
-        { label: 'Preferencias', route: '/admin/configuracion/preferencias' },
-        { label: 'Notificaciones', route: '/admin/configuracion/notificaciones' },
       ]
     },
   ];

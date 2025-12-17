@@ -5,10 +5,7 @@ import { ENDPOINTS } from '../config';
 export const usuarioService = {
   // Login con logging detallado
 
-
-
-
- /**
+  /**
    * 📋 Listar usuarios con información COMPLETA
    * Incluye: Usuario + Persona + Departamento + Roles con permisos
    */
@@ -48,11 +45,6 @@ export const usuarioService = {
     }
   },
 
-
-
-
-
-
   login: async (credentials) => {
     try {
       console.log('🔐 [UsuarioService] Login iniciado');
@@ -79,7 +71,6 @@ export const usuarioService = {
     return await apiClient.post(ENDPOINTS.USUARIOS.BASE, usuarioData);
   },
 
-  // ✅ AGREGAR ESTE MÉTODO
   /**
    * Crear usuario completo con transacción atómica (Persona + Usuario + Roles)
    * @param {Object} data - { username, email, password, persona: {...}, roles: [...] }
@@ -89,8 +80,6 @@ export const usuarioService = {
       const response = await apiClient.post('/usuarios/crear-completo', data);
       return response;
     } catch (error) {
-      // ✅ El error ya viene estructurado desde apiClient
-      // Solo lo propagamos tal cual
       throw error;
     }
   },
@@ -125,9 +114,42 @@ export const usuarioService = {
     return await apiClient.put(ENDPOINTS.USUARIOS.BY_ID(id), usuarioData);
   },
 
-  // Eliminar usuario (soft delete)
+// Eliminar usuario (soft delete)
   delete: async (id) => {
-    return await apiClient.delete(ENDPOINTS.USUARIOS.BY_ID(id));
+    try {
+      console.log(`📤 [usuarioService] Eliminando usuario ${id}`);
+      const response = await apiClient.delete(`/usuarios/${id}`);
+      console.log('✅ [usuarioService] Usuario eliminado:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [usuarioService] Error eliminando usuario:', error);
+      throw new Error(
+        error.data?.detail || 
+        error.message || 
+        'Error al eliminar usuario'
+      );
+    }
+  },
+
+  /**
+   * 🔄 Reactivar usuario inactivo
+   * @param {number} id - ID del usuario a reactivar
+   * @returns {Promise<object>} Respuesta con estado actualizado
+   */
+  reactivar: async (id) => {
+    try {
+      console.log(`📤 [usuarioService] Reactivando usuario ${id}`);
+      const response = await apiClient.patch(`/usuarios/${id}/reactivar`);
+      console.log('✅ [usuarioService] Usuario reactivado exitosamente');
+      return response;
+    } catch (error) {
+      console.error('❌ [usuarioService] Error reactivando usuario:', error);
+      throw new Error(
+        error.data?.detail || 
+        error.message || 
+        'Error al reactivar usuario'
+      );
+    }
   },
 
   // Cambiar password
@@ -181,10 +203,7 @@ export const usuarioService = {
     }
   },
 
-
-
-
- /**
+  /**
    * 🏢 Cambiar departamento de un usuario
    * @param {number} id_usuario - ID del usuario
    * @param {object} data - { id_departamento: number | null, motivo?: string }
@@ -211,8 +230,4 @@ export const usuarioService = {
       );
     }
   }
-
-
-
-
 };

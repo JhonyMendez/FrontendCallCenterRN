@@ -185,9 +185,18 @@ class ApiClient {
     }
   }
 
-  async put(endpoint, data, options = {}) {
+async put(endpoint, data, options = {}) {
     try {
       const response = await this.axiosInstance.put(endpoint, data, options);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async patch(endpoint, data, options = {}) {
+    try {
+      const response = await this.axiosInstance.patch(endpoint, data, options);
       return response.data;
     } catch (error) {
       throw error;

@@ -15,7 +15,7 @@ import {
 import SecurityValidator from '../../components/utils/SecurityValidator';
 
 
-const UsuarioCard = ({ usuario, onEditar, onEliminar, index }) => {
+const UsuarioCard = ({ usuario, onEditar, onEliminar, onReactivar, index }) => {
   const [expanded, setExpanded] = useState(false);
 
   // ==================== FUNCIONES DE UTILIDAD ====================
@@ -73,10 +73,24 @@ const UsuarioCard = ({ usuario, onEditar, onEliminar, index }) => {
       return 'N/A';
     }
   };
+
+  const esInactivo = usuario.estado?.toLowerCase() === 'inactivo';
+
   // ==================== RENDER ====================
   return (
-    <View style={styles.card}>
-      {/* Header de la tarjeta */}
+      <View style={[
+        styles.card,
+        esInactivo && styles.cardInactivo  // Estilo especial para inactivos
+      ]}>
+        {/* Banner de usuario inactivo */}
+        {esInactivo && (
+          <View style={styles.inactivoBanner}>
+            <Ionicons name="eye-off" size={16} color="#6b7280" />
+            <Text style={styles.inactivoText}>Usuario Inactivo (Eliminado)</Text>
+          </View>
+        )}
+
+        {/* Header de la tarjeta */}
       <View style={styles.cardHeader}>
         <View style={styles.avatarContainer}>
           <LinearGradient
@@ -226,7 +240,7 @@ const UsuarioCard = ({ usuario, onEditar, onEliminar, index }) => {
         </View>
       )}
 
-      {/* Botones de acción */}
+{/* Botones de acción */}
       <View style={styles.actionsContainer}>
         <TouchableOpacity
           style={styles.btnExpand}
@@ -243,23 +257,38 @@ const UsuarioCard = ({ usuario, onEditar, onEliminar, index }) => {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.btnEdit}
-          onPress={onEditar}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="create-outline" size={20} color="#667eea" />
-          <Text style={styles.btnText}>Editar</Text>
-        </TouchableOpacity>
+        {/* Mostrar botones normales solo si NO está inactivo */}
+        {!esInactivo ? (
+          <>
+            <TouchableOpacity
+              style={styles.btnEdit}
+              onPress={onEditar}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="create-outline" size={20} color="#667eea" />
+              <Text style={styles.btnText}>Editar</Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.btnDelete}
-          onPress={onEliminar}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="trash-outline" size={20} color="#ef4444" />
-          <Text style={[styles.btnText, { color: '#ef4444' }]}>Eliminar</Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.btnDelete}
+              onPress={onEliminar}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="trash-outline" size={20} color="#ef4444" />
+              <Text style={[styles.btnText, { color: '#ef4444' }]}>Eliminar</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          // Mostrar botón de reactivar si está inactivo
+          <TouchableOpacity
+            style={styles.btnReactivar}
+            onPress={onReactivar}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="refresh" size={20} color="#10b981" />
+            <Text style={[styles.btnText, { color: '#10b981' }]}>Reactivar</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -499,11 +528,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#fee2e2',
     gap: 4,
   },
-  btnText: {
+btnText: {
     fontSize: 13,
     fontWeight: '600',
     color: '#667eea',
   },
+  // Estilos para usuarios inactivos
+  cardInactivo: {
+    opacity: 0.7,
+    borderColor: '#9ca3af',
+    backgroundColor: '#f9fafb',
+  },
+  inactivoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef3c7',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 12,
+    gap: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: '#f59e0b',
+  },
+  inactivoText: {
+    fontSize: 12,
+    color: '#92400e',
+    fontWeight: '600',
+  },
+  btnReactivar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#d1fae5',
+    gap: 4,
+  },
 });
-
-export default UsuarioCard;
+export { UsuarioCard };
+export default UsuarioCard; 

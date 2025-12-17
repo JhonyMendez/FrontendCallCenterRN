@@ -79,18 +79,6 @@ export default function SuperAdminSidebar({ isOpen }) {
         { label: 'Exportar Usuarios', route: '/(superadmin)/exportar/usuarios' },
         { label: 'Exportar Departamentos', route: '/(superadmin)/exportar/departamentos' },
         { label: 'Exportar Métricas', route: '/(superadmin)/exportar/metricas' },
-        { label: 'Exportación Personalizada', route: '/(superadmin)/exportar/personalizada' },
-      ]
-    },
-    {
-      id: 'configuracion',
-      label: 'Configuración Sistema',
-      icon: 'settings-outline',
-      submenu: [
-        { label: 'General', route: '/(superadmin)/configuracion/general' },
-        { label: 'Seguridad', route: '/(superadmin)/configuracion/seguridad' },
-        { label: 'Notificaciones', route: '/(superadmin)/configuracion/notificaciones' },
-        { label: 'Integraciones', route: '/(superadmin)/configuracion/integraciones' },
       ]
     },
     {
