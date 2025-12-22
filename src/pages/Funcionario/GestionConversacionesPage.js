@@ -1,4 +1,3 @@
-
 // src/pages/Funcionario/GestionConversacionesPage.js
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -9,6 +8,7 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -21,6 +21,7 @@ import { GestionConversacionesCard } from '../../components/Funcionario/GestionC
 import NotificacionesBadge from '../../components/Funcionario/NotificacionesBadge';
 import FuncionarioSidebar from '../../components/Sidebar/sidebarFuncionario';
 import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles';
+import { getUserIdFromToken } from '../../components/utils/authHelper';
 
 const GestionConversacionesPage = () => {
   const router = useRouter();
@@ -31,25 +32,61 @@ const GestionConversacionesPage = () => {
   const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [vistaActual, setVistaActual] = useState('mis'); // 'mis' o 'todas'
   const [filtroEstado, setFiltroEstado] = useState('todas');
   const [mensajeTexto, setMensajeTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [mostrarModalResolver, setMostrarModalResolver] = useState(false);
+  const [mostrarModalTransferir, setMostrarModalTransferir] = useState(false);
+  const [funcionariosDisponibles, setFuncionariosDisponibles] = useState([]);
+
+  // 🔥 Estado de usuario autenticado
+  const [userId, setUserId] = useState(null);
+  const [userName, setUserName] = useState('Usuario');
+  const [userDepartment, setUserDepartment] = useState(null);
 
   const flatListRef = useRef(null);
 
-  // TODO: Obtener de tu context/store de autenticación
-  const ID_USUARIO = 1;
-  const NOMBRE_USUARIO = 'Usuario Temporal';
-  const ID_DEPARTAMENTO = null;
-
+  // ============================================
+  // OBTENER DATOS DEL USUARIO AUTENTICADO
+  // ============================================
   useEffect(() => {
-    cargarConversaciones();
-    const interval = setInterval(cargarConversaciones, 30000);
-    return () => clearInterval(interval);
-  }, [filtroEstado]);
+    const obtenerUsuario = async () => {
+      try {
+        const id = await getUserIdFromToken();
+        if (id) {
+          setUserId(id);
+          console.log('✅ Usuario autenticado:', id);
+          
+          // TODO: Aquí podrías hacer un request adicional para obtener nombre y departamento
+          // const userData = await usuarioService.getMiPerfil();
+          // setUserName(userData.nombre);
+          // setUserDepartment(userData.id_departamento);
+        } else {
+          Alert.alert('Error', 'No se pudo obtener información del usuario');
+          router.push('/login');
+        }
+      } catch (error) {
+        console.error('❌ Error obteniendo usuario:', error);
+        router.push('/login');
+      }
+    };
 
-  // Auto-refresh del detalle si hay conversación seleccionada
+    obtenerUsuario();
+  }, []);
+
+  // ============================================
+  // CARGAR CONVERSACIONES
+  // ============================================
+  useEffect(() => {
+    if (userId) {
+      cargarConversaciones();
+      const interval = setInterval(cargarConversaciones, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [vistaActual, filtroEstado, userId]);
+
+  // Auto-refresh del detalle
   useEffect(() => {
     if (conversacionSeleccionada) {
       const interval = setInterval(() => {
@@ -60,18 +97,31 @@ const GestionConversacionesPage = () => {
   }, [conversacionSeleccionada]);
 
   const cargarConversaciones = async () => {
+    if (!userId) return;
+
     try {
       setLoading(true);
       
-      const response = await escalamientoService.getAllEscaladas({
-        solo_pendientes: filtroEstado === 'pendientes',
-        id_departamento: ID_DEPARTAMENTO
-      });
+      let response;
+      
+      if (vistaActual === 'mis') {
+        // 🔥 NUEVO: Cargar solo MIS conversaciones asignadas
+        response = await escalamientoService.getMisConversaciones(userId, {
+          solo_activas: filtroEstado !== 'resueltas',
+          limite: 50
+        });
+      } else {
+        // Cargar TODAS las conversaciones del departamento
+        response = await escalamientoService.getAllEscaladas({
+          solo_pendientes: filtroEstado === 'pendientes',
+          id_departamento: userDepartment
+        });
+      }
 
       if (response.success) {
         const conversacionesFormateadas = response.conversaciones.map(conv => ({
           id: conv.session_id,
-          visitante: conv.identificador_visitante || 'Visitante Anónimo',
+          visitante: 'Visitante Anónimo',
           codigo: conv.session_id.substring(0, 8).toUpperCase(),
           ultimoMensaje: conv.ultimo_mensaje || 'Sin mensajes',
           fecha: formatearFecha(conv.fecha_ultimo_mensaje || conv.fecha_escalamiento),
@@ -81,17 +131,26 @@ const GestionConversacionesPage = () => {
           estado: mapearEstado(conv.estado),
           sessionId: conv.session_id,
           totalMensajes: conv.total_mensajes || 0,
-          escaladoA: conv.escalado_a
+          escaladoAId: conv.escalado_a_usuario_id,
+          escaladoA: conv.escalado_a_usuario_nombre,
+          tiempoEspera: conv.tiempo_espera_minutos,
+          prioridad: conv.prioridad || 'normal',
+          requiereAtencion: conv.requiere_atencion || false
         }));
 
+        // Filtrar adicional si es necesario
         let conversacionesFiltradas = conversacionesFormateadas;
+        
         if (filtroEstado === 'resueltas') {
           conversacionesFiltradas = conversacionesFormateadas.filter(c => c.estado === 'cerrada');
         } else if (filtroEstado === 'pendientes') {
           conversacionesFiltradas = conversacionesFormateadas.filter(c => c.estado !== 'cerrada');
         }
 
-        setConversaciones(conversacionesFiltradas);
+        // Ordenar por prioridad
+        const conversacionesOrdenadas = escalamientoService.ordenarPorPrioridad(conversacionesFiltradas);
+        
+        setConversaciones(conversacionesOrdenadas);
       }
     } catch (error) {
       console.error('Error al cargar conversaciones:', error);
@@ -119,13 +178,13 @@ const GestionConversacionesPage = () => {
           autor: msg.role === 'assistant' 
             ? '🤖 Bot' 
             : msg.role === 'human_agent' 
-              ? `🧑‍💼 ${msg.agent_name || 'Humano'}` 
-              : '👤 Visitante'
+              ? `🧑‍💼 ${msg.user_name || 'Humano'}` 
+              : '👤 Visitante',
+          role: msg.role
         }));
 
         setMensajesDetalle(mensajesFormateados);
         
-        // Scroll al final después de cargar
         if (!silencioso) {
           setTimeout(() => scrollToEnd(), 100);
         }
@@ -139,6 +198,129 @@ const GestionConversacionesPage = () => {
       setLoadingDetalle(false);
     }
   };
+
+  // ============================================
+  // ACCIONES DE CONVERSACIÓN
+  // ============================================
+
+  const handleTomarConversacion = async (conversacion) => {
+    if (!userId) {
+      Alert.alert('Error', 'No se pudo obtener información del usuario');
+      return;
+    }
+
+    try {
+      const response = await escalamientoService.tomarConversacion(conversacion.sessionId, {
+        id_usuario: userId,
+        nombre_usuario: userName
+      });
+
+      if (response.success) {
+        Alert.alert('✅ Éxito', 'Conversación asignada a ti');
+        cargarConversaciones();
+        
+        // Si estamos viendo el detalle, refrescar
+        if (conversacionSeleccionada?.sessionId === conversacion.sessionId) {
+          cargarDetalleConversacion(conversacion.sessionId);
+        }
+      }
+    } catch (error) {
+      console.error('Error tomando conversación:', error);
+      Alert.alert('Error', error.response?.data?.detail || 'No se pudo tomar la conversación');
+    }
+  };
+
+  const handleTransferirConversacion = async (idUsuarioDestino, motivo) => {
+    if (!conversacionSeleccionada) return;
+
+    try {
+      const response = await escalamientoService.transferirConversacion(
+        conversacionSeleccionada.sessionId,
+        {
+          id_usuario_destino: idUsuarioDestino,
+          motivo: motivo || 'Transferencia de conversación'
+        }
+      );
+
+      if (response.success) {
+        Alert.alert('✅ Éxito', 'Conversación transferida correctamente');
+        setMostrarModalTransferir(false);
+        handleVolverLista();
+        cargarConversaciones();
+      }
+    } catch (error) {
+      console.error('Error transfiriendo conversación:', error);
+      Alert.alert('Error', 'No se pudo transferir la conversación');
+    }
+  };
+
+  const handleEnviarMensaje = async () => {
+    if (!mensajeTexto.trim() || !conversacionSeleccionada || !userId) return;
+
+    try {
+      setEnviando(true);
+
+      await escalamientoService.responder(conversacionSeleccionada.sessionId, {
+        mensaje: mensajeTexto.trim(),
+        id_usuario: userId,
+        nombre_usuario: userName
+      });
+
+      setMensajeTexto('');
+      await cargarDetalleConversacion(conversacionSeleccionada.sessionId, true);
+      
+      // Scroll al final después de enviar
+      setTimeout(() => scrollToEnd(), 200);
+    } catch (error) {
+      console.error('Error enviando mensaje:', error);
+      Alert.alert('Error', 'No se pudo enviar el mensaje');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const handleResolverConversacion = () => {
+    setMostrarModalResolver(true);
+  };
+
+  const confirmarResolver = async (calificacion = null, comentario = null) => {
+    try {
+      await escalamientoService.resolver(conversacionSeleccionada.sessionId, {
+        calificacion,
+        comentario
+      });
+
+      Alert.alert('✅ Éxito', 'Conversación marcada como resuelta');
+      setMostrarModalResolver(false);
+      handleVolverLista();
+      cargarConversaciones();
+    } catch (error) {
+      console.error('Error resolviendo conversación:', error);
+      Alert.alert('Error', 'No se pudo resolver la conversación');
+    }
+  };
+
+  const abrirModalTransferir = async () => {
+    try {
+      const response = await escalamientoService.getFuncionariosDisponibles({
+        id_departamento: userDepartment
+      });
+
+      if (response.success) {
+        // Filtrar al usuario actual
+        const funcionarios = response.funcionarios.filter(f => f.id_usuario !== userId);
+        setFuncionariosDisponibles(funcionarios);
+        setMostrarModalTransferir(true);
+      }
+    } catch (error) {
+      console.error('Error cargando funcionarios:', error);
+      Alert.alert('Error', 'No se pudieron cargar los funcionarios disponibles');
+    }
+  };
+
+  // ============================================
+  // HELPERS
+  // ============================================
 
   const formatearFecha = (fechaStr) => {
     if (!fechaStr) return 'Sin fecha';
@@ -169,9 +351,8 @@ const GestionConversacionesPage = () => {
   const mapearEstado = (estadoBackend) => {
     const mapeo = {
       'activa': 'activa',
-      'escalada': 'escalada',
-      'finalizada': 'cerrada',
-      'pausada': 'escalada'
+      'escalada_humano': 'escalada',
+      'finalizada': 'cerrada'
     };
     return mapeo[estadoBackend] || 'activa';
   };
@@ -197,78 +378,17 @@ const GestionConversacionesPage = () => {
     setMensajeTexto('');
   };
 
-  const handleEnviarMensaje = async () => {
-    if (!mensajeTexto.trim() || !conversacionSeleccionada) return;
-
-    try {
-      setEnviando(true);
-
-      await escalamientoService.responder(conversacionSeleccionada.sessionId, {
-        mensaje: mensajeTexto.trim(),
-        id_usuario: ID_USUARIO,
-        nombre_usuario: NOMBRE_USUARIO
-      });
-
-      setMensajeTexto('');
-      await cargarDetalleConversacion(conversacionSeleccionada.sessionId, true);
-    } catch (error) {
-      console.error('Error enviando mensaje:', error);
-      Alert.alert('Error', 'No se pudo enviar el mensaje');
-    } finally {
-      setEnviando(false);
-    }
-  };
-
-  const handleResolverConversacion = () => {
-    setMostrarModalResolver(true);
-  };
-
-  const confirmarResolver = async (calificacion = null, comentario = null) => {
-    try {
-      await escalamientoService.resolver(conversacionSeleccionada.sessionId, {
-        calificacion,
-        comentario
-      });
-
-      Alert.alert('Éxito', 'Conversación marcada como resuelta');
-      setMostrarModalResolver(false);
-      handleVolverLista();
-      cargarConversaciones();
-    } catch (error) {
-      console.error('Error resolviendo conversación:', error);
-      Alert.alert('Error', 'No se pudo resolver la conversación');
-    }
-  };
-
-  const handleEscalarConversacion = async (conversacion) => {
-    Alert.alert(
-      'Escalar Conversación',
-      `¿Deseas escalar la conversación de ${conversacion.visitante}?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Escalar', 
-          onPress: async () => {
-            try {
-              Alert.alert('Éxito', 'Conversación escalada correctamente');
-              cargarConversaciones();
-            } catch (error) {
-              Alert.alert('Error', 'No se pudo escalar la conversación');
-            }
-          }
-        }
-      ]
-    );
-  };
-
   const handleNotificacionPress = (url) => {
     if (url) {
       const match = url.match(/\/conversacion\/(.+)/);
       if (match) {
-        const sessionId = match[1];
+        const sessionId = decodeURIComponent(match[1]);
         const conv = conversaciones.find(c => c.sessionId === sessionId);
         if (conv) {
           handleVerConversacion(conv);
+        } else {
+          // Si no está en la lista, intentar cargarla directamente
+          cargarDetalleConversacion(sessionId);
         }
       }
     }
@@ -287,15 +407,59 @@ const GestionConversacionesPage = () => {
               {conversaciones.length} conversación{conversaciones.length !== 1 ? 'es' : ''}
             </Text>
           </View>
-          <NotificacionesBadge onNotificacionPress={handleNotificacionPress} />
+          <NotificacionesBadge 
+            userId={userId}
+            onNotificacionPress={handleNotificacionPress} 
+          />
         </View>
 
+        {/* 🔥 NUEVO: Selector de vista */}
+        <View style={styles.vistaContainer}>
+          <TouchableOpacity
+            style={[styles.vistaButton, vistaActual === 'mis' && styles.vistaButtonActive]}
+            onPress={() => setVistaActual('mis')}
+          >
+            <Ionicons 
+              name="person" 
+              size={18} 
+              color={vistaActual === 'mis' ? '#FFF' : '#6B7280'} 
+            />
+            <Text style={[
+              styles.vistaButtonText, 
+              vistaActual === 'mis' && styles.vistaButtonTextActive
+            ]}>
+              Mis Conversaciones
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.vistaButton, vistaActual === 'todas' && styles.vistaButtonActive]}
+            onPress={() => setVistaActual('todas')}
+          >
+            <Ionicons 
+              name="people" 
+              size={18} 
+              color={vistaActual === 'todas' ? '#FFF' : '#6B7280'} 
+            />
+            <Text style={[
+              styles.vistaButtonText, 
+              vistaActual === 'todas' && styles.vistaButtonTextActive
+            ]}>
+              Todas
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Filtros de estado */}
         <View style={styles.filtrosContainer}>
           <TouchableOpacity
             style={[styles.filtroButton, filtroEstado === 'todas' && styles.filtroButtonActive]}
             onPress={() => setFiltroEstado('todas')}
           >
-            <Text style={[styles.filtroButtonText, filtroEstado === 'todas' && styles.filtroButtonTextActive]}>
+            <Text style={[
+              styles.filtroButtonText, 
+              filtroEstado === 'todas' && styles.filtroButtonTextActive
+            ]}>
               Todas
             </Text>
           </TouchableOpacity>
@@ -304,7 +468,10 @@ const GestionConversacionesPage = () => {
             style={[styles.filtroButton, filtroEstado === 'pendientes' && styles.filtroButtonActive]}
             onPress={() => setFiltroEstado('pendientes')}
           >
-            <Text style={[styles.filtroButtonText, filtroEstado === 'pendientes' && styles.filtroButtonTextActive]}>
+            <Text style={[
+              styles.filtroButtonText, 
+              filtroEstado === 'pendientes' && styles.filtroButtonTextActive
+            ]}>
               Pendientes
             </Text>
           </TouchableOpacity>
@@ -313,7 +480,10 @@ const GestionConversacionesPage = () => {
             style={[styles.filtroButton, filtroEstado === 'resueltas' && styles.filtroButtonActive]}
             onPress={() => setFiltroEstado('resueltas')}
           >
-            <Text style={[styles.filtroButtonText, filtroEstado === 'resueltas' && styles.filtroButtonTextActive]}>
+            <Text style={[
+              styles.filtroButtonText, 
+              filtroEstado === 'resueltas' && styles.filtroButtonTextActive
+            ]}>
               Resueltas
             </Text>
           </TouchableOpacity>
@@ -324,9 +494,15 @@ const GestionConversacionesPage = () => {
     const renderEmpty = () => (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyIcon}>📭</Text>
-        <Text style={styles.emptyText}>No hay conversaciones escaladas</Text>
+        <Text style={styles.emptyText}>
+          {vistaActual === 'mis' 
+            ? 'No tienes conversaciones asignadas' 
+            : 'No hay conversaciones escaladas'}
+        </Text>
         <Text style={styles.emptySubtext}>
-          Las conversaciones escaladas aparecerán aquí
+          {vistaActual === 'mis'
+            ? 'Las conversaciones que tomes aparecerán aquí'
+            : 'Las conversaciones escaladas aparecerán aquí'}
         </Text>
       </View>
     );
@@ -342,7 +518,13 @@ const GestionConversacionesPage = () => {
             <GestionConversacionesCard
               conversacion={item}
               onPress={() => handleVerConversacion(item)}
-              onEscalar={() => handleEscalarConversacion(item)}
+              onTomar={() => handleTomarConversacion(item)}
+              puedeTomarConversacion={
+                vistaActual === 'todas' && 
+                !item.escaladoAId && 
+                item.estado !== 'cerrada'
+              }
+              esPropia={item.escaladoAId === userId}
             />
           )}
           ListEmptyComponent={renderEmpty}
@@ -358,78 +540,128 @@ const GestionConversacionesPage = () => {
   // ============================================
   // RENDER DETALLE
   // ============================================
-  const renderDetalle = () => (
-    <KeyboardAvoidingView
-      style={styles.detalleContainer}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
-      {/* Header Detalle */}
-      <View style={styles.detalleHeader}>
-        <TouchableOpacity onPress={handleVolverLista} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
-        </TouchableOpacity>
-        <View style={styles.detalleHeaderInfo}>
-          <Text style={styles.detalleHeaderTitle}>{conversacionSeleccionada.visitante}</Text>
-          <Text style={styles.detalleHeaderSubtitle}>ID: {conversacionSeleccionada.codigo}</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.resolverButtonVisible}
-          onPress={handleResolverConversacion}
-        >
-          <Ionicons name="checkmark-circle" size={20} color="#FFF" />
-          <Text style={styles.resolverButtonText}>Resolver</Text>
-        </TouchableOpacity>
-      </View>
+  const renderDetalle = () => {
+    const esPropia = conversacionSeleccionada?.escaladoAId === userId;
+    const puedeTransferir = esPropia && conversacionSeleccionada?.estado !== 'cerrada';
 
-      {/* Mensajes */}
-      {loadingDetalle ? (
-        <View style={styles.loadingDetalle}>
-          <ActivityIndicator size="large" color="#4A90E2" />
-        </View>
-      ) : (
-        <FlatList
-          ref={flatListRef}
-          data={mensajesDetalle}
-          keyExtractor={(item, index) => `mensaje-${index}`}
-          renderItem={({ item }) => <DetalleConversacionCard mensaje={item} />}
-          contentContainerStyle={styles.mensajesList}
-          onContentSizeChange={scrollToEnd}
-        />
-      )}
+    return (
+      <KeyboardAvoidingView
+        style={styles.detalleContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        {/* Header Detalle */}
+        <View style={styles.detalleHeader}>
+          <TouchableOpacity onPress={handleVolverLista} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#1F2937" />
+          </TouchableOpacity>
+          
+          <View style={styles.detalleHeaderInfo}>
+            <Text style={styles.detalleHeaderTitle}>
+              {conversacionSeleccionada.visitante}
+            </Text>
+            <Text style={styles.detalleHeaderSubtitle}>
+              ID: {conversacionSeleccionada.codigo}
+              {conversacionSeleccionada.escaladoA && 
+                ` • Atendido por: ${conversacionSeleccionada.escaladoA}`
+              }
+            </Text>
+          </View>
 
-      {/* Input */}
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Escribe tu respuesta..."
-          value={mensajeTexto}
-          onChangeText={setMensajeTexto}
-          multiline
-          maxLength={500}
-        />
-        <TouchableOpacity
-          style={[
-            styles.sendButton,
-            (!mensajeTexto.trim() || enviando) && styles.sendButtonDisabled
-          ]}
-          onPress={handleEnviarMensaje}
-          disabled={!mensajeTexto.trim() || enviando}
-        >
-          {enviando ? (
-            <ActivityIndicator size="small" color="#FFF" />
-          ) : (
-            <Ionicons name="send" size={20} color="#FFF" />
-          )}
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
-  );
+          {/* 🔥 Botones de acción */}
+          <View style={styles.detalleHeaderActions}>
+            {puedeTransferir && (
+              <TouchableOpacity
+                style={styles.actionButtonSmall}
+                onPress={abrirModalTransferir}
+              >
+                <Ionicons name="swap-horizontal" size={18} color="#F59E0B" />
+              </TouchableOpacity>
+            )}
+
+            {esPropia && conversacionSeleccionada.estado !== 'cerrada' && (
+              <TouchableOpacity
+                style={styles.resolverButtonVisible}
+                onPress={handleResolverConversacion}
+              >
+                <Ionicons name="checkmark-circle" size={20} color="#FFF" />
+                <Text style={styles.resolverButtonText}>Resolver</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Indicador de prioridad */}
+        {conversacionSeleccionada.tiempoEspera && (
+          <View style={[
+            styles.prioridadBanner, 
+            { backgroundColor: escalamientoService.getColorPrioridad(conversacionSeleccionada.prioridad) + '20' }
+          ]}>
+            <Ionicons 
+              name="time" 
+              size={16} 
+              color={escalamientoService.getColorPrioridad(conversacionSeleccionada.prioridad)} 
+            />
+            <Text style={[
+              styles.prioridadText,
+              { color: escalamientoService.getColorPrioridad(conversacionSeleccionada.prioridad) }
+            ]}>
+              Tiempo de espera: {escalamientoService.formatearTiempoEspera(conversacionSeleccionada.tiempoEspera)}
+            </Text>
+          </View>
+        )}
+
+        {/* Mensajes */}
+        {loadingDetalle ? (
+          <View style={styles.loadingDetalle}>
+            <ActivityIndicator size="large" color="#4A90E2" />
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={mensajesDetalle}
+            keyExtractor={(item, index) => `mensaje-${index}`}
+            renderItem={({ item }) => <DetalleConversacionCard mensaje={item} />}
+            contentContainerStyle={styles.mensajesList}
+            onContentSizeChange={scrollToEnd}
+          />
+        )}
+
+        {/* Input - solo si es propia y no está cerrada */}
+        {esPropia && conversacionSeleccionada.estado !== 'cerrada' && (
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Escribe tu respuesta..."
+              value={mensajeTexto}
+              onChangeText={setMensajeTexto}
+              multiline
+              maxLength={500}
+            />
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                (!mensajeTexto.trim() || enviando) && styles.sendButtonDisabled
+              ]}
+              onPress={handleEnviarMensaje}
+              disabled={!mensajeTexto.trim() || enviando}
+            >
+              {enviando ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Ionicons name="send" size={20} color="#FFF" />
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+      </KeyboardAvoidingView>
+    );
+  };
 
   // ============================================
   // RENDER PRINCIPAL
   // ============================================
-  if (loading) {
+  if (loading || !userId) {
     return (
       <View style={contentStyles.wrapper}>
         <FuncionarioSidebar isOpen={sidebarOpen} />
@@ -478,12 +710,21 @@ const GestionConversacionesPage = () => {
         {conversacionSeleccionada ? renderDetalle() : renderLista()}
       </View>
 
-      {/* Modal Resolver */}
+      {/* Modales */}
       {mostrarModalResolver && (
         <ModalResolverConversacion
           visible={mostrarModalResolver}
           onClose={() => setMostrarModalResolver(false)}
           onConfirmar={confirmarResolver}
+        />
+      )}
+
+      {mostrarModalTransferir && (
+        <ModalTransferirConversacion
+          visible={mostrarModalTransferir}
+          funcionarios={funcionariosDisponibles}
+          onClose={() => setMostrarModalTransferir(false)}
+          onConfirmar={handleTransferirConversacion}
         />
       )}
     </View>
@@ -548,7 +789,74 @@ const ModalResolverConversacion = ({ visible, onClose, onConfirmar }) => {
 };
 
 // ============================================
-// ESTILOS
+// 🔥 NUEVO: MODAL TRANSFERIR
+// ============================================
+const ModalTransferirConversacion = ({ visible, funcionarios, onClose, onConfirmar }) => {
+  const [funcionarioSeleccionado, setFuncionarioSeleccionado] = useState(null);
+  const [motivo, setMotivo] = useState('');
+
+  return (
+    <View style={styles.modalOverlay}>
+      <View style={[styles.modalContent, { maxHeight: '70%' }]}>
+        <Text style={styles.modalTitle}>Transferir Conversación</Text>
+
+        <Text style={styles.modalLabel}>Seleccionar funcionario</Text>
+        <ScrollView style={styles.funcionariosList}>
+          {funcionarios.map((func) => (
+            <TouchableOpacity
+              key={func.id_usuario}
+              style={[
+                styles.funcionarioItem,
+                funcionarioSeleccionado === func.id_usuario && styles.funcionarioItemSelected
+              ]}
+              onPress={() => setFuncionarioSeleccionado(func.id_usuario)}
+            >
+              <View style={styles.funcionarioAvatar}>
+                <Ionicons name="person" size={20} color="#4A90E2" />
+              </View>
+              <View style={styles.funcionarioInfo}>
+                <Text style={styles.funcionarioNombre}>{func.nombre_completo}</Text>
+                <Text style={styles.funcionarioEmail}>{func.email}</Text>
+              </View>
+              {funcionarioSeleccionado === func.id_usuario && (
+                <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+              )}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <Text style={styles.modalLabel}>Motivo (opcional)</Text>
+        <TextInput
+          style={styles.modalTextArea}
+          placeholder="Motivo de la transferencia..."
+          value={motivo}
+          onChangeText={setMotivo}
+          multiline
+          numberOfLines={2}
+        />
+
+        <View style={styles.modalButtons}>
+          <TouchableOpacity style={styles.modalButtonCancel} onPress={onClose}>
+            <Text style={styles.modalButtonCancelText}>Cancelar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.modalButtonConfirm,
+              !funcionarioSeleccionado && styles.modalButtonDisabled
+            ]}
+            onPress={() => onConfirmar(funcionarioSeleccionado, motivo)}
+            disabled={!funcionarioSeleccionado}
+          >
+            <Text style={styles.modalButtonConfirmText}>Transferir</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+// ============================================
+// ESTILOS (continúa en siguiente mensaje debido a límite)
 // ============================================
 const styles = StyleSheet.create({
   container: {
@@ -588,10 +896,40 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 4
   },
+  // 🔥 NUEVOS: Vista selector
+  vistaContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  vistaButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 6,
+  },
+  vistaButtonActive: {
+    backgroundColor: '#4A90E2',
+    borderColor: '#4A90E2',
+  },
+  vistaButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  vistaButtonTextActive: {
+    color: '#FFFFFF',
+  },
   filtrosContainer: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 8,
   },
   filtroButton: {
     paddingHorizontal: 16,
@@ -669,8 +1007,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280'
   },
-  resolverButton: {
-    padding: 8
+  detalleHeaderActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButtonSmall: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#FEF3C7',
+  },
+  resolverButtonVisible: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#10B981',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6
+  },
+  resolverButtonText: {
+    color: '#FFF',
+    fontWeight: '600',
+    fontSize: 14
+  },
+  // 🔥 NUEVO: Banner de prioridad
+  prioridadBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  prioridadText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   loadingDetalle: {
     flex: 1,
@@ -760,6 +1130,45 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     minHeight: 80
   },
+  // 🔥 NUEVOS: Estilos para lista de funcionarios
+  funcionariosList: {
+    maxHeight: 250,
+    marginBottom: 12,
+  },
+  funcionarioItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#F9FAFB',
+    marginBottom: 8,
+  },
+  funcionarioItemSelected: {
+    backgroundColor: '#EBF5FF',
+    borderWidth: 2,
+    borderColor: '#4A90E2',
+  },
+  funcionarioAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EBF5FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  funcionarioInfo: {
+    flex: 1,
+  },
+  funcionarioNombre: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  funcionarioEmail: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
   modalButtons: {
     flexDirection: 'row',
     marginTop: 20,
@@ -789,20 +1198,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14
   },
-  resolverButtonVisible: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  backgroundColor: '#10B981',
-  paddingHorizontal: 16,
-  paddingVertical: 8,
-  borderRadius: 8,
-  gap: 6
-},
-resolverButtonText: {
-  color: '#FFF',
-  fontWeight: '600',
-  fontSize: 14
-},
+  modalButtonDisabled: {
+    backgroundColor: '#D1D5DB',
+  },
 });
 
 export default GestionConversacionesPage;

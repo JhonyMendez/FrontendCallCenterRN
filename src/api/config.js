@@ -147,12 +147,29 @@ export const ENDPOINTS = {
   // Escalamiento a Humanos
   ESCALAMIENTO: {
     BASE: '/escalamiento',
+    
+    // Conversaciones
     CONVERSACIONES_ESCALADAS: '/escalamiento/conversaciones-escaladas',
+    MIS_CONVERSACIONES: '/escalamiento/mis-conversaciones',  // 🔥 NUEVO
     CONVERSACION_DETALLE: (sessionId) => `/escalamiento/conversacion/${encodeURIComponent(sessionId)}`,
+    
+    // Acciones
+    TOMAR_CONVERSACION: (sessionId) => `/escalamiento/conversacion/${encodeURIComponent(sessionId)}/tomar`,  // 🔥 NUEVO
     RESPONDER: (sessionId) => `/escalamiento/conversacion/${encodeURIComponent(sessionId)}/responder`,
+    TRANSFERIR_CONVERSACION: (sessionId) => `/escalamiento/conversacion/${encodeURIComponent(sessionId)}/transferir`,  // 🔥 NUEVO
     RESOLVER: (sessionId) => `/escalamiento/conversacion/${encodeURIComponent(sessionId)}/resolver`,
+    
+    // Estadísticas
+    ESTADISTICAS: '/escalamiento/estadisticas',  // 🔥 NUEVO
+    MIS_ESTADISTICAS: '/escalamiento/mis-estadisticas',  // 🔥 NUEVO
+    
+    // Notificaciones
     MIS_NOTIFICACIONES: '/escalamiento/mis-notificaciones',
     MARCAR_LEIDA: (idNotificacion) => `/escalamiento/notificacion/${idNotificacion}/marcar-leida`,
+    MARCAR_TODAS_LEIDAS: '/escalamiento/notificaciones/marcar-todas-leidas',  // 🔥 NUEVO
+    
+    // Utilidades
+    FUNCIONARIOS_DISPONIBLES: '/escalamiento/funcionarios-disponibles',  // 🔥 NUEVO
   },
 
   // Usuario-Roles

@@ -1,41 +1,44 @@
-// src/components/Funcionario/NotificacionesBadge.js
+// components/Funcionario/NotificacionesBadge.js
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    Modal,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  FlatList,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 import { escalamientoService } from '../../api/services/escalamientoService';
 
-const NotificacionesBadge = ({ onNotificacionPress }) => {
+const NotificacionesBadge = ({ userId, onNotificacionPress }) => {
   const [notificaciones, setNotificaciones] = useState([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [contador, setContador] = useState(0);
 
   useEffect(() => {
-    cargarNotificaciones();
-    // Polling cada 30 segundos
-    const interval = setInterval(cargarNotificaciones, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    if (userId) {
+      cargarNotificaciones();
+      const interval = setInterval(cargarNotificaciones, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [userId]);
 
   const cargarNotificaciones = async () => {
+    if (!userId) return;
+
     try {
-      const response = await escalamientoService.getMisNotificaciones({
+      const response = await escalamientoService.getMisNotificaciones(userId, {
         solo_no_leidas: true,
-        limit: 20
+        limite: 20
       });
 
       if (response.success) {
         setNotificaciones(response.notificaciones);
-        setContador(response.notificaciones.length);
+        setContador(response.no_leidas || response.notificaciones.length);
       }
     } catch (error) {
       console.error('Error cargando notificaciones:', error);
@@ -47,13 +50,26 @@ const NotificacionesBadge = ({ onNotificacionPress }) => {
       await escalamientoService.marcarLeida(idNotificacion);
       await cargarNotificaciones();
       
-      // Si hay callback, ejecutarlo
       const notif = notificaciones.find(n => n.id === idNotificacion);
       if (notif?.url_accion && onNotificacionPress) {
         onNotificacionPress(notif.url_accion);
       }
     } catch (error) {
       console.error('Error marcando notificación:', error);
+    }
+  };
+
+  const marcarTodasLeidas = async () => {
+    if (!userId) return;
+
+    try {
+      setLoading(true);
+      await escalamientoService.marcarTodasLeidas(userId);
+      await cargarNotificaciones();
+    } catch (error) {
+      console.error('Error marcando todas leídas:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -87,10 +103,9 @@ const NotificacionesBadge = ({ onNotificacionPress }) => {
 
   const getTipoIcon = (tipo) => {
     const iconos = {
-      'nueva_conversacion': 'chatbubbles',
-      'mensaje_nuevo': 'mail',
-      'conversacion_escalada': 'arrow-up-circle',
-      'recordatorio': 'notifications',
+      'urgente': 'alert-circle',
+      'info': 'information-circle',
+      'nuevo': 'notifications',
       'sistema': 'settings'
     };
     return iconos[tipo] || 'notifications';
@@ -98,10 +113,9 @@ const NotificacionesBadge = ({ onNotificacionPress }) => {
 
   const getTipoColor = (tipo) => {
     const colores = {
-      'nueva_conversacion': '#10B981',
-      'mensaje_nuevo': '#4A90E2',
-      'conversacion_escalada': '#F59E0B',
-      'recordatorio': '#8B5CF6',
+      'urgente': '#EF4444',
+      'info': '#4A90E2',
+      'nuevo': '#10B981',
       'sistema': '#6B7280'
     };
     return colores[tipo] || '#6B7280';
@@ -147,9 +161,19 @@ const NotificacionesBadge = ({ onNotificacionPress }) => {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Notificaciones</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
+              <View style={styles.modalHeaderActions}>
+                {notificaciones.length > 0 && (
+                  <TouchableOpacity 
+                    onPress={marcarTodasLeidas}
+                    style={styles.marcarTodasButton}
+                  >
+                    <Text style={styles.marcarTodasText}>Marcar todas</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                  <Ionicons name="close" size={24} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {loading ? (
@@ -222,6 +246,22 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#1F2937'
+  },
+  modalHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  marcarTodasButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: '#EBF5FF',
+  },
+  marcarTodasText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4A90E2',
   },
   loadingContainer: {
     padding: 40,

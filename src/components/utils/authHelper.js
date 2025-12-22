@@ -1,3 +1,4 @@
+// authHelper.js
 import { jwtDecode } from "jwt-decode";
 import { apiClient } from "../../api/client"; // ← IMPORTAR ESTO
 

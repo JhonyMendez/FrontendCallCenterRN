@@ -1,10 +1,15 @@
-// ============================================
-// 1. GestionConversacionesCard.js
-// ============================================
+// components/Funcionario/GestionConversacionesCard.js
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { escalamientoService } from '../../api/services/escalamientoService';
 
-const GestionConversacionesCard = ({ conversacion, onPress, onEscalar }) => {
+const GestionConversacionesCard = ({ 
+  conversacion, 
+  onPress, 
+  onTomar,
+  puedeTomarConversacion = false,
+  esPropia = false
+}) => {
   const {
     visitante,
     codigo,
@@ -13,7 +18,11 @@ const GestionConversacionesCard = ({ conversacion, onPress, onEscalar }) => {
     dispositivo,
     agente,
     noLeidos,
-    estado
+    estado,
+    escaladoA,
+    tiempoEspera,
+    prioridad,
+    requiereAtencion
   } = conversacion;
 
   const getEstadoColor = () => {
@@ -42,12 +51,24 @@ const GestionConversacionesCard = ({ conversacion, onPress, onEscalar }) => {
     }
   };
 
+  // 🔥 NUEVO: Color de prioridad
+  const prioridadColor = escalamientoService.getColorPrioridad(prioridad);
+
   return (
     <TouchableOpacity 
-      style={styles.card}
+      style={[
+        styles.card,
+        requiereAtencion && styles.cardUrgente,
+        esPropia && styles.cardPropia
+      ]}
       onPress={onPress}
       activeOpacity={0.7}
     >
+      {/* 🔥 NUEVO: Indicador de prioridad */}
+      {prioridad !== 'normal' && (
+        <View style={[styles.prioridadIndicator, { backgroundColor: prioridadColor }]} />
+      )}
+
       <View style={styles.cardHeader}>
         <View style={styles.userInfo}>
           <View style={styles.avatarContainer}>
@@ -60,6 +81,11 @@ const GestionConversacionesCard = ({ conversacion, onPress, onEscalar }) => {
               {noLeidos > 0 && (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>{noLeidos}</Text>
+                </View>
+              )}
+              {esPropia && (
+                <View style={styles.badgePropia}>
+                  <Text style={styles.badgePropiaText}>Tuya</Text>
                 </View>
               )}
             </View>
@@ -95,9 +121,28 @@ const GestionConversacionesCard = ({ conversacion, onPress, onEscalar }) => {
           <Ionicons name="person-outline" size={14} color="#6B7280" />
           <Text style={styles.metaText}>{agente}</Text>
         </View>
+
+        {/* 🔥 NUEVO: Tiempo de espera */}
+        {tiempoEspera && (
+          <View style={styles.metaItem}>
+            <Ionicons name="hourglass-outline" size={14} color={prioridadColor} />
+            <Text style={[styles.metaText, { color: prioridadColor }]}>
+              {escalamientoService.formatearTiempoEspera(tiempoEspera)}
+            </Text>
+          </View>
+        )}
       </View>
 
-      {estado === 'activa' && (
+      {/* 🔥 NUEVO: Info de asignación */}
+      {escaladoA && (
+        <View style={styles.asignadoContainer}>
+          <Ionicons name="person-circle-outline" size={16} color="#8B5CF6" />
+          <Text style={styles.asignadoText}>Atendido por: {escaladoA}</Text>
+        </View>
+      )}
+
+      {/* Acciones */}
+      {(estado === 'activa' || estado === 'escalada') && (
         <View style={styles.actionsContainer}>
           <TouchableOpacity 
             style={styles.actionButton}
@@ -107,15 +152,18 @@ const GestionConversacionesCard = ({ conversacion, onPress, onEscalar }) => {
             <Text style={styles.actionButtonText}>Ver</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.actionButtonSecondary]}
-            onPress={onEscalar}
-          >
-            <Ionicons name="arrow-up-circle-outline" size={18} color="#F59E0B" />
-            <Text style={[styles.actionButtonText, styles.actionButtonTextSecondary]}>
-              Escalar
-            </Text>
-          </TouchableOpacity>
+          {/* 🔥 NUEVO: Botón Tomar */}
+          {puedeTomarConversacion && (
+            <TouchableOpacity 
+              style={[styles.actionButton, styles.actionButtonPrimary]}
+              onPress={onTomar}
+            >
+              <Ionicons name="hand-right-outline" size={18} color="#FFF" />
+              <Text style={[styles.actionButtonText, styles.actionButtonTextPrimary]}>
+                Tomar
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
     </TouchableOpacity>
@@ -134,6 +182,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    position: 'relative',
+  },
+  // 🔥 NUEVOS: Estilos especiales
+  cardUrgente: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#EF4444',
+  },
+  cardPropia: {
+    borderWidth: 2,
+    borderColor: '#8B5CF6',
+  },
+  prioridadIndicator: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    margin: 12,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -162,12 +229,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 4,
+    flexWrap: 'wrap',
+    gap: 6,
   },
   userName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1F2937',
-    marginRight: 8,
   },
   userCode: {
     fontSize: 12,
@@ -185,6 +253,18 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
+  },
+  // 🔥 NUEVO: Badge "Tuya"
+  badgePropia: {
+    backgroundColor: '#8B5CF6',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  badgePropiaText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '600',
   },
   statusContainer: {
     marginLeft: 8,
@@ -225,6 +305,19 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginLeft: 4,
   },
+  // 🔥 NUEVO: Info de asignación
+  asignadoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 60,
+    marginBottom: 12,
+    gap: 6,
+  },
+  asignadoText: {
+    fontSize: 12,
+    color: '#8B5CF6',
+    fontWeight: '500',
+  },
   actionsContainer: {
     flexDirection: 'row',
     borderTopWidth: 1,
@@ -242,8 +335,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#EBF5FF',
   },
-  actionButtonSecondary: {
-    backgroundColor: '#FEF3C7',
+  // 🔥 NUEVO: Botón primario
+  actionButtonPrimary: {
+    backgroundColor: '#4A90E2',
   },
   actionButtonText: {
     fontSize: 14,
@@ -251,10 +345,9 @@ const styles = StyleSheet.create({
     color: '#4A90E2',
     marginLeft: 6,
   },
-  actionButtonTextSecondary: {
-    color: '#F59E0B',
+  actionButtonTextPrimary: {
+    color: '#FFFFFF',
   },
 });
 
-// CAMBIO IMPORTANTE: Exportación nombrada en lugar de default
 export { GestionConversacionesCard };
