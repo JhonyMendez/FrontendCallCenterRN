@@ -36,6 +36,16 @@ export default function SidebarFuncionario({ isOpen }) {
       icon: 'planet-outline',
       submenu: [
         {
+          label: 'Gestionar Agente',
+          icon: 'document-attach-outline',
+          route: '/funcionario/gestionAgenteFuncionario',
+        },
+        {
+          label: 'Gestionar Categoria',
+          icon: 'document-attach-outline',
+          route: '/funcionario/gestionCategoriaFuncionario',
+        },
+        {
           label: 'Gestionar contenidos',
           icon: 'add-circle-outline',
           route: '/funcionario/gestionContenidoFuncionario',
