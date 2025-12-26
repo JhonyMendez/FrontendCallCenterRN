@@ -110,12 +110,29 @@ const GestionConversacionesPage = () => {
           solo_activas: filtroEstado !== 'resueltas',
           limite: 50
         });
+
+        console.log('============ DIAGNÓSTICO MIS CONVERSACIONES ============');
+        console.log('🔍 userId buscado:', userId);
+        console.log('🔍 Tipo de userId:', typeof userId);
+        console.log('🔍 Response success:', response.success);
+        console.log('🔍 Total conversaciones recibidas:', response.conversaciones?.length);
+        console.log('🔍 Response COMPLETO:', response); // ← AGREGAR ESTA LÍNEA
+        console.log('========================================================');
+
       } else {
         // Cargar TODAS las conversaciones del departamento
         response = await escalamientoService.getAllEscaladas({
           solo_pendientes: filtroEstado === 'pendientes',
           id_departamento: userDepartment
         });
+
+          console.log('============ DIAGNÓSTICO TODAS LAS CONVERSACIONES ============');
+          console.log('🔍 Total conversaciones:', response.conversaciones?.length);
+          console.log('🔍 Conversaciones con escalado_a_usuario_id:', 
+            response.conversaciones?.filter(c => c.escalado_a_usuario_id === userId).length
+          );
+          console.log('🔍 Ejemplo de conversación:', response.conversaciones?.[0]);
+          console.log('================================================================');
       }
 
       if (response.success) {
@@ -131,12 +148,21 @@ const GestionConversacionesPage = () => {
           estado: mapearEstado(conv.estado),
           sessionId: conv.session_id,
           totalMensajes: conv.total_mensajes || 0,
-          escaladoAId: conv.escalado_a_usuario_id,
+          escaladoAId: conv.escalado_a_usuario_id || conv.escaladoAUsuarioId || conv.id_usuario_asignado,
           escaladoA: conv.escalado_a_usuario_nombre,
           tiempoEspera: conv.tiempo_espera_minutos,
           prioridad: conv.prioridad || 'normal',
           requiereAtencion: conv.requiere_atencion || false
         }));
+
+        console.log('🔍 Conversaciones formateadas:', conversacionesFormateadas.map(c => ({
+          codigo: c.codigo,
+          escaladoAId: c.escaladoAId,
+          tipo_escaladoAId: typeof c.escaladoAId,
+          userId_actual: userId,
+          tipo_userId: typeof userId,
+          coincide: c.escaladoAId === userId
+        })));
 
         // Filtrar adicional si es necesario
         let conversacionesFiltradas = conversacionesFormateadas;
@@ -146,6 +172,13 @@ const GestionConversacionesPage = () => {
         } else if (filtroEstado === 'pendientes') {
           conversacionesFiltradas = conversacionesFormateadas.filter(c => c.estado !== 'cerrada');
         }
+
+
+        console.log('🔍 Después de filtros:', {
+          formateadas: conversacionesFormateadas.length,
+          filtradas: conversacionesFiltradas.length,
+          filtroEstado: filtroEstado
+        });
 
         // Ordenar por prioridad
         const conversacionesOrdenadas = escalamientoService.ordenarPorPrioridad(conversacionesFiltradas);
