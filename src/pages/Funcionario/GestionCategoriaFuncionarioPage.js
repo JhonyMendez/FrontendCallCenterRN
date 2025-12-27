@@ -49,6 +49,9 @@ export default function GestionCategoriaPage() {
     const [verificandoPermiso, setVerificandoPermiso] = useState(true);
     const [agentesPermitidos, setAgentesPermitidos] = useState([]);
     const [mensajeError, setMensajeError] = useState('');
+    const [departamentoUsuario, setDepartamentoUsuario] = useState(null);
+    const [estadoCarga, setEstadoCarga] = useState('cargando');
+
 
 
     const verificarPermisoCategoria = async () => {
@@ -92,12 +95,13 @@ export default function GestionCategoriaPage() {
 
             console.log('🔍 ¿Tiene permiso para gestionar categorías?:', tienePermisoCategoria);
 
-            if (!tienePermisoCategoria) {
-                setMensajeError('No tienes permisos para gestionar categorías. Contacta a tu administrador para solicitar el permiso "Gestionar Categorías".');
-            }
-
-            setTienePermiso(tienePermisoCategoria);
+            // 🔥 NUEVO: No setear tienePermiso aquí, se hará en cargarAgentes
+            // setTienePermiso(tienePermisoCategoria);  // ❌ COMENTADO
             setAgentesPermitidos(permisosData || []);
+
+            if (!tienePermisoCategoria) {
+                setMensajeError('No tienes permisos para gestionar categorías en ningún agente. Contacta a tu administrador.');
+            }
 
         } catch (error) {
             console.error('❌ Error verificando permisos:', error);
@@ -191,37 +195,207 @@ export default function GestionCategoriaPage() {
 
     // ============ EFFECTS ============
     useEffect(() => {
-        verificarPermisoCategoria(); // ✅ PRIMERO verificar permisos
+        const inicializar = async () => {
+            await verificarPermisoCategoria();
+            await cargarAgentes(); // ✅ Ahora carga agentes después de verificar permisos
+        };
+        inicializar();
     }, []);
 
     useEffect(() => {
-        if (tienePermiso && !verificandoPermiso) {
-            cargarAgentes();
+        if (tienePermiso && agentes.length > 0 && estadoCarga === 'ok') {
             cargarCategorias();
         }
-    }, [tienePermiso, verificandoPermiso]);
+    }, [tienePermiso, agentes, estadoCarga]);
 
     // ============ FUNCIONES ============
     const cargarAgentes = async () => {
         try {
             setLoadingAgentes(true);
-            const data = await agenteService.getAll({ activo: true });
-            setAgentes(Array.isArray(data) ? data : []);
+
+            // 1️⃣ Obtener ID del usuario actual
+            const idUsuarioActual = await authService.getUsuarioId();
+
+            if (!idUsuarioActual) {
+                setEstadoCarga('sin_departamento');
+                setMensajeError('No se pudo obtener el usuario actual. Por favor inicia sesión nuevamente.');
+                setLoadingAgentes(false);
+                return;
+            }
+
+            // 2️⃣ Obtener datos del usuario para verificar su departamento
+            const usuarioData = await authService.getUsuarioActual();
+            const rolPrincipal = usuarioData?.rol_principal?.nombre_rol?.toLowerCase();
+
+            console.log('========================================');
+            console.log('👤 Usuario actual:', usuarioData?.username);
+            console.log('👤 ID Usuario:', idUsuarioActual);
+            console.log('🏢 ID Departamento (directo):', usuarioData?.id_departamento);
+            console.log('🏢 ID Departamento (nested):', usuarioData?.departamento?.id_departamento);
+            console.log('📋 Rol Principal:', rolPrincipal);
+            console.log('========================================');
+
+            // 3️⃣ Obtener todos los agentes
+            const data = await agenteService.getAll();
+            const todosAgentes = Array.isArray(data) ? data : [];
+
+            console.log('🤖 Total de agentes activos:', todosAgentes.length);
+
+            // 4️⃣ Si es SuperAdmin, mostrar todos
+            if (rolPrincipal === 'superadministrador') {
+                console.log('✅ SuperAdmin - Mostrando todos los agentes');
+                setAgentes(todosAgentes);
+                setEstadoCarga('ok');
+                setTienePermiso(true);
+                setLoadingAgentes(false);
+                return;
+            }
+
+            // 5️⃣ Verificar múltiples formas de obtener el departamento
+            const idDepartamento =
+                usuarioData?.id_departamento ||
+                usuarioData?.departamento?.id_departamento ||
+                usuarioData?.departamento_id;
+
+            console.log('🔍 ID Departamento detectado:', idDepartamento);
+
+            if (!idDepartamento) {
+                console.log('❌ Usuario SIN departamento');
+                setEstadoCarga('sin_departamento');
+                setMensajeError('No tienes un departamento asignado. Por favor contacta a un administrador.');
+                setLoadingAgentes(false);
+                return;
+            }
+
+            setDepartamentoUsuario(idDepartamento);
+
+            // 6️⃣ Buscar agente del departamento del usuario
+            console.log('🔍 Buscando agente para departamento:', idDepartamento);
+            console.log('🔍 Tipo de idDepartamento:', typeof idDepartamento);
+            console.log('📋 Agentes disponibles:', todosAgentes.map(a => ({
+                id: a.id_agente,
+                nombre: a.nombre_agente,
+                id_dept: a.id_departamento,
+                tipo_dept: typeof a.id_departamento
+            })));
+
+            const agenteDelDepartamento = todosAgentes.find(agente => {
+                const agenteDeptId = agente.id_departamento;
+                const match = agenteDeptId != null && agenteDeptId.toString() === idDepartamento.toString();
+
+                console.log(`🔍 Comparando agente "${agente.nombre_agente}":`, {
+                    agente_dept: agenteDeptId,
+                    usuario_dept: idDepartamento,
+                    match: match
+                });
+
+                return match;
+            });
+
+            console.log('🎯 Agente encontrado:', agenteDelDepartamento);
+
+            if (!agenteDelDepartamento) {
+                console.log('❌ Departamento SIN agente asignado');
+                setEstadoCarga('sin_agente');
+                setMensajeError('Tu departamento aún no tiene un agente asignado. Por favor contacta a un administrador.');
+                setAgentes([]);
+                setLoadingAgentes(false);
+                return;
+            }
+
+            console.log('✅ Agente del departamento:', agenteDelDepartamento.nombre_agente);
+
+            // 7️⃣ Obtener permisos del usuario
+            const permisosData = await usuarioAgenteService.getAgentesByUsuario(idUsuarioActual, true);
+
+            console.log('========================================');
+            console.log('🔐 PERMISOS DEL USUARIO:');
+            console.log('📦 Permisos completos:', JSON.stringify(permisosData, null, 2));
+            console.log('========================================');
+
+            // 8️⃣ Verificar si tiene permiso de gestionar categorías en este agente
+            const permisoDelAgente = permisosData?.find(
+                relacion => relacion.id_agente === agenteDelDepartamento.id_agente
+            );
+
+            console.log('🔍 Permiso del agente específico:', permisoDelAgente);
+            console.log('🔍 puede_gestionar_categorias:', permisoDelAgente?.puede_gestionar_categorias);
+            console.log('🔍 Tipo:', typeof permisoDelAgente?.puede_gestionar_categorias);
+
+            const tienePermisoCategoria = permisosData?.some(relacion =>
+                relacion.id_agente === agenteDelDepartamento.id_agente &&
+                relacion.puede_gestionar_categorias === true
+            );
+
+            console.log('========================================');
+            console.log('🎯 RESULTADO FINAL:');
+            console.log('✓ ¿Tiene permiso para gestionar categorías?:', tienePermisoCategoria);
+            console.log('========================================');
+
+            if (!tienePermisoCategoria) {
+                console.log('❌ Usuario sin permiso para gestionar categorías de este agente');
+                setMensajeError('No tienes permisos para gestionar categorías de este agente. Contacta a tu administrador.');
+                setTienePermiso(false);
+            } else {
+                console.log('✅ Usuario CON permiso para gestionar categorías');
+                setTienePermiso(true);
+            }
+
+            // 9️⃣ Filtrar solo el agente del departamento del usuario
+            setAgentes([agenteDelDepartamento]);
+            setAgentesPermitidos(permisosData);
+            setEstadoCarga('ok');
+
         } catch (err) {
-            console.error('Error al cargar agentes:', err);
+            console.error('❌ Error al cargar agentes:', err);
+            console.error('❌ Stack:', err.stack);
             Alert.alert('Error', 'No se pudieron cargar los agentes');
             setAgentes([]);
+            setEstadoCarga('sin_departamento');
         } finally {
             setLoadingAgentes(false);
         }
     };
-
     const cargarCategorias = async () => {
         try {
             setLoading(true);
 
+            // 1️⃣ Obtener datos del usuario
+            const usuarioData = await authService.getUsuarioActual();
+            const rolPrincipal = usuarioData?.rol_principal?.nombre_rol?.toLowerCase();
+
+            // 2️⃣ Obtener todas las categorías
             const data = await categoriaService.getAll();
-            setCategorias(Array.isArray(data) ? data : []);
+            const todasCategorias = Array.isArray(data) ? data : [];
+
+            // 3️⃣ Si es SuperAdmin, mostrar todas
+            if (rolPrincipal === 'superadministrador') {
+                console.log('✅ SuperAdmin - Mostrando todas las categorías:', todasCategorias.length);
+                setCategorias(todasCategorias);
+            } else {
+                // 4️⃣ Filtrar SOLO categorías del agente del departamento del usuario
+                const categoriasDelDepartamento = todasCategorias.filter(categoria => {
+                    // Buscar si el agente de esta categoría pertenece al departamento del usuario
+                    const agenteDeCategoria = agentes.find(a => a.id_agente === categoria.id_agente);
+
+                    if (!agenteDeCategoria) return false;
+
+                    // Verificar que el agente sea del departamento del usuario
+                    const esDeMiDepartamento = agenteDeCategoria.id_departamento === departamentoUsuario;
+
+                    // Verificar que tenga permiso de gestión
+                    const tienePermiso = agentesPermitidos.some(
+                        relacion => relacion.id_agente === categoria.id_agente &&
+                            relacion.puede_gestionar_categorias === true
+                    );
+
+                    return esDeMiDepartamento && tienePermiso;
+                });
+
+                console.log('🔒 Categorías del departamento del usuario:', categoriasDelDepartamento.length);
+                setCategorias(categoriasDelDepartamento);
+            }
+
         } catch (err) {
             console.error('Error al cargar categorías:', err);
             Alert.alert('Error', 'No se pudieron cargar las categorías');
@@ -275,6 +449,28 @@ export default function GestionCategoriaPage() {
     };
 
     const handleEdit = (categoria) => {
+        // 🔥 VALIDACIÓN: Verificar que el usuario puede editar esta categoría
+        // Solo si NO es SuperAdmin
+        const usuarioData = authService.getUsuarioActual();
+        const rolPrincipal = usuarioData?.rol_principal?.nombre_rol?.toLowerCase();
+
+        if (rolPrincipal !== 'superadministrador') {
+            // Verificar si el usuario tiene permiso para gestionar este agente
+            const tienePermisoAgente = agentesPermitidos.some(
+                relacion => relacion.id_agente === categoria.id_agente &&
+                    relacion.puede_gestionar_categorias === true
+            );
+
+            if (!tienePermisoAgente) {
+                Alert.alert(
+                    '⛔ Acceso Denegado',
+                    'No tienes permisos para editar categorías de este agente. Solo puedes modificar categorías de los agentes que tienes asignados.',
+                    [{ text: 'Entendido', style: 'cancel' }]
+                );
+                return;
+            }
+        }
+
         setEditingCategoria(categoria);
         setFormData({
             nombre: categoria.nombre || '',
@@ -291,6 +487,34 @@ export default function GestionCategoriaPage() {
     };
 
     const handleDelete = async (id) => {
+        // 🔥 VALIDACIÓN: Buscar la categoría para verificar permisos
+        const categoria = categorias.find(cat => cat.id_categoria === id);
+
+        if (!categoria) {
+            Alert.alert('Error', 'No se encontró la categoría');
+            return;
+        }
+
+        // 🔥 VALIDACIÓN: Verificar que el usuario puede eliminar esta categoría
+        const usuarioData = await authService.getUsuarioActual();
+        const rolPrincipal = usuarioData?.rol_principal?.nombre_rol?.toLowerCase();
+
+        if (rolPrincipal !== 'superadministrador') {
+            const tienePermisoAgente = agentesPermitidos.some(
+                relacion => relacion.id_agente === categoria.id_agente &&
+                    relacion.puede_gestionar_categorias === true
+            );
+
+            if (!tienePermisoAgente) {
+                Alert.alert(
+                    '⛔ Acceso Denegado',
+                    'No tienes permisos para eliminar categorías de este agente.',
+                    [{ text: 'Entendido', style: 'cancel' }]
+                );
+                return;
+            }
+        }
+
         Alert.alert(
             'Confirmar eliminación',
             '¿Está seguro de eliminar esta categoría? Esta acción no se puede deshacer.',
@@ -473,6 +697,89 @@ export default function GestionCategoriaPage() {
                             Verificando permisos...
                         </Text>
                     </View>
+                ) : estadoCarga === 'cargando' ? (
+                    /* ============ PANTALLA DE CARGA DE DEPARTAMENTO/AGENTE ============ */
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="large" color="#667eea" />
+                        <Text style={styles.loadingText}>Verificando departamento y agente...</Text>
+                    </View>
+
+                ) : estadoCarga === 'sin_departamento' ? (
+                    /* ============ PANTALLA SIN DEPARTAMENTO ============ */
+                    <View style={{
+                        flex: 1,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        padding: 40,
+                    }}>
+                        <View style={{
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            padding: 40,
+                            borderRadius: 24,
+                            borderWidth: 2,
+                            borderColor: '#ef4444',
+                            maxWidth: 500,
+                            alignItems: 'center',
+                        }}>
+                            <Text style={{ fontSize: 64, marginBottom: 20 }}>🏢</Text>
+                            <Text style={{
+                                fontSize: 24,
+                                fontWeight: '700',
+                                color: '#ef4444',
+                                marginBottom: 12,
+                                textAlign: 'center',
+                            }}>
+                                Sin Departamento Asignado
+                            </Text>
+                            <Text style={{
+                                fontSize: 14,
+                                color: 'rgba(255, 255, 255, 0.7)',
+                                textAlign: 'center',
+                                lineHeight: 22,
+                            }}>
+                                {mensajeError}
+                            </Text>
+                        </View>
+                    </View>
+
+                ) : estadoCarga === 'sin_agente' ? (
+                    /* ============ PANTALLA SIN AGENTE ============ */
+                    <View style={{
+                        flex: 1,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        padding: 40,
+                    }}>
+                        <View style={{
+                            backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                            padding: 40,
+                            borderRadius: 24,
+                            borderWidth: 2,
+                            borderColor: '#fbbf24',
+                            maxWidth: 500,
+                            alignItems: 'center',
+                        }}>
+                            <Text style={{ fontSize: 64, marginBottom: 20 }}>🤖</Text>
+                            <Text style={{
+                                fontSize: 24,
+                                fontWeight: '700',
+                                color: '#fbbf24',
+                                marginBottom: 12,
+                                textAlign: 'center',
+                            }}>
+                                Agente No Configurado
+                            </Text>
+                            <Text style={{
+                                fontSize: 14,
+                                color: 'rgba(255, 255, 255, 0.7)',
+                                textAlign: 'center',
+                                lineHeight: 22,
+                            }}>
+                                {mensajeError}
+                            </Text>
+                        </View>
+                    </View>
+
                 ) : !tienePermiso ? (
                     /* ============ PANTALLA SIN PERMISOS ============ */
                     <View style={{
@@ -543,7 +850,8 @@ export default function GestionCategoriaPage() {
                             </Text>
                         </TouchableOpacity>
                     </View>
-                ) : (
+
+                ) : estadoCarga === 'ok' && tienePermiso ? (
                     /* ============ CONTENIDO NORMAL (SI TIENE PERMISOS) ============ */
                     <View style={styles.container}>
 
@@ -624,6 +932,55 @@ export default function GestionCategoriaPage() {
                                 </TouchableOpacity>
                             )}
                         </View>
+
+                        {/* Badge informativo cuando solo hay 1 agente */}
+                        {agentes.length === 1 && (
+                            <View style={{
+                                margin: 16,
+                                backgroundColor: agentes[0].activo
+                                    ? 'rgba(16, 185, 129, 0.1)'
+                                    : 'rgba(251, 191, 36, 0.1)',
+                                padding: 12,
+                                borderRadius: 10,
+                                marginBottom: 16,
+                                borderWidth: 1,
+                                borderColor: agentes[0].activo
+                                    ? 'rgba(16, 185, 129, 0.3)'
+                                    : 'rgba(251, 191, 36, 0.3)',
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 10,
+                            }}>
+                                <View style={{
+                                    width: 36,
+                                    height: 36,
+                                    borderRadius: 10,
+                                    backgroundColor: agentes[0].activo ? '#10b981' : '#fbbf24',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                }}>
+                                    <Ionicons
+                                        name={agentes[0].activo ? "checkmark-circle" : "warning"}
+                                        size={20}
+                                        color="white"
+                                    />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={{
+                                        color: agentes[0].activo ? '#10b981' : '#fbbf24',
+                                        fontWeight: '700',
+                                        fontSize: 13
+                                    }}>
+                                        {agentes[0].activo ? 'Agente de tu departamento' : '⚠️ Agente Desactivado'}
+                                    </Text>
+                                    <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 11, marginTop: 2 }}>
+                                        {agentes[0].nombre_agente} - {agentes[0].activo
+                                            ? 'Gestiona solo categorías de este agente'
+                                            : 'El agente está desactivado temporalmente'}
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
 
                         {/* ============ FILTROS ============ */}
                         <View style={{ paddingHorizontal: 16 }}>
@@ -1814,7 +2171,7 @@ export default function GestionCategoriaPage() {
                             </View>
                         </Modal>
                     </View>
-                )}
+                ) : null}
             </View>
         </View>
     );

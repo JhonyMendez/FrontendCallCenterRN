@@ -32,6 +32,7 @@ export default function GestionAgentePage() {
     const [loading, setLoading] = useState(true);
     const [tienePermiso, setTienePermiso] = useState(false);
     const [verificandoPermiso, setVerificandoPermiso] = useState(true);
+    const [estadoCarga, setEstadoCarga] = useState('cargando')
     const [mensajeError, setMensajeError] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [filterTipo, setFilterTipo] = useState('todos');
@@ -40,6 +41,9 @@ export default function GestionAgentePage() {
     const [showSuccessMessage, setShowSuccessMessage] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [showColorPicker, setShowColorPicker] = useState(false);
+    const [departamentoUsuario, setDepartamentoUsuario] = useState(null);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [agenteParaCambiarEstado, setAgenteParaCambiarEstado] = useState(null);
 
     // Modales
     const [showFormModal, setShowFormModal] = useState(false);
@@ -129,13 +133,13 @@ export default function GestionAgentePage() {
 
             // 5️⃣ Verificar si tiene permiso "puede_gestionar_permisos" en AL MENOS UN agente
             const tienePermisoGestion = permisosData?.some(relacion =>
-            relacion.puede_configurar_agente === true
+                relacion.puede_configurar_agente === true
             );
 
             console.log('🔍 ¿Tiene permiso "puede_configurar_agente"?:', tienePermisoGestion);
-            
+
             if (!tienePermisoGestion) {
-            setMensajeError('No tienes permisos para gestionar asignaciones de usuarios. Contacta a tu administrador para solicitar el permiso "Configurar Agente".');
+                setMensajeError('No tienes permisos para gestionar asignaciones de usuarios. Contacta a tu administrador para solicitar el permiso "Configurar Agente".');
             }
 
             setTienePermiso(tienePermisoGestion);
@@ -151,8 +155,13 @@ export default function GestionAgentePage() {
     // ============ EFFECTS ============
     useEffect(() => {
         cargarAgentes();
-        cargarEstadisticas();
     }, [filterTipo, filterEstado]);
+
+    useEffect(() => {
+        if (agentes.length > 0) {
+            cargarEstadisticas();
+        }
+    }, [agentes]);
 
     useEffect(() => {
         verificarPermisoGestionUsuarios();
@@ -243,25 +252,81 @@ export default function GestionAgentePage() {
     const cargarAgentes = async () => {
         try {
             setLoading(true);
-            const params = {};
+            setEstadoCarga('cargando');
 
-            if (filterTipo !== 'todos') {
-                params.tipo_agente = filterTipo;
+            // 1️⃣ Obtener ID del usuario actual
+            const idUsuarioActual = await authService.getUsuarioId();
+
+            if (!idUsuarioActual) {
+                setEstadoCarga('sin_departamento');
+                setMensajeError('No se pudo obtener el usuario actual. Por favor inicia sesión nuevamente.');
+                setLoading(false);
+                return;
             }
 
-            if (filterEstado !== 'todos') {
-                params.activo = filterEstado === 'activo';
+            // 2️⃣ Obtener datos del usuario para verificar su departamento
+            const usuarioData = await authService.getUsuarioActual();
+
+            console.log('👤 Usuario actual COMPLETO:', JSON.stringify(usuarioData, null, 2));
+            console.log('🔍 ID Usuario:', usuarioData?.id_usuario);
+            console.log('🏢 ID Departamento del usuario:', usuarioData?.id_departamento);
+
+            // 3️⃣ Verificar múltiples formas posibles de obtener el departamento
+            const idDepartamento =
+                usuarioData?.id_departamento ||
+                usuarioData?.departamento?.id_departamento ||
+                usuarioData?.departamento_id;
+
+            console.log('🔍 ID Departamento detectado:', idDepartamento);
+
+            if (!idDepartamento) {
+                console.log('❌ Usuario SIN departamento');
+                setEstadoCarga('sin_departamento');
+                setMensajeError('No tienes un departamento asignado. Por favor contacta a un administrador para que te asigne uno.');
+                setLoading(false);
+                return;
             }
 
-            const data = await agenteService.getAll(params);
+            console.log('✅ Usuario tiene departamento:', idDepartamento);
+            setDepartamentoUsuario(idDepartamento);
 
-            // Manejar diferentes estructuras de respuesta
+            // 4️⃣ Cargar todos los agentes
+            const data = await agenteService.getAll();
             const agentesArray = Array.isArray(data) ? data : (data?.data || []);
-            setAgentes(agentesArray);
+
+            // 5️⃣ Filtrar solo el agente del departamento del usuario
+            const agenteDelDepartamento = agentesArray.find(
+                agente => agente.id_departamento &&
+                    agente.id_departamento.toString() === idDepartamento.toString()
+            );
+
+            console.log('🔍 Buscando agente para departamento:', idDepartamento);
+            console.log('🎯 Agente encontrado:', agenteDelDepartamento);
+
+            if (!agenteDelDepartamento) {
+                console.log('❌ Departamento SIN agente asignado');
+                setEstadoCarga('sin_agente');
+                setMensajeError('Tu departamento aún no tiene un agente asignado. Por favor contacta a un administrador.');
+                setLoading(false);
+                return;
+            }
+
+            console.log('✅ Agente encontrado:', agenteDelDepartamento.nombre_agente);
+
+            // 6️⃣ Establecer solo el agente del departamento
+            setAgentes([agenteDelDepartamento]);
+
+            // 7️⃣ 🔥 NUEVO: Auto-seleccionar el agente del departamento
+            setSelectedAgente(agenteDelDepartamento);
+            console.log('🎯 Agente auto-seleccionado:', agenteDelDepartamento.id_agente);
+
+            // ✅ Todo OK
+            setEstadoCarga('ok');
 
         } catch (err) {
-            console.error('Error al cargar agentes:', err);
-            Alert.alert('Error', 'No se pudieron cargar los agentes');
+            console.error('❌ Error cargando agentes:', err);
+            setEstadoCarga('sin_departamento');
+            setMensajeError('Error al cargar los datos. Por favor intenta nuevamente.');
             setAgentes([]);
         } finally {
             setLoading(false);
@@ -270,13 +335,10 @@ export default function GestionAgentePage() {
 
     const cargarEstadisticas = async () => {
         try {
-            console.log('📊 Cargando estadísticas desde agentes...');
+            console.log('📊 Cargando estadísticas...');
 
-            const todosAgentes = await agenteService.getAll({});
-
-            const agentesArray = Array.isArray(todosAgentes)
-                ? todosAgentes
-                : (todosAgentes?.data || []);
+            // Calcular estadísticas solo del agente del departamento
+            const agentesArray = agentes;
 
             const calculadas = {
                 total: agentesArray.length,
@@ -453,6 +515,17 @@ export default function GestionAgentePage() {
 
     // Editar agente
     const handleEdit = (agente) => {
+        // 🔥 VALIDACIÓN: Verificar que el usuario puede editar este agente
+        if (usuarioActual?.id_departamento && agente.id_departamento) {
+            if (usuarioActual.id_departamento.toString() !== agente.id_departamento.toString()) {
+                Alert.alert(
+                    '⛔ Acceso Denegado',
+                    'No tienes permisos para editar agentes de otros departamentos. Solo puedes modificar el agente de tu departamento.',
+                    [{ text: 'Entendido', style: 'cancel' }]
+                );
+                return;
+            }
+        }
 
         setFormMode('edit');
         setSelectedAgente(agente);
@@ -647,8 +720,19 @@ export default function GestionAgentePage() {
         setSelectedAgente(agente);
         setShowDetailModal(true);
     };
-
     const handleDelete = async (agente) => {
+        // 🔥 VALIDACIÓN: Verificar que el usuario puede eliminar este agente
+        if (usuarioActual?.id_departamento && agente.id_departamento) {
+            if (usuarioActual.id_departamento.toString() !== agente.id_departamento.toString()) {
+                Alert.alert(
+                    '⛔ Acceso Denegado',
+                    'No tienes permisos para eliminar agentes de otros departamentos. Solo puedes eliminar el agente de tu departamento.',
+                    [{ text: 'Entendido', style: 'cancel' }]
+                );
+                return;
+            }
+        }
+
         Alert.alert(
             'Confirmar eliminación',
             `¿Está seguro de eliminar "${agente.nombre_agente}"? Esta acción no se puede deshacer.`,
@@ -678,11 +762,29 @@ export default function GestionAgentePage() {
         );
     };
 
-    const handleToggleStatus = async (agente) => {
+    const handleToggleStatus = (agente) => {
+        // 🔥 VALIDACIÓN: Verificar que el usuario puede cambiar el estado de este agente
+        if (usuarioActual?.id_departamento && agente.id_departamento) {
+            if (usuarioActual.id_departamento.toString() !== agente.id_departamento.toString()) {
+                Alert.alert(
+                    '⛔ Acceso Denegado',
+                    'No tienes permisos para cambiar el estado de agentes de otros departamentos.',
+                    [{ text: 'Entendido', style: 'cancel' }]
+                );
+                return;
+            }
+        }
+
+        // Abrir modal de confirmación
+        setAgenteParaCambiarEstado(agente);
+        setShowConfirmModal(true);
+    };
+
+    const confirmarCambioEstado = async () => {
         try {
-            const newStatus = !agente.activo;
-            await agenteService.update(agente.id_agente, {
-                ...agente,
+            const newStatus = !agenteParaCambiarEstado.activo;
+            await agenteService.update(agenteParaCambiarEstado.id_agente, {
+                ...agenteParaCambiarEstado,
                 activo: newStatus,
             });
 
@@ -690,6 +792,9 @@ export default function GestionAgentePage() {
                 `✅ Agente ${newStatus ? 'activado' : 'desactivado'} correctamente`
             );
             setShowSuccessMessage(true);
+            setShowConfirmModal(false);
+            setAgenteParaCambiarEstado(null);
+
             cargarAgentes();
             cargarEstadisticas();
 
@@ -698,7 +803,13 @@ export default function GestionAgentePage() {
             }, 3000);
         } catch (err) {
             Alert.alert('Error', 'No se pudo cambiar el estado del agente');
+            setShowConfirmModal(false);
         }
+    };
+
+    const cancelarCambioEstado = () => {
+        setShowConfirmModal(false);
+        setAgenteParaCambiarEstado(null);
     };
 
     // ============ UTILIDADES ============
@@ -709,13 +820,22 @@ export default function GestionAgentePage() {
         setSearchTerm(truncated);
     };
 
+    // 🔥 Filtrar agentes por búsqueda Y estado
     const filteredAgentes = agentes.filter((agente) => {
+        // Filtro de búsqueda
         const matchSearch =
             agente.nombre_agente?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             agente.area_especialidad?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             agente.tipo_agente?.toLowerCase().includes(searchTerm.toLowerCase());
 
-        return matchSearch;
+        // Filtro de estado
+        const matchEstado =
+            filterEstado === 'todos' ? true :
+                filterEstado === 'activo' ? (agente.activo === true || agente.activo === 1) :
+                    filterEstado === 'inactivo' ? (agente.activo === false || agente.activo === 0) :
+                        true;
+
+        return matchSearch && matchEstado;
     });
 
     const formatModelName = (modelo) => {
@@ -800,22 +920,91 @@ export default function GestionAgentePage() {
                 </TouchableOpacity>
 
                 {/* ============ PANTALLA DE CARGA ============ */}
-                {verificandoPermiso ? (
+                {verificandoPermiso || estadoCarga !== 'ok' ? (
                     <View style={{
                         flex: 1,
                         justifyContent: 'center',
                         alignItems: 'center',
                         backgroundColor: '#0f172a',
                     }}>
-                        <ActivityIndicator size="large" color="#667eea" />
-                        <Text style={{
-                            color: 'rgba(255, 255, 255, 0.7)',
-                            marginTop: 16,
-                            fontSize: 16,
-                            fontWeight: '600',
-                        }}>
-                            Verificando permisos...
-                        </Text>
+                        {/* CARGANDO */}
+                        {(verificandoPermiso || estadoCarga === 'cargando') && (
+                            <>
+                                <ActivityIndicator size="large" color="#667eea" />
+                                <Text style={{
+                                    color: 'rgba(255, 255, 255, 0.7)',
+                                    marginTop: 16,
+                                    fontSize: 16,
+                                    fontWeight: '600',
+                                }}>
+                                    {verificandoPermiso ? 'Verificando permisos...' : 'Verificando departamento y agente...'}
+                                </Text>
+                            </>
+                        )}
+
+                        {/* SIN DEPARTAMENTO */}
+                        {!verificandoPermiso && estadoCarga === 'sin_departamento' && (
+                            <View style={{
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                padding: 40,
+                                borderRadius: 24,
+                                borderWidth: 2,
+                                borderColor: '#ef4444',
+                                maxWidth: 500,
+                                alignItems: 'center',
+                            }}>
+                                <Text style={{ fontSize: 64, marginBottom: 20 }}>🏢</Text>
+                                <Text style={{
+                                    fontSize: 24,
+                                    fontWeight: '700',
+                                    color: '#ef4444',
+                                    marginBottom: 12,
+                                    textAlign: 'center',
+                                }}>
+                                    Sin Departamento Asignado
+                                </Text>
+                                <Text style={{
+                                    fontSize: 14,
+                                    color: 'rgba(255, 255, 255, 0.7)',
+                                    textAlign: 'center',
+                                    lineHeight: 22,
+                                }}>
+                                    {mensajeError}
+                                </Text>
+                            </View>
+                        )}
+
+                        {/* SIN AGENTE */}
+                        {!verificandoPermiso && estadoCarga === 'sin_agente' && (
+                            <View style={{
+                                backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                                padding: 40,
+                                borderRadius: 24,
+                                borderWidth: 2,
+                                borderColor: '#fbbf24',
+                                maxWidth: 500,
+                                alignItems: 'center',
+                            }}>
+                                <Text style={{ fontSize: 64, marginBottom: 20 }}>🤖</Text>
+                                <Text style={{
+                                    fontSize: 24,
+                                    fontWeight: '700',
+                                    color: '#fbbf24',
+                                    marginBottom: 12,
+                                    textAlign: 'center',
+                                }}>
+                                    Agente No Configurado
+                                </Text>
+                                <Text style={{
+                                    fontSize: 14,
+                                    color: 'rgba(255, 255, 255, 0.7)',
+                                    textAlign: 'center',
+                                    lineHeight: 22,
+                                }}>
+                                    {mensajeError}
+                                </Text>
+                            </View>
+                        )}
                     </View>
                 ) : !tienePermiso ? (
                     /* ============ PANTALLA SIN PERMISOS ============ */
@@ -903,6 +1092,39 @@ export default function GestionAgentePage() {
                                     {agentes.length} {agentes.length === 1 ? 'agente registrado' : 'agentes registrados'}
                                 </Text>
                             </View>
+                            {/* Badge informativo cuando solo hay 1 agente */}
+                            {agentes.length === 1 && (
+                                <View style={{
+                                    margin: 16,
+                                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                    padding: 16,
+                                    borderRadius: 12,
+                                    borderWidth: 1,
+                                    borderColor: 'rgba(16, 185, 129, 0.3)',
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 12,
+                                }}>
+                                    <View style={{
+                                        width: 40,
+                                        height: 40,
+                                        borderRadius: 12,
+                                        backgroundColor: '#10b981',
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                    }}>
+                                        <Ionicons name="checkmark-circle" size={20} color="white" />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{ color: '#10b981', fontWeight: '700', fontSize: 14 }}>
+                                            Agente de tu departamento
+                                        </Text>
+                                        <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12, marginTop: 2 }}>
+                                            {agentes[0].nombre_agente} - Solo puedes gestionar este agente
+                                        </Text>
+                                    </View>
+                                </View>
+                            )}
                             <TouchableOpacity
                                 style={styles.primaryButton}
                                 onPress={handleCreateNew}
@@ -1056,57 +1278,6 @@ export default function GestionAgentePage() {
                                 contentContainerStyle={{ gap: 12 }}
                             >
                                 <View style={styles.filterContainer}>
-                                    {/* Filtros de Tipo de Agente */}
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                        <Text style={{
-                                            fontSize: 12,
-                                            fontWeight: '500',
-                                            color: 'rgba(255, 255, 255, 0.6)',
-                                            marginRight: 4,
-                                        }}>
-                                            Tipo:
-                                        </Text>
-                                        {[
-                                            { key: 'todos', label: 'Todos', icon: 'apps' },
-                                            { key: 'router', label: 'Router', icon: 'filter' },
-                                            { key: 'especializado', label: 'Especializado', icon: 'star' },
-                                            { key: 'hibrido', label: 'Híbrido', icon: 'git-merge' },
-                                        ].map((filter) => (
-                                            <TouchableOpacity
-                                                key={filter.key}
-                                                style={[
-                                                    styles.filterButton,
-                                                    filterTipo === filter.key && styles.filterButtonActive,
-                                                ]}
-                                                onPress={() => setFilterTipo(filter.key)}
-                                                activeOpacity={0.7}
-                                            >
-                                                <Ionicons
-                                                    name={filter.icon}
-                                                    size={14}
-                                                    color={filterTipo === filter.key ? 'white' : 'rgba(255, 255, 255, 0.6)'}
-                                                />
-                                                <Text
-                                                    style={[
-                                                        styles.filterText,
-                                                        filterTipo === filter.key && styles.filterTextActive,
-                                                    ]}
-                                                >
-                                                    {filter.label}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </View>
-
-                                    {/* Separador Visual */}
-                                    <View style={{
-                                        width: 2,
-                                        height: 32,
-                                        backgroundColor: 'rgba(102, 126, 234, 0.3)',
-                                        marginHorizontal: 12,
-                                        borderRadius: 1,
-                                    }} />
-
                                     {/* Filtros de Estado */}
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                         <Text style={{
@@ -3690,8 +3861,10 @@ export default function GestionAgentePage() {
                                                 { backgroundColor: selectedAgente?.activo ? '#ef4444' : '#22c55e' }
                                             ]}
                                             onPress={() => {
-                                                handleToggleStatus(selectedAgente);
                                                 setShowDetailModal(false);
+                                                setTimeout(() => {
+                                                    handleToggleStatus(selectedAgente);
+                                                }, 300);
                                             }}
                                             activeOpacity={0.8}
                                         >
@@ -3715,7 +3888,243 @@ export default function GestionAgentePage() {
                     </View>
                 </View>
             </Modal>
+            {/* 🔥 Modal de Confirmación de Cambio de Estado - DISEÑO MEJORADO */}
+            <Modal
+                visible={showConfirmModal}
+                animationType="fade"
+                transparent={true}
+                onRequestClose={cancelarCambioEstado}
+            >
+                <View style={modalStyles.overlay}>
+                    <View style={{
+                        backgroundColor: '#1e293b',
+                        borderRadius: 24,
+                        width: '90%',
+                        maxWidth: 480,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 20 },
+                        shadowOpacity: 0.5,
+                        shadowRadius: 30,
+                        elevation: 25,
+                        overflow: 'hidden',
+                    }}>
 
+                        {/* Header con gradiente */}
+                        <View style={{
+                            backgroundColor: agenteParaCambiarEstado?.activo
+                                ? 'rgba(251, 191, 36, 0.15)'
+                                : 'rgba(16, 185, 129, 0.15)',
+                            paddingTop: 32,
+                            paddingBottom: 24,
+                            paddingHorizontal: 24,
+                            borderBottomWidth: 1,
+                            borderBottomColor: 'rgba(148, 163, 184, 0.2)',
+                        }}>
+                            {/* Icono grande centrado */}
+                            <View style={{
+                                width: 80,
+                                height: 80,
+                                borderRadius: 40,
+                                backgroundColor: agenteParaCambiarEstado?.activo
+                                    ? 'rgba(251, 191, 36, 0.2)'
+                                    : 'rgba(16, 185, 129, 0.2)',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                alignSelf: 'center',
+                                marginBottom: 16,
+                                borderWidth: 3,
+                                borderColor: agenteParaCambiarEstado?.activo ? '#fbbf24' : '#10b981',
+                            }}>
+                                <Text style={{ fontSize: 40 }}>
+                                    {agenteParaCambiarEstado?.activo ? '⚠️' : '✅'}
+                                </Text>
+                            </View>
+
+                            {/* Título */}
+                            <Text style={{
+                                color: '#ffffff',
+                                fontSize: 24,
+                                fontWeight: '700',
+                                textAlign: 'center',
+                                marginBottom: 8,
+                            }}>
+                                {agenteParaCambiarEstado?.activo ? '¿Desactivar Agente?' : '¿Activar Agente?'}
+                            </Text>
+
+                            {/* Subtítulo */}
+                            <Text style={{
+                                color: 'rgba(255, 255, 255, 0.6)',
+                                fontSize: 14,
+                                textAlign: 'center',
+                            }}>
+                                Esta acción afectará la disponibilidad del agente
+                            </Text>
+                        </View>
+
+                        {/* Contenido del agente */}
+                        <View style={{ padding: 24 }}>
+                            {agenteParaCambiarEstado && (
+                                <View style={{
+                                    backgroundColor: 'rgba(71, 85, 105, 0.4)',
+                                    borderRadius: 16,
+                                    padding: 20,
+                                    borderLeftWidth: 4,
+                                    borderLeftColor: agenteParaCambiarEstado.activo ? '#fbbf24' : '#10b981',
+                                }}>
+                                    {/* Info del agente */}
+                                    <View style={{
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 12,
+                                        marginBottom: 16,
+                                        paddingBottom: 16,
+                                        borderBottomWidth: 1,
+                                        borderBottomColor: 'rgba(148, 163, 184, 0.2)',
+                                    }}>
+                                        <Text style={{ fontSize: 32 }}>
+                                            {agenteParaCambiarEstado.icono || '🤖'}
+                                        </Text>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={{
+                                                color: '#ffffff',
+                                                fontWeight: '700',
+                                                fontSize: 16,
+                                                marginBottom: 4,
+                                            }}>
+                                                {agenteParaCambiarEstado.nombre_agente}
+                                            </Text>
+                                            <Text style={{
+                                                color: 'rgba(255, 255, 255, 0.6)',
+                                                fontSize: 13,
+                                            }}>
+                                                {agenteParaCambiarEstado.area_especialidad || 'Sin especialidad'}
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    {/* Consecuencias */}
+                                    <View style={{ gap: 12 }}>
+                                        <Text style={{
+                                            color: agenteParaCambiarEstado.activo ? '#fbbf24' : '#10b981',
+                                            fontSize: 13,
+                                            fontWeight: '700',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: 0.5,
+                                            marginBottom: 4,
+                                        }}>
+                                            {agenteParaCambiarEstado.activo ? '⚠️ Consecuencias' : '✨ Beneficios'}
+                                        </Text>
+
+                                        {(agenteParaCambiarEstado.activo ? [
+                                            'Los usuarios no podrán interactuar con este agente',
+                                            'Las categorías y contenidos permanecerán guardados',
+                                            'Podrás reactivarlo en cualquier momento'
+                                        ] : [
+                                            'Los usuarios podrán volver a interactuar con este agente',
+                                            'Todas las categorías y contenidos estarán disponibles',
+                                            'El agente estará completamente operativo'
+                                        ]).map((texto, index) => (
+                                            <View key={index} style={{
+                                                flexDirection: 'row',
+                                                alignItems: 'flex-start',
+                                                gap: 10,
+                                            }}>
+                                                <View style={{
+                                                    width: 6,
+                                                    height: 6,
+                                                    borderRadius: 3,
+                                                    backgroundColor: agenteParaCambiarEstado.activo
+                                                        ? '#fbbf24'
+                                                        : '#10b981',
+                                                    marginTop: 6,
+                                                }} />
+                                                <Text style={{
+                                                    color: 'rgba(255, 255, 255, 0.8)',
+                                                    fontSize: 14,
+                                                    lineHeight: 20,
+                                                    flex: 1,
+                                                }}>
+                                                    {texto}
+                                                </Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </View>
+                            )}
+                        </View>
+
+                        {/* Footer con botones */}
+                        <View style={{
+                            flexDirection: 'row',
+                            gap: 12,
+                            padding: 24,
+                            paddingTop: 0,
+                        }}>
+                            {/* Botón Cancelar */}
+                            <TouchableOpacity
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: 'rgba(71, 85, 105, 0.5)',
+                                    paddingVertical: 16,
+                                    borderRadius: 12,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: 8,
+                                    borderWidth: 2,
+                                    borderColor: 'rgba(148, 163, 184, 0.3)',
+                                }}
+                                onPress={cancelarCambioEstado}
+                                activeOpacity={0.7}
+                            >
+                                <Ionicons name="close-circle-outline" size={20} color="#cbd5e1" />
+                                <Text style={{
+                                    color: '#cbd5e1',
+                                    fontSize: 15,
+                                    fontWeight: '600',
+                                }}>
+                                    Cancelar
+                                </Text>
+                            </TouchableOpacity>
+
+                            {/* Botón Confirmar */}
+                            <TouchableOpacity
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: agenteParaCambiarEstado?.activo ? '#fbbf24' : '#10b981',
+                                    paddingVertical: 16,
+                                    borderRadius: 12,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: 8,
+                                    shadowColor: agenteParaCambiarEstado?.activo ? '#fbbf24' : '#10b981',
+                                    shadowOffset: { width: 0, height: 4 },
+                                    shadowOpacity: 0.3,
+                                    shadowRadius: 8,
+                                    elevation: 8,
+                                }}
+                                onPress={confirmarCambioEstado}
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons
+                                    name={agenteParaCambiarEstado?.activo ? "power" : "checkmark-circle"}
+                                    size={20}
+                                    color="#ffffff"
+                                />
+                                <Text style={{
+                                    color: '#ffffff',
+                                    fontSize: 15,
+                                    fontWeight: '700',
+                                }}>
+                                    {agenteParaCambiarEstado?.activo ? 'Sí, Desactivar' : 'Sí, Activar'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }

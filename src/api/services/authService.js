@@ -1,5 +1,6 @@
 // src/api/services/authService.js
 import { Platform } from 'react-native';
+import { apiClient } from '../client'; // ✅ IMPORTAR apiClient
 
 const isWeb = Platform.OS === 'web';
 
@@ -8,6 +9,7 @@ if (!isWeb) {
   AsyncStorage = require('@react-native-async-storage/async-storage').default;
 }
 
+// ==================== STORAGE UNIVERSAL ====================
 const storage = {
   async getItem(key) {
     if (isWeb) {
@@ -42,7 +44,10 @@ const storage = {
   }
 };
 
+// ==================== AUTH SERVICE ====================
 const authService = {
+  
+  // ========== PROCESAR LOGIN ==========
   procesarLogin: async (usuario) => {
     try {
       console.log('🔐 [authService] Procesando login para:', usuario.username);
@@ -53,7 +58,7 @@ const authService = {
       await storage.setItem('@usuario_email', usuario.email || '');
       await storage.setItem('@usuario_nombre_completo', usuario.nombre_completo || usuario.username);
 
-      // 🔥 NUEVO: Guardar departamento si existe
+      // 🔥 Guardar departamento si existe
       if (usuario.id_departamento) {
         await storage.setItem('@usuario_id_departamento', usuario.id_departamento.toString());
         console.log('✅ Guardado id_departamento:', usuario.id_departamento);
@@ -105,6 +110,7 @@ const authService = {
     }
   },
 
+  // ========== OBTENER RUTA POR ROL ==========
   getRutaPorRol: (idRol) => {
     switch (idRol) {
       case 1: // Super Admin
@@ -118,29 +124,77 @@ const authService = {
     }
   },
 
-  limpiarSesion: async () => {
+  // ========== LOGOUT (NUEVO) ==========
+  logout: async () => {
     try {
-      await storage.multiRemove([
-      '@usuario_id',
-      '@usuario_username',
-      '@usuario_email',
-      '@usuario_nombre_completo',
-      '@usuario_id_departamento',
-      '@usuario_es_admin',
-      '@usuario_es_superadmin',
-      '@rol_principal_id',
-      '@rol_principal_nombre',
-      '@todos_roles',
-      '@permisos',
-      '@datos_sesion'
-    ]);
-      console.log('✅ [authService] Sesión limpiada');
+      console.log('🚪 [authService] Iniciando logout...');
+      
+      // Intentar notificar al backend
+      try {
+        const token = await apiClient.getToken();
+        if (token) {
+          await apiClient.post('/usuarios/logout', {}, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          console.log('✅ Backend notificado del logout');
+        }
+      } catch (error) {
+        console.log('⚠️ Error notificando logout al servidor:', error);
+        // No fallar el logout si el backend no responde
+      }
+      
+      // Limpiar token primero
+      await apiClient.removeToken();
+      
+      // Limpiar sesión local
+      await authService.limpiarSesion();
+      
+      console.log('✅ [authService] Logout completado');
+      
+      return { success: true };
+      
     } catch (error) {
-      console.error('❌ [authService] Error limpiando sesión:', error);
+      console.error('❌ [authService] Error en logout:', error);
+      
+      // Limpiar de todas formas aunque haya error
+      try {
+        await apiClient.removeToken();
+        await authService.limpiarSesion();
+      } catch (e) {
+        console.error('❌ Error limpiando en catch:', e);
+      }
+      
+      return { success: false, error: error.message };
     }
   },
 
-  // Método para obtener el id_usuario
+  // ========== LIMPIAR SESIÓN ==========
+  limpiarSesion: async () => {
+    try {
+      await storage.multiRemove([
+        '@usuario_id',
+        '@usuario_username',
+        '@usuario_email',
+        '@usuario_nombre_completo',
+        '@usuario_id_departamento',
+        '@usuario_es_admin',
+        '@usuario_es_superadmin',
+        '@rol_principal_id',
+        '@rol_principal_nombre',
+        '@todos_roles',
+        '@permisos',
+        '@datos_sesion'
+      ]);
+      console.log('✅ [authService] Sesión limpiada');
+    } catch (error) {
+      console.error('❌ [authService] Error limpiando sesión:', error);
+      throw error;
+    }
+  },
+
+  // ========== OBTENER ID USUARIO ==========
   getUsuarioId: async () => {
     try {
       const id = await storage.getItem('@usuario_id');
@@ -151,7 +205,7 @@ const authService = {
     }
   },
 
-  // Método para obtener datos completos del usuario
+  // ========== OBTENER USUARIO ACTUAL ==========
   getUsuarioActual: async () => {
     try {
       const [id, username, email, nombreCompleto, idDepartamento] = await Promise.all([
@@ -159,7 +213,7 @@ const authService = {
         storage.getItem('@usuario_username'),
         storage.getItem('@usuario_email'),
         storage.getItem('@usuario_nombre_completo'),
-        storage.getItem('@usuario_id_departamento') // 🔥 NUEVO
+        storage.getItem('@usuario_id_departamento')
       ]);
 
       if (!id || !username) {
@@ -173,7 +227,7 @@ const authService = {
         nombre_completo: nombreCompleto || username
       };
 
-      // 🔥 NUEVO: Agregar id_departamento si existe
+      // Agregar id_departamento si existe
       if (idDepartamento) {
         usuario.id_departamento = parseInt(idDepartamento);
       }
@@ -187,7 +241,7 @@ const authService = {
     }
   },
 
-  // Método para obtener todos los datos de sesión
+  // ========== OBTENER DATOS DE SESIÓN ==========
   obtenerDatosSesion: async () => {
     try {
       const [
