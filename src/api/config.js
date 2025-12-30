@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 const DEV_CONFIG = {
   web: 'http://localhost:8000/api/v1',
   ios: 'http://localhost:8000/api/v1',
-  android: 'http://192.168.54.17:8000/api/v1',
+  android: 'http://192.168.5.12:8000/api/v1',
   default: 'http://localhost:8000/api/v1',
 };
 
@@ -59,6 +59,7 @@ export const ENDPOINTS = {
     BY_CODIGO: (codigo) => `/departamentos/codigo/${codigo}`,
     ESTADISTICAS_BY_ID: (id) => `/departamentos/${id}/estadisticas`,
     ASIGNAR_JEFE: (id, idJefe) => `/departamentos/${id}/jefe/${idJefe}`,
+    RESTAURAR: (id) => `/departamentos/${id}/restaurar`,
     REGENERAR_OLLAMA: (id) => `/departamentos/${id}/ollama/regenerar`,
     CONSULTAR_OLLAMA: '/departamentos/ollama/consultar',
   },

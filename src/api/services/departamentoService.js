@@ -86,10 +86,16 @@ export const departamentoService = {
     return await apiClient.put(ENDPOINTS.DEPARTAMENTOS.ASIGNAR_JEFE(id, idJefe));
   },
 
-  // Eliminar departamento
+  // 🔥 Eliminar departamento (Soft Delete - cambia activo a false)
   delete: async (id) => {
-    console.log('🔍 [Service] delete:', id);
+    console.log('🔍 [Service] delete (soft delete):', id);
     return await apiClient.delete(ENDPOINTS.DEPARTAMENTOS.BY_ID(id));
+  },
+
+  // 🔥 NUEVO: Restaurar departamento (cambia activo a true)
+  restore: async (id) => {
+    console.log('🔍 [Service] restore:', id);
+    return await apiClient.put(ENDPOINTS.DEPARTAMENTOS.RESTAURAR(id));
   },
 
   // Regenerar modelo Ollama
