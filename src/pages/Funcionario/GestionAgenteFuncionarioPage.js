@@ -44,6 +44,13 @@ export default function GestionAgentePage() {
     const [departamentoUsuario, setDepartamentoUsuario] = useState(null);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [agenteParaCambiarEstado, setAgenteParaCambiarEstado] = useState(null);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [agenteToDelete, setAgenteToDelete] = useState(null);
+    const [showToggleModal, setShowToggleModal] = useState(false);
+    const [agenteToToggle, setAgenteToToggle] = useState(null);
+    const [showErrorModal, setShowErrorModal] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
+    const [errorDetails, setErrorDetails] = useState(null);
 
     // Modales
     const [showFormModal, setShowFormModal] = useState(false);
@@ -787,7 +794,7 @@ export default function GestionAgentePage() {
         setSelectedAgente(agente);
         setShowDetailModal(true);
     };
-    const handleDelete = async (agente) => {
+    const handleDelete = (agente) => {
         // 🔥 VALIDACIÓN: Verificar que el usuario puede eliminar este agente
         if (usuarioActual?.id_departamento && agente.id_departamento) {
             if (usuarioActual.id_departamento.toString() !== agente.id_departamento.toString()) {
@@ -800,33 +807,45 @@ export default function GestionAgentePage() {
             }
         }
 
-        Alert.alert(
-            'Confirmar eliminación',
-            `¿Está seguro de eliminar "${agente.nombre_agente}"? Esta acción no se puede deshacer.`,
-            [
-                { text: 'Cancelar', style: 'cancel' },
-                {
-                    text: 'Eliminar',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await agenteService.delete(agente.id_agente);
-                            setSuccessMessage('🗑️ Agente eliminado correctamente');
-                            setShowSuccessMessage(true);
-                            setShowDetailModal(false);
-                            cargarAgentes();
-                            cargarEstadisticas();
+        setAgenteToDelete(agente);
+        setShowDeleteModal(true);
+    };
+    const confirmarEliminacion = async () => {
+        if (!agenteToDelete) return;
 
-                            setTimeout(() => {
-                                setShowSuccessMessage(false);
-                            }, 3000);
-                        } catch (err) {
-                            Alert.alert('Error', err?.message || 'No se pudo eliminar el agente');
-                        }
-                    },
-                },
-            ]
-        );
+        try {
+            await agenteService.delete(agenteToDelete.id_agente);
+
+            setSuccessMessage('🗑️ Agente eliminado permanentemente');
+            setShowSuccessMessage(true);
+
+            setShowDeleteModal(false);
+            setShowDetailModal(false);
+            setAgenteToDelete(null);
+
+            await cargarAgentes();
+            await cargarEstadisticas();
+
+            setTimeout(() => {
+                setShowSuccessMessage(false);
+            }, 3000);
+        } catch (err) {
+            // El mensaje viene directamente en err.message
+            let mensajeError = err?.message || 'No se pudo eliminar el agente';
+
+            // Reemplazar "desactivar" por "eliminar" si viene del backend
+            mensajeError = mensajeError.replace(/desactivar/gi, 'eliminar');
+
+            console.log('📝 Mostrando error:', mensajeError);
+
+            // Cerrar modal de confirmación
+            setShowDeleteModal(false);
+
+            // Mostrar modal de error
+            setErrorMessage(mensajeError);
+            setErrorDetails({ message: mensajeError });
+            setShowErrorModal(true);
+        }
     };
 
     const handleToggleStatus = (agente) => {
@@ -4456,7 +4475,462 @@ export default function GestionAgentePage() {
                     </View>
                 </View>
             </Modal>
-        </View>
+            {/* ============ MODAL CONFIRMACIÓN ELIMINAR ============ */}
+            <Modal
+                visible={showDeleteModal}
+                animationType="fade"
+                transparent={true}
+                onRequestClose={() => setShowDeleteModal(false)}
+            >
+                <View style={{
+                    flex: 1,
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    padding: 20,
+                }}>
+                    <View style={{
+                        backgroundColor: '#1e293b',
+                        borderRadius: 20,
+                        width: '100%',
+                        maxWidth: 500,
+                        overflow: 'hidden',
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 10 },
+                        shadowOpacity: 0.5,
+                        shadowRadius: 20,
+                        elevation: 20,
+                    }}>
+                        {/* Header con ícono de advertencia */}
+                        <View style={{
+                            backgroundColor: 'rgba(220, 38, 38, 0.2)',
+                            padding: 24,
+                            alignItems: 'center',
+                            borderBottomWidth: 1,
+                            borderBottomColor: 'rgba(220, 38, 38, 0.3)',
+                        }}>
+                            <View style={{
+                                width: 80,
+                                height: 80,
+                                borderRadius: 40,
+                                backgroundColor: 'rgba(220, 38, 38, 0.2)',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                marginBottom: 16,
+                                borderWidth: 3,
+                                borderColor: '#dc2626',
+                            }}>
+                                <Ionicons name="trash-outline" size={40} color="#dc2626" />
+                            </View>
+                            <Text style={{
+                                fontSize: 24,
+                                fontWeight: '700',
+                                color: '#ffffff',
+                                textAlign: 'center',
+                            }}>
+                                ⚠️ Confirmar Eliminación
+                            </Text>
+                        </View>
+
+                        {/* Contenido */}
+                        <View style={{ padding: 24 }}>
+                            <Text style={{
+                                fontSize: 16,
+                                color: 'rgba(255, 255, 255, 0.9)',
+                                textAlign: 'center',
+                                lineHeight: 24,
+                                marginBottom: 16,
+                            }}>
+                                ¿Estás seguro de eliminar permanentemente el agente
+                            </Text>
+
+                            <View style={{
+                                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                padding: 16,
+                                borderRadius: 12,
+                                marginBottom: 16,
+                                borderLeftWidth: 4,
+                                borderLeftColor: '#667eea',
+                            }}>
+                                <Text style={{
+                                    fontSize: 18,
+                                    fontWeight: '700',
+                                    color: '#ffffff',
+                                    textAlign: 'center',
+                                }}>
+                                    "{agenteToDelete?.nombre_agente}"?
+                                </Text>
+                            </View>
+
+                            <View style={{
+                                backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                                padding: 16,
+                                borderRadius: 12,
+                                borderLeftWidth: 4,
+                                borderLeftColor: '#dc2626',
+                            }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+                                    <Ionicons name="warning" size={20} color="#dc2626" style={{ marginTop: 2 }} />
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{
+                                            fontSize: 14,
+                                            fontWeight: '700',
+                                            color: '#dc2626',
+                                            marginBottom: 6,
+                                        }}>
+                                            ADVERTENCIA: Esta acción es irreversible
+                                        </Text>
+                                        <Text style={{
+                                            fontSize: 13,
+                                            color: 'rgba(220, 38, 38, 0.9)',
+                                            lineHeight: 20,
+                                        }}>
+                                            El agente será marcado como eliminado y NO podrá recuperarse desde la aplicación.
+                                        </Text>
+                                    </View>
+                                </View>
+
+                                <View style={{
+                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                    padding: 12,
+                                    borderRadius: 8,
+                                    borderWidth: 1,
+                                    borderColor: 'rgba(59, 130, 246, 0.3)',
+                                }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                        <Ionicons name="information-circle" size={16} color="#3b82f6" />
+                                        <Text style={{
+                                            fontSize: 12,
+                                            color: '#3b82f6',
+                                            fontWeight: '600',
+                                        }}>
+                                            💡 Sugerencia
+                                        </Text>
+                                    </View>
+                                    <Text style={{
+                                        fontSize: 12,
+                                        color: 'rgba(59, 130, 246, 0.9)',
+                                        marginTop: 6,
+                                        lineHeight: 18,
+                                    }}>
+                                        Si solo deseas desactivarlo temporalmente, usa el botón "Desactivar" en su lugar.
+                                    </Text>
+                                </View>
+                            </View>
+                        </View>
+
+                        {/* Botones */}
+                        <View style={{
+                            flexDirection: 'row',
+                            gap: 12,
+                            padding: 24,
+                            paddingTop: 0,
+                        }}>
+                            <TouchableOpacity
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: 'rgba(71, 85, 105, 0.5)',
+                                    padding: 16,
+                                    borderRadius: 12,
+                                    alignItems: 'center',
+                                    borderWidth: 2,
+                                    borderColor: 'rgba(148, 163, 184, 0.3)',
+                                }}
+                                onPress={() => {
+                                    setShowDeleteModal(false);
+                                    setAgenteToDelete(null);
+                                }}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={{
+                                    color: '#ffffff',
+                                    fontSize: 16,
+                                    fontWeight: '600',
+                                }}>
+                                    Cancelar
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: '#dc2626',
+                                    padding: 16,
+                                    borderRadius: 12,
+                                    alignItems: 'center',
+                                    flexDirection: 'row',
+                                    justifyContent: 'center',
+                                    gap: 8,
+                                    borderWidth: 2,
+                                    borderColor: '#b91c1c',
+                                    shadowColor: '#dc2626',
+                                    shadowOffset: { width: 0, height: 4 },
+                                    shadowOpacity: 0.4,
+                                    shadowRadius: 8,
+                                    elevation: 8,
+                                }}
+                                onPress={confirmarEliminacion}
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons name="trash" size={20} color="#ffffff" />
+                                <Text style={{
+                                    color: '#ffffff',
+                                    fontSize: 16,
+                                    fontWeight: '700',
+                                }}>
+                                    Eliminar
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* ============ MODAL ERROR ============ */}
+            <Modal
+                visible={showErrorModal}
+                animationType="fade"
+                transparent={true}
+                onRequestClose={() => setShowErrorModal(false)}
+            >
+                <View style={{
+                    flex: 1,
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    padding: 20,
+                }}>
+                    <View style={{
+                        backgroundColor: '#1e293b',
+                        borderRadius: 20,
+                        width: '100%',
+                        maxWidth: 500,
+                        overflow: 'hidden',
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 10 },
+                        shadowOpacity: 0.5,
+                        shadowRadius: 20,
+                        elevation: 20,
+                    }}>
+                        {/* Header */}
+                        <View style={{
+                            backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                            padding: 24,
+                            alignItems: 'center',
+                            borderBottomWidth: 1,
+                            borderBottomColor: 'rgba(239, 68, 68, 0.3)',
+                        }}>
+                            <View style={{
+                                width: 80,
+                                height: 80,
+                                borderRadius: 40,
+                                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                marginBottom: 16,
+                                borderWidth: 3,
+                                borderColor: '#ef4444',
+                            }}>
+                                <Ionicons name="alert-circle" size={40} color="#ef4444" />
+                            </View>
+                            <Text style={{
+                                fontSize: 24,
+                                fontWeight: '700',
+                                color: '#ffffff',
+                                textAlign: 'center',
+                            }}>
+                                ❌ No se puede eliminar
+                            </Text>
+                        </View>
+
+                        {/* Contenido */}
+                        <View style={{ padding: 24 }}>
+                            {/* Mensaje principal */}
+                            <View style={{
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                padding: 16,
+                                borderRadius: 12,
+                                marginBottom: 16,
+                                borderLeftWidth: 4,
+                                borderLeftColor: '#ef4444',
+                            }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                                    <Ionicons name="warning" size={20} color="#ef4444" style={{ marginTop: 2 }} />
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{
+                                            fontSize: 15,
+                                            fontWeight: '700',
+                                            color: '#ef4444',
+                                            marginBottom: 8,
+                                        }}>
+                                            Error al intentar eliminar
+                                        </Text>
+                                        <Text style={{
+                                            fontSize: 14,
+                                            color: 'rgba(255, 255, 255, 0.9)',
+                                            lineHeight: 22,
+                                        }}>
+                                            {errorMessage}
+                                        </Text>
+                                    </View>
+                                </View>
+                            </View>
+
+                            {/* Información del agente */}
+                            {agenteToDelete && (
+                                <View style={{
+                                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                    padding: 16,
+                                    borderRadius: 12,
+                                    marginBottom: 16,
+                                    borderLeftWidth: 4,
+                                    borderLeftColor: '#667eea',
+                                }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                                        <Text style={{ fontSize: 24 }}>{agenteToDelete.icono || '🤖'}</Text>
+                                        <Text style={{
+                                            fontSize: 16,
+                                            fontWeight: '700',
+                                            color: '#ffffff',
+                                            flex: 1,
+                                        }}>
+                                            {agenteToDelete.nombre_agente}
+                                        </Text>
+                                    </View>
+                                    <Text style={{
+                                        fontSize: 13,
+                                        color: 'rgba(255, 255, 255, 0.7)',
+                                    }}>
+                                        {agenteToDelete.area_especialidad}
+                                    </Text>
+                                </View>
+                            )}
+
+                            {/* Sugerencia */}
+                            <View style={{
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                padding: 16,
+                                borderRadius: 12,
+                                borderLeftWidth: 4,
+                                borderLeftColor: '#3b82f6',
+                            }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                                    <Ionicons name="information-circle" size={20} color="#3b82f6" style={{ marginTop: 2 }} />
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{
+                                            fontSize: 14,
+                                            fontWeight: '700',
+                                            color: '#3b82f6',
+                                            marginBottom: 8,
+                                        }}>
+                                            💡 ¿Qué puedes hacer?
+                                        </Text>
+
+                                        <View style={{ gap: 8 }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                                                <Text style={{ color: '#3b82f6', fontSize: 13 }}>1.</Text>
+                                                <Text style={{
+                                                    fontSize: 13,
+                                                    color: 'rgba(59, 130, 246, 0.9)',
+                                                    lineHeight: 20,
+                                                    flex: 1,
+                                                }}>
+                                                    Elimina o archiva los contenidos asociados primero
+                                                </Text>
+                                            </View>
+
+                                            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                                                <Text style={{ color: '#3b82f6', fontSize: 13 }}>2.</Text>
+                                                <Text style={{
+                                                    fontSize: 13,
+                                                    color: 'rgba(59, 130, 246, 0.9)',
+                                                    lineHeight: 20,
+                                                    flex: 1,
+                                                }}>
+                                                    O simplemente desactiva el agente temporalmente
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    </View>
+                                </View>
+                            </View>
+                        </View>
+
+                        {/* Botones */}
+                        <View style={{
+                            flexDirection: 'row',
+                            gap: 12,
+                            padding: 24,
+                            paddingTop: 0,
+                        }}>
+                            <TouchableOpacity
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: 'rgba(71, 85, 105, 0.5)',
+                                    padding: 16,
+                                    borderRadius: 12,
+                                    alignItems: 'center',
+                                    borderWidth: 2,
+                                    borderColor: 'rgba(148, 163, 184, 0.3)',
+                                }}
+                                onPress={() => {
+                                    setShowErrorModal(false);
+                                    setErrorMessage('');
+                                    setErrorDetails(null);
+                                }}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={{
+                                    color: '#ffffff',
+                                    fontSize: 16,
+                                    fontWeight: '600',
+                                }}>
+                                    Cerrar
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: '#fb923c',
+                                    padding: 16,
+                                    borderRadius: 12,
+                                    alignItems: 'center',
+                                    flexDirection: 'row',
+                                    justifyContent: 'center',
+                                    gap: 8,
+                                    borderWidth: 2,
+                                    borderColor: '#f97316',
+                                    shadowColor: '#fb923c',
+                                    shadowOffset: { width: 0, height: 4 },
+                                    shadowOpacity: 0.4,
+                                    shadowRadius: 8,
+                                    elevation: 8,
+                                }}
+                                onPress={() => {
+                                    setShowErrorModal(false);
+                                    setErrorMessage('');
+                                    setErrorDetails(null);
+                                    if (agenteToDelete) {
+                                        handleToggleStatus(agenteToDelete);
+                                    }
+                                }}
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons name="pause" size={20} color="#ffffff" />
+                                <Text style={{
+                                    color: '#ffffff',
+                                    fontSize: 16,
+                                    fontWeight: '700',
+                                }}>
+                                    Desactivar
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+        </View >
     );
 }
 
