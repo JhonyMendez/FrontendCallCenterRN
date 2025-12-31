@@ -1,16 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Modal,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Modal,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { agenteService } from '../../api/services/agenteService';
 import { departamentoService } from '../../api/services/departamentoService';
 import AdminSidebar from '../../components/Sidebar/sidebarAdmin';
 import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles';
@@ -29,7 +30,12 @@ export default function GestionDepartamentosPage() {
   const [errors, setErrors] = useState({});
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [departamentoToDelete, setDepartamentoToDelete] = useState(null);
+  const [agentesGlobal, setAgentesGlobal] = useState([]);
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [agentesAsignados, setAgentesAsignados] = useState([]);
+
   const [formData, setFormData] = useState({
     nombre: '',
     descripcion: '',
@@ -131,6 +137,10 @@ export default function GestionDepartamentosPage() {
     cargarDepartamentos();
   }, [filterActivo]);
 
+  useEffect(() => {
+    cargarAgentes();
+  }, []);
+
   // ============ FUNCIONES ============
   const cargarDepartamentos = async () => {
     try {
@@ -144,6 +154,19 @@ export default function GestionDepartamentosPage() {
       setDepartamentos([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const cargarAgentes = async () => {
+    try {
+      console.log('📥 Cargando agentes para validación...');
+      const data = await agenteService.getAll({});
+      const agentesArray = Array.isArray(data) ? data : (data?.data || []);
+      setAgentesGlobal(agentesArray);
+      console.log('✅ Agentes cargados:', agentesArray.length);
+    } catch (err) {
+      console.error('Error al cargar agentes:', err);
+      setAgentesGlobal([]);
     }
   };
 
@@ -174,23 +197,24 @@ export default function GestionDepartamentosPage() {
         await departamentoService.create(sanitizedData);
         setSuccessMessage('✅ Departamento creado exitosamente');
       }
-      
+
       // Cerrar modal primero
       setShowModal(false);
       resetForm();
-      
+
       // Mostrar mensaje de éxito y recargar
       setShowSuccessMessage(true);
       cargarDepartamentos();
-      
+      cargarAgentes(); 
+
       // Ocultar mensaje después de 3 segundos
       setTimeout(() => {
         setShowSuccessMessage(false);
       }, 3000);
-      
+
     } catch (err) {
       console.error('Error al guardar:', err);
-      
+
       // Mostrar mensaje específico del backend
       const errorMessage = err?.message || err?.data?.message || 'No se pudo guardar el departamento';
       Alert.alert('Error', errorMessage);
@@ -213,35 +237,78 @@ export default function GestionDepartamentosPage() {
     setShowModal(true);
   };
 
-  const handleDelete = async (id) => {
+const handleDelete = async (id) => {
+  try {
+    console.log('🔍 Verificando departamento ID:', id);
+    console.log('📊 Agentes disponibles:', agentesGlobal.length);
+
+    // Filtrar agentes que tengan este departamento asignado
+    const agentesConEsteDepartamento = agentesGlobal.filter(agente => {
+      const tieneDepto = agente.id_departamento &&
+        agente.id_departamento.toString() === id.toString();
+
+      if (tieneDepto) {
+        console.log(`✅ Agente "${agente.nombre_agente}" tiene departamento ${id}`);
+      }
+
+      return tieneDepto;
+    });
+
+    console.log('👥 Agentes encontrados con este departamento:', agentesConEsteDepartamento);
+    const cantidadAgentes = agentesConEsteDepartamento.length;
+
+    // Si tiene agentes activos, mostrar modal de advertencia
+    if (cantidadAgentes > 0) {
+      setAgentesAsignados(agentesConEsteDepartamento);
+      setShowWarningModal(true);
+      return;
+    }
+
+    console.log('✅ No tiene agentes, procediendo a abrir modal de confirmación');
+
+    // Si no tiene agentes, abrir el modal de confirmación
+    setDepartamentoToDelete(id);
+    setShowDeleteModal(true);
+
+  } catch (err) {
+    console.error('❌ Error al verificar agentes:', err);
     Alert.alert(
-      'Confirmar eliminación',
-      '¿Está seguro de eliminar este departamento? Esta acción no se puede deshacer.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await departamentoService.delete(id);
-              setSuccessMessage('🗑️ Departamento eliminado correctamente');
-              setShowSuccessMessage(true);
-              cargarDepartamentos();
-              
-              // Ocultar mensaje después de 3 segundos
-              setTimeout(() => {
-                setShowSuccessMessage(false);
-              }, 3000);
-            } catch (err) {
-              console.error('Error al eliminar:', err);
-              const errorMessage = err?.message || 'No se pudo eliminar el departamento';
-              Alert.alert('Error', errorMessage);
-            }
-          },
-        },
-      ]
+      'Error',
+      'No se pudo verificar los agentes asignados. Por seguridad, no se permitirá la eliminación.'
     );
+  }
+};
+
+  // Nueva función para confirmar la eliminación
+  const confirmDelete = async () => {
+    if (!departamentoToDelete) return;
+
+    try {
+      await departamentoService.delete(departamentoToDelete);
+      setSuccessMessage('🗑️ Departamento eliminado correctamente');
+      setShowSuccessMessage(true);
+
+      // Cerrar modal de confirmación
+      setShowDeleteModal(false);
+      setDepartamentoToDelete(null);
+
+      // Recargar lista
+      cargarDepartamentos();
+      cargarAgentes();
+
+      setTimeout(() => {
+        setShowSuccessMessage(false);
+      }, 3000);
+    } catch (err) {
+      console.error('Error al eliminar:', err);
+      const errorMessage = err?.message || err?.data?.message || 'No se pudo eliminar el departamento';
+      Alert.alert('Error', errorMessage);
+    }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
+    setDepartamentoToDelete(null);
   };
 
   const resetForm = () => {
@@ -283,9 +350,9 @@ export default function GestionDepartamentosPage() {
   // ============ RENDER ============
   return (
     <View style={contentStyles.wrapper}>
-      
+
       {/* ============ SIDEBAR ============ */}
-      <AdminSidebar 
+      <AdminSidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
       />
@@ -313,11 +380,11 @@ export default function GestionDepartamentosPage() {
 
       {/* ============ CONTENIDO PRINCIPAL ============ */}
       <View style={[
-        contentStyles.mainContent, 
+        contentStyles.mainContent,
         sidebarOpen && contentStyles.mainContentWithSidebar
       ]}>
         <View style={styles.container}>
-          
+
           {/* ============ HEADER ============ */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
@@ -413,10 +480,10 @@ export default function GestionDepartamentosPage() {
                 activeOpacity={0.7}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons 
-                    name={filter.icon} 
-                    size={14} 
-                    color={filterActivo === filter.key ? 'white' : 'rgba(255, 255, 255, 0.6)'} 
+                  <Ionicons
+                    name={filter.icon}
+                    size={14}
+                    color={filterActivo === filter.key ? 'white' : 'rgba(255, 255, 255, 0.6)'}
                   />
                   <Text
                     style={[
@@ -466,7 +533,7 @@ export default function GestionDepartamentosPage() {
           <Modal visible={showModal} animationType="fade" transparent>
             <View style={styles.modalOverlay}>
               <View style={styles.modal}>
-                
+
                 {/* Header del Modal */}
                 <View style={styles.modalHeader}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -483,10 +550,10 @@ export default function GestionDepartamentosPage() {
                       shadowOffset: { width: 0, height: 4 },
                       elevation: 6,
                     }}>
-                      <Ionicons 
-                        name={editingDepartamento ? "create-outline" : "add-circle-outline"} 
-                        size={28} 
-                        color="#667eea" 
+                      <Ionicons
+                        name={editingDepartamento ? "create-outline" : "add-circle-outline"}
+                        size={28}
+                        color="#667eea"
                       />
                     </View>
                     <View>
@@ -498,7 +565,7 @@ export default function GestionDepartamentosPage() {
                       </Text>
                     </View>
                   </View>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={() => {
                       setShowModal(false);
                       resetForm();
@@ -520,7 +587,7 @@ export default function GestionDepartamentosPage() {
 
                 {/* Contenido del Modal */}
                 <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-                  
+
                   {/* Nombre */}
                   <View style={styles.formGroup}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -776,16 +843,16 @@ export default function GestionDepartamentosPage() {
                   >
                     <Text style={styles.secondaryButtonText}>Cancelar</Text>
                   </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    style={styles.primaryButton} 
+
+                  <TouchableOpacity
+                    style={styles.primaryButton}
                     onPress={handleSubmit}
                     activeOpacity={0.8}
                   >
-                    <Ionicons 
-                      name={editingDepartamento ? "checkmark-circle" : "add-circle"} 
-                      size={20} 
-                      color="white" 
+                    <Ionicons
+                      name={editingDepartamento ? "checkmark-circle" : "add-circle"}
+                      size={20}
+                      color="white"
                     />
                     <Text style={styles.buttonText}>
                       {editingDepartamento ? 'Actualizar' : 'Crear'}
@@ -797,6 +864,372 @@ export default function GestionDepartamentosPage() {
             </View>
           </Modal>
 
+          {/* ============ MODAL DE ADVERTENCIA (Departamento con agentes) ============ */}
+          <Modal visible={showWarningModal} animationType="fade" transparent>
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modal, { maxWidth: 500, padding: 0 }]}>
+
+                {/* Header del Modal */}
+                <View style={{
+                  padding: 24,
+                  borderBottomWidth: 1,
+                  borderBottomColor: 'rgba(251, 146, 60, 0.2)',
+                  backgroundColor: 'rgba(251, 146, 60, 0.1)',
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                    <View style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: 16,
+                      backgroundColor: 'rgba(251, 146, 60, 0.2)',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      borderWidth: 2,
+                      borderColor: 'rgba(251, 146, 60, 0.4)',
+                    }}>
+                      <Ionicons name="warning" size={32} color="#fb923c" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{
+                        fontSize: 20,
+                        fontWeight: '700',
+                        color: '#fb923c',
+                        marginBottom: 4,
+                      }}>
+                        ❌ No se puede eliminar
+                      </Text>
+                      <Text style={{
+                        fontSize: 13,
+                        color: 'rgba(255, 255, 255, 0.6)',
+                      }}>
+                        Este departamento tiene agentes asignados
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Contenido del Modal */}
+                <ScrollView style={{ maxHeight: 400, padding: 24 }}>
+                  <Text style={{
+                    fontSize: 16,
+                    color: 'rgba(255, 255, 255, 0.9)',
+                    lineHeight: 24,
+                    marginBottom: 16,
+                  }}>
+                    Este departamento tiene <Text style={{ fontWeight: '700', color: '#fb923c' }}>
+                      {agentesAsignados.length} {agentesAsignados.length === 1 ? 'agente asignado' : 'agentes asignados'}
+                    </Text>. Debes revocar todas las asignaciones antes de eliminarlo.
+                  </Text>
+
+                  {/* Lista de agentes asignados */}
+                  <View style={{
+                    backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                    borderRadius: 12,
+                    padding: 16,
+                    borderWidth: 1,
+                    borderColor: 'rgba(251, 146, 60, 0.3)',
+                    marginBottom: 16,
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                      <Ionicons name="people" size={20} color="#fb923c" />
+                      <Text style={{
+                        fontSize: 15,
+                        fontWeight: '700',
+                        color: '#fb923c',
+                      }}>
+                        {agentesAsignados.length === 1 ? 'Agente asignado:' : 'Agentes asignados:'}
+                      </Text>
+                    </View>
+                    {agentesAsignados.map((agente, index) => (
+                      <View
+                        key={agente.id_agente || index}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 12,
+                          paddingVertical: 12,
+                          paddingHorizontal: 12,
+                          backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                          borderRadius: 8,
+                          borderLeftWidth: 3,
+                          borderLeftColor: '#667eea',
+                          marginBottom: index < agentesAsignados.length - 1 ? 8 : 0,
+                        }}
+                      >
+                        <View style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 20,
+                          backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}>
+                          <Text style={{ fontSize: 20 }}>{agente.icono || '🤖'}</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{
+                            color: 'rgba(255, 255, 255, 0.9)',
+                            fontSize: 15,
+                            fontWeight: '600',
+                            marginBottom: 2,
+                          }}>
+                            {agente.nombre_agente}
+                          </Text>
+                          <Text style={{
+                            color: 'rgba(255, 255, 255, 0.5)',
+                            fontSize: 12,
+                          }}>
+                            {agente.area_especialidad || agente.tipo_agente}
+                          </Text>
+                        </View>
+                        <Ionicons name="link" size={18} color="#667eea" />
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* Instrucciones */}
+                  <View style={{
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderLeftWidth: 4,
+                    borderLeftColor: '#3b82f6',
+                    padding: 16,
+                    borderRadius: 8,
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                      <Ionicons name="information-circle" size={20} color="#3b82f6" style={{ marginTop: 2 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{
+                          fontSize: 14,
+                          fontWeight: '600',
+                          color: '#3b82f6',
+                          marginBottom: 8,
+                        }}>
+                          📋 Pasos para eliminar este departamento:
+                        </Text>
+                        <View style={{ gap: 8 }}>
+                          <View style={{ flexDirection: 'row', gap: 8 }}>
+                            <Text style={{ color: '#3b82f6', fontWeight: '700' }}>1.</Text>
+                            <Text style={{
+                              color: 'rgba(255, 255, 255, 0.8)',
+                              fontSize: 13,
+                              flex: 1,
+                              lineHeight: 20,
+                            }}>
+                              Ve a <Text style={{ fontWeight: '700' }}>Gestión de Agentes</Text>
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', gap: 8 }}>
+                            <Text style={{ color: '#3b82f6', fontWeight: '700' }}>2.</Text>
+                            <Text style={{
+                              color: 'rgba(255, 255, 255, 0.8)',
+                              fontSize: 13,
+                              flex: 1,
+                              lineHeight: 20,
+                            }}>
+                              Edita {agentesAsignados.length === 1 ? 'el agente' : 'cada agente'} y quita la asignación del departamento
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', gap: 8 }}>
+                            <Text style={{ color: '#3b82f6', fontWeight: '700' }}>3.</Text>
+                            <Text style={{
+                              color: 'rgba(255, 255, 255, 0.8)',
+                              fontSize: 13,
+                              flex: 1,
+                              lineHeight: 20,
+                            }}>
+                              Regresa aquí y podrás eliminar el departamento
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                </ScrollView>
+
+                {/* Footer del Modal */}
+                <View style={{
+                  padding: 24,
+                  paddingTop: 0,
+                }}>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: '#667eea',
+                      paddingVertical: 14,
+                      borderRadius: 12,
+                      alignItems: 'center',
+                      flexDirection: 'row',
+                      justifyContent: 'center',
+                      gap: 8,
+                      shadowColor: '#667eea',
+                      shadowOpacity: 0.4,
+                      shadowRadius: 8,
+                      shadowOffset: { width: 0, height: 4 },
+                      elevation: 6,
+                    }}
+                    onPress={() => setShowWarningModal(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="checkmark-circle" size={20} color="white" />
+                    <Text style={{
+                      color: 'white',
+                      fontSize: 15,
+                      fontWeight: '700',
+                    }}>
+                      Entendido
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+
+          {/* ============ MODAL DE CONFIRMACIÓN DE ELIMINACIÓN ============ */}
+          <Modal visible={showDeleteModal} animationType="fade" transparent>
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modal, { maxWidth: 450, padding: 0 }]}>
+
+                {/* Header del Modal */}
+                <View style={{
+                  padding: 24,
+                  borderBottomWidth: 1,
+                  borderBottomColor: 'rgba(239, 68, 68, 0.2)',
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                    <View style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: 16,
+                      backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      borderWidth: 2,
+                      borderColor: 'rgba(239, 68, 68, 0.4)',
+                    }}>
+                      <Ionicons name="warning" size={32} color="#ef4444" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{
+                        fontSize: 20,
+                        fontWeight: '700',
+                        color: '#ef4444',
+                        marginBottom: 4,
+                      }}>
+                        Confirmar eliminación
+                      </Text>
+                      <Text style={{
+                        fontSize: 13,
+                        color: 'rgba(255, 255, 255, 0.6)',
+                      }}>
+                        Esta acción no se puede deshacer
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Contenido del Modal */}
+                <View style={{ padding: 24 }}>
+                  <Text style={{
+                    fontSize: 16,
+                    color: 'rgba(255, 255, 255, 0.9)',
+                    lineHeight: 24,
+                    marginBottom: 16,
+                  }}>
+                    ¿Está seguro de que desea eliminar este departamento?
+                  </Text>
+
+                  <View style={{
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderLeftWidth: 4,
+                    borderLeftColor: '#ef4444',
+                    padding: 16,
+                    borderRadius: 8,
+                    marginBottom: 8,
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                      <Ionicons name="alert-circle" size={20} color="#ef4444" style={{ marginTop: 2 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{
+                          fontSize: 14,
+                          fontWeight: '600',
+                          color: '#ef4444',
+                          marginBottom: 6,
+                        }}>
+                          Advertencia importante
+                        </Text>
+                        <Text style={{
+                          fontSize: 13,
+                          color: 'rgba(255, 255, 255, 0.7)',
+                          lineHeight: 20,
+                        }}>
+                          Esta acción es permanente y no se puede deshacer desde la aplicación. El departamento será eliminado del sistema.
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Footer del Modal */}
+                <View style={{
+                  flexDirection: 'row',
+                  gap: 12,
+                  padding: 24,
+                  paddingTop: 0,
+                }}>
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      paddingVertical: 14,
+                      borderRadius: 12,
+                      alignItems: 'center',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                    }}
+                    onPress={cancelDelete}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{
+                      color: 'rgba(255, 255, 255, 0.9)',
+                      fontSize: 15,
+                      fontWeight: '600',
+                    }}>
+                      Cancelar
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      backgroundColor: '#ef4444',
+                      paddingVertical: 14,
+                      borderRadius: 12,
+                      alignItems: 'center',
+                      flexDirection: 'row',
+                      justifyContent: 'center',
+                      gap: 8,
+                      shadowColor: '#ef4444',
+                      shadowOpacity: 0.4,
+                      shadowRadius: 8,
+                      shadowOffset: { width: 0, height: 4 },
+                      elevation: 6,
+                    }}
+                    onPress={confirmDelete}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="trash" size={18} color="white" />
+                    <Text style={{
+                      color: 'white',
+                      fontSize: 15,
+                      fontWeight: '700',
+                    }}>
+                      Eliminar
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
         </View>
       </View>
     </View>
