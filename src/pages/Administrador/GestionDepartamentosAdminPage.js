@@ -205,7 +205,7 @@ export default function GestionDepartamentosPage() {
       // Mostrar mensaje de éxito y recargar
       setShowSuccessMessage(true);
       cargarDepartamentos();
-      cargarAgentes(); 
+      cargarAgentes();
 
       // Ocultar mensaje después de 3 segundos
       setTimeout(() => {
@@ -237,47 +237,47 @@ export default function GestionDepartamentosPage() {
     setShowModal(true);
   };
 
-const handleDelete = async (id) => {
-  try {
-    console.log('🔍 Verificando departamento ID:', id);
-    console.log('📊 Agentes disponibles:', agentesGlobal.length);
+  const handleDelete = async (id) => {
+    try {
+      console.log('🔍 Verificando departamento ID:', id);
+      console.log('📊 Agentes disponibles:', agentesGlobal.length);
 
-    // Filtrar agentes que tengan este departamento asignado
-    const agentesConEsteDepartamento = agentesGlobal.filter(agente => {
-      const tieneDepto = agente.id_departamento &&
-        agente.id_departamento.toString() === id.toString();
+      // Filtrar agentes que tengan este departamento asignado
+      const agentesConEsteDepartamento = agentesGlobal.filter(agente => {
+        const tieneDepto = agente.id_departamento &&
+          agente.id_departamento.toString() === id.toString();
 
-      if (tieneDepto) {
-        console.log(`✅ Agente "${agente.nombre_agente}" tiene departamento ${id}`);
+        if (tieneDepto) {
+          console.log(`✅ Agente "${agente.nombre_agente}" tiene departamento ${id}`);
+        }
+
+        return tieneDepto;
+      });
+
+      console.log('👥 Agentes encontrados con este departamento:', agentesConEsteDepartamento);
+      const cantidadAgentes = agentesConEsteDepartamento.length;
+
+      // Si tiene agentes activos, mostrar modal de advertencia
+      if (cantidadAgentes > 0) {
+        setAgentesAsignados(agentesConEsteDepartamento);
+        setShowWarningModal(true);
+        return;
       }
 
-      return tieneDepto;
-    });
+      console.log('✅ No tiene agentes, procediendo a abrir modal de confirmación');
 
-    console.log('👥 Agentes encontrados con este departamento:', agentesConEsteDepartamento);
-    const cantidadAgentes = agentesConEsteDepartamento.length;
+      // Si no tiene agentes, abrir el modal de confirmación
+      setDepartamentoToDelete(id);
+      setShowDeleteModal(true);
 
-    // Si tiene agentes activos, mostrar modal de advertencia
-    if (cantidadAgentes > 0) {
-      setAgentesAsignados(agentesConEsteDepartamento);
-      setShowWarningModal(true);
-      return;
+    } catch (err) {
+      console.error('❌ Error al verificar agentes:', err);
+      Alert.alert(
+        'Error',
+        'No se pudo verificar los agentes asignados. Por seguridad, no se permitirá la eliminación.'
+      );
     }
-
-    console.log('✅ No tiene agentes, procediendo a abrir modal de confirmación');
-
-    // Si no tiene agentes, abrir el modal de confirmación
-    setDepartamentoToDelete(id);
-    setShowDeleteModal(true);
-
-  } catch (err) {
-    console.error('❌ Error al verificar agentes:', err);
-    Alert.alert(
-      'Error',
-      'No se pudo verificar los agentes asignados. Por seguridad, no se permitirá la eliminación.'
-    );
-  }
-};
+  };
 
   // Nueva función para confirmar la eliminación
   const confirmDelete = async () => {

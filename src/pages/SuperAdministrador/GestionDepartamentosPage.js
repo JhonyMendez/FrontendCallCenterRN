@@ -145,8 +145,7 @@ export default function GestionDepartamentosPage() {
   const cargarDepartamentos = async () => {
     try {
       setLoading(true);
-      // Solo cargar departamentos activos siempre
-      const params = { activo: true };
+      const params = filterActivo !== 'all' ? { activo: filterActivo === 'true' } : {};
       const data = await departamentoService.getAll(params);
       setDepartamentos(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -465,24 +464,40 @@ export default function GestionDepartamentosPage() {
               </TouchableOpacity>
             )}
           </View>
-
+          
           {/* ============ FILTROS ============ */}
           <View style={styles.filterContainer}>
-            <View style={[
-              styles.filterButton,
-              styles.filterButtonActive,
-            ]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Ionicons
-                  name="checkmark-circle"
-                  size={14}
-                  color="white"
-                />
-                <Text style={styles.filterTextActive}>
-                  Departamentos Activos
-                </Text>
-              </View>
-            </View>
+            {[
+              { key: 'all', label: 'Todos', icon: 'apps' },
+              { key: 'true', label: 'Activos', icon: 'checkmark-circle' },
+              { key: 'false', label: 'Inactivos', icon: 'close-circle' }
+            ].map((filter) => (
+              <TouchableOpacity
+                key={filter.key}
+                style={[
+                  styles.filterButton,
+                  filterActivo === filter.key && styles.filterButtonActive,
+                ]}
+                onPress={() => setFilterActivo(filter.key)}
+                activeOpacity={0.7}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons
+                    name={filter.icon}
+                    size={14}
+                    color={filterActivo === filter.key ? 'white' : 'rgba(255, 255, 255, 0.6)'}
+                  />
+                  <Text
+                    style={[
+                      styles.filterText,
+                      filterActivo === filter.key && styles.filterTextActive,
+                    ]}
+                  >
+                    {filter.label}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
           </View>
 
           {/* ============ LISTA ============ */}
