@@ -40,7 +40,11 @@ export default function GestionAgentePage() {
   // Modales
   const [showFormModal, setShowFormModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [formMode, setFormMode] = useState('create'); // 'create' o 'edit'
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [agenteToDelete, setAgenteToDelete] = useState(null);
+  const [showToggleModal, setShowToggleModal] = useState(false);
+  const [agenteToToggle, setAgenteToToggle] = useState(null);
+  const [formMode, setFormMode] = useState('create');
   const [selectedAgente, setSelectedAgente] = useState(null);
 
   // Form Data
@@ -73,6 +77,15 @@ export default function GestionAgentePage() {
     puede_ejecutar_acciones: false,
     acciones_disponibles: '',
     requiere_autenticacion: false,
+    horarios: {
+      lunes: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+      martes: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+      miercoles: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+      jueves: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+      viernes: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+      sabado: { activo: false, bloques: [] },
+      domingo: { activo: false, bloques: [] }
+    },
   });
   const [formErrors, setFormErrors] = useState({});
   const [showDeptPicker, setShowDeptPicker] = useState(false);
@@ -130,28 +143,22 @@ export default function GestionAgentePage() {
                 break;
               }
             } catch (e) {
-              console.log('Error parseando:', clave);
             }
           }
         }
 
         if (usuarioEncontrado) {
-          console.log('✅ Usuario encontrado:', usuarioEncontrado);
           setUsuarioActual(usuarioEncontrado);
         } else {
-          console.log('⚠️ No se encontró usuario en AsyncStorage');
 
           // Debug: Mostrar TODAS las claves disponibles
           const allKeys = await AsyncStorage.getAllKeys();
-          console.log('📋 Claves disponibles en AsyncStorage:', allKeys);
 
           for (const key of allKeys) {
             const val = await AsyncStorage.getItem(key);
-            console.log(`  ${key}:`, val?.substring(0, 100) + '...'); // Mostrar primeros 100 chars
           }
         }
       } catch (error) {
-        console.error('❌ Error al cargar usuario:', error);
       }
     };
 
@@ -182,13 +189,16 @@ export default function GestionAgentePage() {
         params.tipo_agente = filterTipo;
       }
 
-      if (filterEstado !== 'todos') {
-        params.activo = filterEstado === 'activo';
+      // ⭐ FILTRAR según el estado seleccionado (activo/inactivo)
+      // Solo aplicar filtro si filterEstado está definido como 'activo' o 'inactivo'
+      if (filterEstado === 'activo') {
+        params.activo = true;
+      } else if (filterEstado === 'inactivo') {
+        params.activo = false;
       }
+      // Si filterEstado no es ni 'activo' ni 'inactivo', no se aplica filtro (muestra todos)
 
       const data = await agenteService.getAll(params);
-
-      // Manejar diferentes estructuras de respuesta
       const agentesArray = Array.isArray(data) ? data : (data?.data || []);
       setAgentes(agentesArray);
 
@@ -201,36 +211,34 @@ export default function GestionAgentePage() {
     }
   };
 
-const cargarEstadisticas = async () => {
-  try {
-    console.log('📊 Cargando estadísticas desde agentes...');
-    
-    const todosAgentes = await agenteService.getAll({});
-    
-    const agentesArray = Array.isArray(todosAgentes) 
-      ? todosAgentes 
-      : (todosAgentes?.data || []);
-    
-    const calculadas = {
-      total: agentesArray.length,
-      activos: agentesArray.filter(a => a.activo === true || a.activo === 1).length,
-      router: agentesArray.filter(a => a.tipo_agente === 'router').length,
-      especializados: agentesArray.filter(a => a.tipo_agente === 'especializado').length,
-    };
-    
-    console.log('✅ Estadísticas calculadas:', calculadas);
-    setStats(calculadas);
-    
-  } catch (err) {
-    console.error('❌ Error al cargar estadísticas:', err);
-    setStats({
-      total: 0,
-      activos: 0,
-      router: 0,
-      especializados: 0,
-    });
-  }
-};
+  const cargarEstadisticas = async () => {
+    try {
+
+      const todosAgentes = await agenteService.getAll({});
+
+      const agentesArray = Array.isArray(todosAgentes)
+        ? todosAgentes
+        : (todosAgentes?.data || []);
+
+      const calculadas = {
+        total: agentesArray.length,
+        activos: agentesArray.filter(a => a.activo === true || a.activo === 1).length,
+        router: agentesArray.filter(a => a.tipo_agente === 'router').length,
+        especializados: agentesArray.filter(a => a.tipo_agente === 'especializado').length,
+      };
+
+      setStats(calculadas);
+
+    } catch (err) {
+      console.error('❌ Error al cargar estadísticas:', err);
+      setStats({
+        total: 0,
+        activos: 0,
+        router: 0,
+        especializados: 0,
+      });
+    }
+  };
 
   // ============  Cargar departamentos para el formulario ===========
 
@@ -277,6 +285,15 @@ const cargarEstadisticas = async () => {
       requiere_autenticacion: false,
       creado_por: null,
       actualizado_por: null,
+      horarios: {
+        lunes: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+        martes: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+        miercoles: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+        jueves: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+        viernes: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+        sabado: { activo: false, bloques: [] },
+        domingo: { activo: false, bloques: [] }
+      },
     });
     setFormErrors({});
   };
@@ -318,7 +335,6 @@ const cargarEstadisticas = async () => {
 
     if (!validation.isValid) {
     } else {
-      console.log('✅ Validación exitosa');
     }
 
     return validation.isValid;
@@ -437,7 +453,48 @@ const cargarEstadisticas = async () => {
       prioridad_routing: agente.prioridad_routing?.toString() || '0',
       puede_ejecutar_acciones: agente.puede_ejecutar_acciones || false,
       acciones_disponibles: agente.acciones_disponibles || '',
-      requiere_autenticacion: agente.requiere_autenticacion || false,
+      horarios: (() => {
+        if (!agente.horarios) {
+          // Si no hay horarios, usar el default
+          return {
+            lunes: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+            martes: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+            miercoles: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+            jueves: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+            viernes: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+            sabado: { activo: false, bloques: [] },
+            domingo: { activo: false, bloques: [] }
+          };
+        }
+
+        // Si hay horarios, convertir del formato BD al formato del formulario
+        const horariosDesdeDB = typeof agente.horarios === 'string'
+          ? JSON.parse(agente.horarios)
+          : agente.horarios;
+
+        // Convertir formato BD -> formato formulario
+        const horariosParaFormulario = {
+          lunes: { activo: false, bloques: [] },
+          martes: { activo: false, bloques: [] },
+          miercoles: { activo: false, bloques: [] },
+          jueves: { activo: false, bloques: [] },
+          viernes: { activo: false, bloques: [] },
+          sabado: { activo: false, bloques: [] },
+          domingo: { activo: false, bloques: [] }
+        };
+
+        // Poblar con datos reales
+        Object.entries(horariosDesdeDB).forEach(([dia, bloques]) => {
+          if (Array.isArray(bloques) && bloques.length > 0) {
+            horariosParaFormulario[dia] = {
+              activo: true,
+              bloques: bloques
+            };
+          }
+        });
+
+        return horariosParaFormulario;
+      })(),
       creado_por: agente.creado_por || null,
       actualizado_por: null,
     });
@@ -524,28 +581,23 @@ const cargarEstadisticas = async () => {
       const tonoTexto = `\n\nTONO:\n${tonoMap[prompt_tono] || tonoMap.amigable}`;
       const prompt_sistema_final = `${contextoBase}${misionTexto}${especializacionTexto}${reglasTexto}${tonoTexto}`;
 
+      // ⭐ CONVERTIR HORARIOS AL FORMATO DE LA BASE DE DATOS
+      const horariosParaBD = {};
+      Object.entries(formData.horarios).forEach(([dia, config]) => {
+        if (config.activo && config.bloques && config.bloques.length > 0) {
+          horariosParaBD[dia] = config.bloques;
+        }
+      });
+
       // Preparar datos ANTES de sanitizar
       const dataPreSanitizar = {
         ...formData,
-        prompt_sistema: prompt_sistema_final
+        prompt_sistema: prompt_sistema_final,
+        horarios: JSON.stringify(horariosParaBD)
       };
 
-      // ⭐ ESTABLECER CAMPOS DE AUDITORÍA ANTES DE SANITIZAR
-      if (formMode === 'create') {
-        dataPreSanitizar.creado_por = usuarioParaGuardar.id_usuario;
-        console.log('➕ MODO CREAR - Estableciendo creado_por PRE-sanitizar:', dataPreSanitizar.creado_por);
-      } else {
-        dataPreSanitizar.actualizado_por = usuarioParaGuardar.id_usuario;
-        console.log('✏️ MODO EDITAR - Estableciendo actualizado_por PRE-sanitizar:', dataPreSanitizar.actualizado_por);
-      }
-
-      console.log('📦 Datos PRE-sanitizar:', dataPreSanitizar);
-
-      // Sanitizar
       const dataToSave = SecurityValidator.sanitizeAgenteData(dataPreSanitizar);
 
-
-      // ENVIAR AL BACKEND
       let response;
       if (formMode === 'create') {
         response = await agenteService.create(dataToSave);
@@ -581,56 +633,70 @@ const cargarEstadisticas = async () => {
     setShowDetailModal(true);
   };
 
-  const handleDelete = async (agente) => {
-    Alert.alert(
-      'Confirmar eliminación',
-      `¿Está seguro de eliminar "${agente.nombre_agente}"? Esta acción no se puede deshacer.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await agenteService.delete(agente.id_agente);
-              setSuccessMessage('🗑️ Agente eliminado correctamente');
-              setShowSuccessMessage(true);
-              setShowDetailModal(false);
-              cargarAgentes();
-              cargarEstadisticas();
-
-              setTimeout(() => {
-                setShowSuccessMessage(false);
-              }, 3000);
-            } catch (err) {
-              Alert.alert('Error', err?.message || 'No se pudo eliminar el agente');
-            }
-          },
-        },
-      ]
-    );
+  const handleDelete = (agente) => {
+    setAgenteToDelete(agente);
+    setShowDeleteModal(true);
   };
 
-  const handleToggleStatus = async (agente) => {
-    try {
-      const newStatus = !agente.activo;
-      await agenteService.update(agente.id_agente, {
-        ...agente,
-        activo: newStatus,
-      });
+  const confirmarEliminacion = async () => {
+    if (!agenteToDelete) return;
 
-      setSuccessMessage(
-        `✅ Agente ${newStatus ? 'activado' : 'desactivado'} correctamente`
-      );
+    try {
+      await agenteService.delete(agenteToDelete.id_agente);
+
+      setSuccessMessage('🗑️ Agente eliminado permanentemente');
       setShowSuccessMessage(true);
-      cargarAgentes();
-      cargarEstadisticas();
+
+      setShowDeleteModal(false);
+      setShowDetailModal(false);
+      setAgenteToDelete(null);
+
+      await cargarAgentes();
+      await cargarEstadisticas();
 
       setTimeout(() => {
         setShowSuccessMessage(false);
       }, 3000);
     } catch (err) {
-      Alert.alert('Error', 'No se pudo cambiar el estado del agente');
+      Alert.alert('Error', err?.message || 'No se pudo eliminar el agente');
+    }
+  };
+
+  const handleToggleStatus = (agente) => {
+    setAgenteToToggle(agente);
+    setShowToggleModal(true);
+  };
+
+  const confirmarToggleStatus = async () => {
+    if (!agenteToToggle) return;
+
+    try {
+      const newStatus = !agenteToToggle.activo;
+
+      await agenteService.update(agenteToToggle.id_agente, {
+        ...agenteToToggle,
+        activo: newStatus,
+      });
+
+      setSuccessMessage(
+        newStatus
+          ? '✅ Agente reactivado exitosamente'
+          : '⏸️ Agente desactivado exitosamente'
+      );
+      setShowSuccessMessage(true);
+
+      setShowToggleModal(false);
+      setShowDetailModal(false);
+      setAgenteToToggle(null);
+
+      await cargarAgentes();
+      await cargarEstadisticas();
+
+      setTimeout(() => {
+        setShowSuccessMessage(false);
+      }, 3000);
+    } catch (err) {
+      Alert.alert('Error', `No se pudo cambiar el estado del agente`);
     }
   };
 
@@ -881,7 +947,6 @@ const cargarEstadisticas = async () => {
 
           {/* ============ FILTROS ============ */}
           <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
-            {/* Título general */}
             <Text style={{
               fontSize: 13,
               fontWeight: '600',
@@ -899,58 +964,6 @@ const cargarEstadisticas = async () => {
               contentContainerStyle={{ gap: 12 }}
             >
               <View style={styles.filterContainer}>
-                {/* Filtros de Tipo de Agente */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text style={{
-                    fontSize: 12,
-                    fontWeight: '500',
-                    color: 'rgba(255, 255, 255, 0.6)',
-                    marginRight: 4,
-                  }}>
-                    Tipo:
-                  </Text>
-                  {[
-                    { key: 'todos', label: 'Todos', icon: 'apps' },
-                    { key: 'router', label: 'Router', icon: 'filter' },
-                    { key: 'especializado', label: 'Especializado', icon: 'star' },
-                    { key: 'hibrido', label: 'Híbrido', icon: 'git-merge' },
-                  ].map((filter) => (
-                    <TouchableOpacity
-                      key={filter.key}
-                      style={[
-                        styles.filterButton,
-                        filterTipo === filter.key && styles.filterButtonActive,
-                      ]}
-                      onPress={() => setFilterTipo(filter.key)}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons
-                        name={filter.icon}
-                        size={14}
-                        color={filterTipo === filter.key ? 'white' : 'rgba(255, 255, 255, 0.6)'}
-                      />
-                      <Text
-                        style={[
-                          styles.filterText,
-                          filterTipo === filter.key && styles.filterTextActive,
-                        ]}
-                      >
-                        {filter.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* Separador Visual */}
-                <View style={{
-                  width: 2,
-                  height: 32,
-                  backgroundColor: 'rgba(102, 126, 234, 0.3)',
-                  marginHorizontal: 12,
-                  borderRadius: 1,
-                }} />
-
-                {/* Filtros de Estado */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Text style={{
                     fontSize: 12,
@@ -961,9 +974,9 @@ const cargarEstadisticas = async () => {
                     Estado:
                   </Text>
                   {[
-                    { key: 'todos', label: 'Todos', icon: 'list' },
+                    { key: 'todos', label: 'Todos', icon: 'apps' },
                     { key: 'activo', label: 'Activos', icon: 'checkmark-circle' },
-                    { key: 'inactivo', label: 'Inactivos', icon: 'close-circle' },
+                    { key: 'inactivo', label: 'Inactivos', icon: 'pause-circle' },
                   ].map((filter) => (
                     <TouchableOpacity
                       key={`estado-${filter.key}`}
@@ -1122,344 +1135,341 @@ const cargarEstadisticas = async () => {
                       </Text>
                     </View>
                   )}
-{/* Si está editando Y tiene departamento asignado - BLOQUEADO */}
-{formMode === 'edit' && selectedAgente?.id_departamento ? (
-  <>
-    <View style={{
-      backgroundColor: 'rgba(71, 85, 105, 0.3)',
-      borderWidth: 1,
-      borderColor: 'rgba(148, 163, 184, 0.3)',
-      borderRadius: 12,
-      padding: 16,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginTop: 8,
-    }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <Ionicons name="business-outline" size={20} color="#94a3b8" />
-        <Text style={{
-          color: '#94a3b8',
-          fontSize: 15,
-          fontWeight: '500',
-        }}>
-          {departamentos.find(d => d.id_departamento.toString() === selectedAgente.id_departamento.toString())?.nombre || 'Departamento asignado'}
-        </Text>
-      </View>
-      <View style={{
-        backgroundColor: 'rgba(148, 163, 184, 0.2)',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 6,
-      }}>
-        <Text style={{
-          color: '#94a3b8',
-          fontSize: 11,
-          fontWeight: '600',
-          textTransform: 'uppercase',
-          letterSpacing: 0.5,
-        }}>
-          Bloqueado
-        </Text>
-      </View>
-    </View>
-    <Text style={modalStyles.helperText}>
-      ⚠️ El departamento no puede cambiarse una vez asignado
-    </Text>
-  </>
-) : (
-  /* Si está creando O no tiene departamento - SELECTOR CON MODAL */
-  <>
-    {/* Botón para abrir el modal */}
-    <TouchableOpacity
-      style={{
-        marginTop: 8,
-        backgroundColor: 'rgba(71, 85, 105, 0.3)',
-        borderWidth: 2,
-        borderColor: 'rgba(148, 163, 184, 0.3)',
-        borderRadius: 12,
-        padding: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-      }}
-      onPress={() => {
-        console.log('🖱️ Abriendo selector de departamento');
-        setShowDeptPicker(true);
-      }}
-      activeOpacity={0.7}
-    >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
-        <Ionicons name="business-outline" size={20} color="#667eea" />
-        <Text style={{
-          color: formData.id_departamento ? '#ffffff' : 'rgba(255, 255, 255, 0.5)',
-          fontSize: 15,
-          fontWeight: '500',
-          flex: 1,
-        }}>
-          {formData.id_departamento
-            ? departamentos.find(d => d.id_departamento.toString() === formData.id_departamento)?.nombre || 'Seleccionar...'
-            : 'Seleccionar departamento...'}
-        </Text>
-      </View>
-      <Ionicons name="chevron-down" size={20} color="#667eea" />
-    </TouchableOpacity>
-
-    {/* Modal con lista de departamentos */}
-    <Modal
-      visible={showDeptPicker}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={() => setShowDeptPicker(false)}
-    >
-      <View style={{
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.75)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-      }}>
-        <View style={{
-          backgroundColor: '#1e293b',
-          borderRadius: 16,
-          width: '100%',
-          maxWidth: 500,
-          maxHeight: '80%',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.5,
-          shadowRadius: 16,
-          elevation: 16,
-        }}>
-          {/* Header del modal */}
-          <View style={{
-            backgroundColor: 'rgba(102, 126, 234, 0.2)',
-            padding: 16,
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-            borderBottomWidth: 1,
-            borderBottomColor: 'rgba(102, 126, 234, 0.3)',
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}>
-            <Text style={{ color: '#667eea', fontSize: 16, fontWeight: '700' }}>
-              📋 Seleccionar Departamento
-            </Text>
-            <TouchableOpacity
-              onPress={() => setShowDeptPicker(false)}
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 16,
-                backgroundColor: 'rgba(148, 163, 184, 0.2)',
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              <Ionicons name="close" size={20} color="#ffffff" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Información */}
-          <View style={{
-            padding: 12,
-            backgroundColor: 'rgba(102, 126, 234, 0.1)',
-            borderBottomWidth: 1,
-            borderBottomColor: 'rgba(148, 163, 184, 0.2)',
-          }}>
-            <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 13 }}>
-              {getDepartamentosDisponibles().length} departamento(s) disponible(s)
-            </Text>
-          </View>
-
-          {/* Lista de departamentos */}
-          <ScrollView
-            style={{ maxHeight: 400 }}
-            showsVerticalScrollIndicator={true}
-          >
-            {/* Opción: Sin asignar */}
-            <TouchableOpacity
-              style={{
-                padding: 16,
-                borderBottomWidth: 1,
-                borderBottomColor: 'rgba(148, 163, 184, 0.2)',
-                backgroundColor: !formData.id_departamento
-                  ? 'rgba(102, 126, 234, 0.3)'
-                  : 'transparent',
-              }}
-              onPress={() => {
-                console.log('✅ Seleccionado: Sin asignar');
-                setFormData({ ...formData, id_departamento: '' });
-                setShowDeptPicker(false);
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <View style={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: 12,
-                  borderWidth: 2,
-                  borderColor: !formData.id_departamento ? '#667eea' : '#94a3b8',
-                  backgroundColor: !formData.id_departamento ? '#667eea' : 'transparent',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                }}>
-                  {!formData.id_departamento && (
-                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
-                  )}
-                </View>
-                <Text style={{
-                  color: !formData.id_departamento ? '#ffffff' : 'rgba(255, 255, 255, 0.7)',
-                  fontSize: 15,
-                  fontWeight: !formData.id_departamento ? '600' : '400',
-                  flex: 1,
-                }}>
-                  Sin asignar
-                </Text>
-                {!formData.id_departamento && (
-                  <Ionicons name="checkmark-circle" size={24} color="#22c55e" />
-                )}
-              </View>
-            </TouchableOpacity>
-
-            {/* Departamentos disponibles */}
-            {getDepartamentosDisponibles().length > 0 ? (
-              getDepartamentosDisponibles().map((dept, index) => (
-                <TouchableOpacity
-                  key={`dept-modal-${index}`}
-                  style={{
-                    padding: 16,
-                    borderBottomWidth: 1,
-                    borderBottomColor: 'rgba(148, 163, 184, 0.2)',
-                    backgroundColor: formData.id_departamento === dept.id_departamento.toString()
-                      ? 'rgba(102, 126, 234, 0.3)'
-                      : 'transparent',
-                  }}
-                  onPress={() => {
-                    console.log('✅ Departamento seleccionado:', dept.nombre);
-                    setFormData({ ...formData, id_departamento: dept.id_departamento.toString() });
-                    setShowDeptPicker(false);
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <View style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: 12,
-                      borderWidth: 2,
-                      borderColor: formData.id_departamento === dept.id_departamento.toString() ? '#667eea' : '#94a3b8',
-                      backgroundColor: formData.id_departamento === dept.id_departamento.toString() ? '#667eea' : 'transparent',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                    }}>
-                      {formData.id_departamento === dept.id_departamento.toString() && (
-                        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
-                      )}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{
-                        color: formData.id_departamento === dept.id_departamento.toString() ? '#ffffff' : 'rgba(255, 255, 255, 0.9)',
-                        fontSize: 15,
-                        fontWeight: formData.id_departamento === dept.id_departamento.toString() ? '600' : '400',
+                  {/* Si está editando Y tiene departamento asignado - BLOQUEADO */}
+                  {formMode === 'edit' && selectedAgente?.id_departamento ? (
+                    <>
+                      <View style={{
+                        backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(148, 163, 184, 0.3)',
+                        borderRadius: 12,
+                        padding: 16,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginTop: 8,
                       }}>
-                        {dept.nombre}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                          <Ionicons name="business-outline" size={20} color="#94a3b8" />
+                          <Text style={{
+                            color: '#94a3b8',
+                            fontSize: 15,
+                            fontWeight: '500',
+                          }}>
+                            {departamentos.find(d => d.id_departamento.toString() === selectedAgente.id_departamento.toString())?.nombre || 'Departamento asignado'}
+                          </Text>
+                        </View>
+                        <View style={{
+                          backgroundColor: 'rgba(148, 163, 184, 0.2)',
+                          paddingHorizontal: 10,
+                          paddingVertical: 4,
+                          borderRadius: 6,
+                        }}>
+                          <Text style={{
+                            color: '#94a3b8',
+                            fontSize: 11,
+                            fontWeight: '600',
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.5,
+                          }}>
+                            Bloqueado
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={modalStyles.helperText}>
+                        ⚠️ El departamento no puede cambiarse una vez asignado
                       </Text>
-                      {dept.codigo && (
-                        <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}>
-                          Código: {dept.codigo}
+                    </>
+                  ) : (
+                    /* Si está creando O no tiene departamento - SELECTOR CON MODAL */
+                    <>
+                      {/* Botón para abrir el modal */}
+                      <TouchableOpacity
+                        style={{
+                          marginTop: 8,
+                          backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                          borderWidth: 2,
+                          borderColor: 'rgba(148, 163, 184, 0.3)',
+                          borderRadius: 12,
+                          padding: 16,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                        }}
+                        onPress={() => {
+                          setShowDeptPicker(true);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                          <Ionicons name="business-outline" size={20} color="#667eea" />
+                          <Text style={{
+                            color: formData.id_departamento ? '#ffffff' : 'rgba(255, 255, 255, 0.5)',
+                            fontSize: 15,
+                            fontWeight: '500',
+                            flex: 1,
+                          }}>
+                            {formData.id_departamento
+                              ? departamentos.find(d => d.id_departamento.toString() === formData.id_departamento)?.nombre || 'Seleccionar...'
+                              : 'Seleccionar departamento...'}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-down" size={20} color="#667eea" />
+                      </TouchableOpacity>
+
+                      {/* Modal con lista de departamentos */}
+                      <Modal
+                        visible={showDeptPicker}
+                        animationType="slide"
+                        transparent={true}
+                        onRequestClose={() => setShowDeptPicker(false)}
+                      >
+                        <View style={{
+                          flex: 1,
+                          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          padding: 20,
+                        }}>
+                          <View style={{
+                            backgroundColor: '#1e293b',
+                            borderRadius: 16,
+                            width: '100%',
+                            maxWidth: 500,
+                            maxHeight: '80%',
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 8 },
+                            shadowOpacity: 0.5,
+                            shadowRadius: 16,
+                            elevation: 16,
+                          }}>
+                            {/* Header del modal */}
+                            <View style={{
+                              backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                              padding: 16,
+                              borderTopLeftRadius: 16,
+                              borderTopRightRadius: 16,
+                              borderBottomWidth: 1,
+                              borderBottomColor: 'rgba(102, 126, 234, 0.3)',
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                            }}>
+                              <Text style={{ color: '#667eea', fontSize: 16, fontWeight: '700' }}>
+                                📋 Seleccionar Departamento
+                              </Text>
+                              <TouchableOpacity
+                                onPress={() => setShowDeptPicker(false)}
+                                style={{
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: 16,
+                                  backgroundColor: 'rgba(148, 163, 184, 0.2)',
+                                  justifyContent: 'center',
+                                  alignItems: 'center',
+                                }}
+                              >
+                                <Ionicons name="close" size={20} color="#ffffff" />
+                              </TouchableOpacity>
+                            </View>
+
+                            {/* Información */}
+                            <View style={{
+                              padding: 12,
+                              backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                              borderBottomWidth: 1,
+                              borderBottomColor: 'rgba(148, 163, 184, 0.2)',
+                            }}>
+                              <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 13 }}>
+                                {getDepartamentosDisponibles().length} departamento(s) disponible(s)
+                              </Text>
+                            </View>
+
+                            {/* Lista de departamentos */}
+                            <ScrollView
+                              style={{ maxHeight: 400 }}
+                              showsVerticalScrollIndicator={true}
+                            >
+                              {/* Opción: Sin asignar */}
+                              <TouchableOpacity
+                                style={{
+                                  padding: 16,
+                                  borderBottomWidth: 1,
+                                  borderBottomColor: 'rgba(148, 163, 184, 0.2)',
+                                  backgroundColor: !formData.id_departamento
+                                    ? 'rgba(102, 126, 234, 0.3)'
+                                    : 'transparent',
+                                }}
+                                onPress={() => {
+                                  setFormData({ ...formData, id_departamento: '' });
+                                  setShowDeptPicker(false);
+                                }}
+                              >
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                  <View style={{
+                                    width: 24,
+                                    height: 24,
+                                    borderRadius: 12,
+                                    borderWidth: 2,
+                                    borderColor: !formData.id_departamento ? '#667eea' : '#94a3b8',
+                                    backgroundColor: !formData.id_departamento ? '#667eea' : 'transparent',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                  }}>
+                                    {!formData.id_departamento && (
+                                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
+                                    )}
+                                  </View>
+                                  <Text style={{
+                                    color: !formData.id_departamento ? '#ffffff' : 'rgba(255, 255, 255, 0.7)',
+                                    fontSize: 15,
+                                    fontWeight: !formData.id_departamento ? '600' : '400',
+                                    flex: 1,
+                                  }}>
+                                    Sin asignar
+                                  </Text>
+                                  {!formData.id_departamento && (
+                                    <Ionicons name="checkmark-circle" size={24} color="#22c55e" />
+                                  )}
+                                </View>
+                              </TouchableOpacity>
+
+                              {/* Departamentos disponibles */}
+                              {getDepartamentosDisponibles().length > 0 ? (
+                                getDepartamentosDisponibles().map((dept, index) => (
+                                  <TouchableOpacity
+                                    key={`dept-modal-${index}`}
+                                    style={{
+                                      padding: 16,
+                                      borderBottomWidth: 1,
+                                      borderBottomColor: 'rgba(148, 163, 184, 0.2)',
+                                      backgroundColor: formData.id_departamento === dept.id_departamento.toString()
+                                        ? 'rgba(102, 126, 234, 0.3)'
+                                        : 'transparent',
+                                    }}
+                                    onPress={() => {
+                                      setFormData({ ...formData, id_departamento: dept.id_departamento.toString() });
+                                      setShowDeptPicker(false);
+                                    }}
+                                  >
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                      <View style={{
+                                        width: 24,
+                                        height: 24,
+                                        borderRadius: 12,
+                                        borderWidth: 2,
+                                        borderColor: formData.id_departamento === dept.id_departamento.toString() ? '#667eea' : '#94a3b8',
+                                        backgroundColor: formData.id_departamento === dept.id_departamento.toString() ? '#667eea' : 'transparent',
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                      }}>
+                                        {formData.id_departamento === dept.id_departamento.toString() && (
+                                          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
+                                        )}
+                                      </View>
+                                      <View style={{ flex: 1 }}>
+                                        <Text style={{
+                                          color: formData.id_departamento === dept.id_departamento.toString() ? '#ffffff' : 'rgba(255, 255, 255, 0.9)',
+                                          fontSize: 15,
+                                          fontWeight: formData.id_departamento === dept.id_departamento.toString() ? '600' : '400',
+                                        }}>
+                                          {dept.nombre}
+                                        </Text>
+                                        {dept.codigo && (
+                                          <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}>
+                                            Código: {dept.codigo}
+                                          </Text>
+                                        )}
+                                      </View>
+                                      {formData.id_departamento === dept.id_departamento.toString() && (
+                                        <Ionicons name="checkmark-circle" size={24} color="#22c55e" />
+                                      )}
+                                    </View>
+                                  </TouchableOpacity>
+                                ))
+                              ) : (
+                                <View style={{ padding: 40, alignItems: 'center' }}>
+                                  <Ionicons name="folder-open-outline" size={64} color="rgba(255, 255, 255, 0.3)" />
+                                  <Text style={{
+                                    color: 'rgba(255, 255, 255, 0.6)',
+                                    fontSize: 16,
+                                    marginTop: 16,
+                                    textAlign: 'center',
+                                    fontWeight: '500',
+                                  }}>
+                                    No hay departamentos disponibles
+                                  </Text>
+                                  <Text style={{
+                                    color: 'rgba(255, 255, 255, 0.4)',
+                                    fontSize: 14,
+                                    marginTop: 8,
+                                    textAlign: 'center',
+                                  }}>
+                                    Todos ya tienen un agente asignado
+                                  </Text>
+                                </View>
+                              )}
+                            </ScrollView>
+
+                            {/* Footer con botón cerrar */}
+                            <View style={{
+                              padding: 16,
+                              borderTopWidth: 1,
+                              borderTopColor: 'rgba(148, 163, 184, 0.2)',
+                              backgroundColor: 'rgba(30, 41, 59, 0.5)',
+                              borderBottomLeftRadius: 16,
+                              borderBottomRightRadius: 16,
+                            }}>
+                              <TouchableOpacity
+                                style={{
+                                  backgroundColor: 'rgba(148, 163, 184, 0.2)',
+                                  padding: 12,
+                                  borderRadius: 8,
+                                  alignItems: 'center',
+                                }}
+                                onPress={() => setShowDeptPicker(false)}
+                              >
+                                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '600' }}>
+                                  Cerrar
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        </View>
+                      </Modal>
+
+                      {/* Contador */}
+                      <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 8,
+                        backgroundColor: getDepartamentosDisponibles().length > 0 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                        padding: 10,
+                        borderRadius: 8,
+                        marginTop: 8,
+                      }}>
+                        <Ionicons
+                          name={getDepartamentosDisponibles().length > 0 ? "checkmark-circle" : "close-circle"}
+                          size={16}
+                          color={getDepartamentosDisponibles().length > 0 ? "#22c55e" : "#ef4444"}
+                        />
+                        <Text style={{
+                          color: getDepartamentosDisponibles().length > 0 ? "#22c55e" : "#ef4444",
+                          fontSize: 12,
+                          fontWeight: '600',
+                          flex: 1,
+                        }}>
+                          {getDepartamentosDisponibles().length > 0
+                            ? `${getDepartamentosDisponibles().length} departamento(s) disponible(s)`
+                            : 'No hay departamentos disponibles'}
                         </Text>
-                      )}
-                    </View>
-                    {formData.id_departamento === dept.id_departamento.toString() && (
-                      <Ionicons name="checkmark-circle" size={24} color="#22c55e" />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))
-            ) : (
-              <View style={{ padding: 40, alignItems: 'center' }}>
-                <Ionicons name="folder-open-outline" size={64} color="rgba(255, 255, 255, 0.3)" />
-                <Text style={{
-                  color: 'rgba(255, 255, 255, 0.6)',
-                  fontSize: 16,
-                  marginTop: 16,
-                  textAlign: 'center',
-                  fontWeight: '500',
-                }}>
-                  No hay departamentos disponibles
-                </Text>
-                <Text style={{
-                  color: 'rgba(255, 255, 255, 0.4)',
-                  fontSize: 14,
-                  marginTop: 8,
-                  textAlign: 'center',
-                }}>
-                  Todos ya tienen un agente asignado
-                </Text>
-              </View>
-            )}
-          </ScrollView>
+                      </View>
 
-          {/* Footer con botón cerrar */}
-          <View style={{
-            padding: 16,
-            borderTopWidth: 1,
-            borderTopColor: 'rgba(148, 163, 184, 0.2)',
-            backgroundColor: 'rgba(30, 41, 59, 0.5)',
-            borderBottomLeftRadius: 16,
-            borderBottomRightRadius: 16,
-          }}>
-            <TouchableOpacity
-              style={{
-                backgroundColor: 'rgba(148, 163, 184, 0.2)',
-                padding: 12,
-                borderRadius: 8,
-                alignItems: 'center',
-              }}
-              onPress={() => setShowDeptPicker(false)}
-            >
-              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '600' }}>
-                Cerrar
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-
-    {/* Contador */}
-    <View style={{
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      backgroundColor: getDepartamentosDisponibles().length > 0 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-      padding: 10,
-      borderRadius: 8,
-      marginTop: 8,
-    }}>
-      <Ionicons
-        name={getDepartamentosDisponibles().length > 0 ? "checkmark-circle" : "close-circle"}
-        size={16}
-        color={getDepartamentosDisponibles().length > 0 ? "#22c55e" : "#ef4444"}
-      />
-      <Text style={{
-        color: getDepartamentosDisponibles().length > 0 ? "#22c55e" : "#ef4444",
-        fontSize: 12,
-        fontWeight: '600',
-        flex: 1,
-      }}>
-        {getDepartamentosDisponibles().length > 0
-          ? `${getDepartamentosDisponibles().length} departamento(s) disponible(s)`
-          : 'No hay departamentos disponibles'}
-      </Text>
-    </View>
-
-    <Text style={modalStyles.helperText}>
-      🔒 Cada departamento solo puede tener un agente asignado
-    </Text>
-  </>
-)}
+                      <Text style={modalStyles.helperText}>
+                        🔒 Cada departamento solo puede tener un agente asignado
+                      </Text>
+                    </>
+                  )}
                 </View>
 
                 {/* ============ Icono  ============ */}
@@ -3003,6 +3013,206 @@ const cargarEstadisticas = async () => {
               <View style={modalStyles.section}>
                 <Text style={modalStyles.sectionTitle}>🌍 Configuración Regional</Text>
 
+                {/* ============ SECCIÓN: HORARIOS DE ATENCIÓN ============ */}
+                <View style={modalStyles.section}>
+                  <Text style={modalStyles.sectionTitle}>🕐 Horarios de Atención</Text>
+
+                  <View style={{
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderRadius: 8,
+                    padding: 12,
+                    marginBottom: 16,
+                    borderLeftWidth: 3,
+                    borderLeftColor: '#3b82f6'
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Ionicons name="information-circle" size={16} color="#3b82f6" />
+                      <Text style={{ color: '#3b82f6', fontSize: 12, fontWeight: '600', flex: 1 }}>
+                        Define cuándo el agente estará disponible para atender usuarios
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Renderizar cada día */}
+                  {['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'].map((dia) => {
+                    const diaConfig = formData.horarios[dia];
+                    const diaLabel = dia.charAt(0).toUpperCase() + dia.slice(1);
+
+                    return (
+                      <View key={dia} style={modalStyles.formGroup}>
+                        {/* Header del día con switch */}
+                        <View style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginBottom: 12,
+                          backgroundColor: diaConfig.activo
+                            ? 'rgba(102, 126, 234, 0.1)'
+                            : 'rgba(71, 85, 105, 0.2)',
+                          padding: 14,
+                          borderRadius: 10,
+                          borderWidth: 1,
+                          borderColor: diaConfig.activo
+                            ? 'rgba(102, 126, 234, 0.3)'
+                            : 'rgba(148, 163, 184, 0.2)'
+                        }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                            <Ionicons
+                              name="calendar"
+                              size={18}
+                              color={diaConfig.activo ? '#667eea' : '#94a3b8'}
+                            />
+                            <Text style={{
+                              color: diaConfig.activo ? '#ffffff' : '#94a3b8',
+                              fontSize: 15,
+                              fontWeight: '600'
+                            }}>
+                              {diaLabel}
+                            </Text>
+                          </View>
+                          <Switch
+                            value={diaConfig.activo}
+                            onValueChange={(value) => {
+                              const nuevosHorarios = { ...formData.horarios };
+                              nuevosHorarios[dia] = {
+                                ...nuevosHorarios[dia],
+                                activo: value,
+                                bloques: value ? [{ inicio: '08:00', fin: '17:00' }] : []
+                              };
+                              setFormData({ ...formData, horarios: nuevosHorarios });
+                            }}
+                            trackColor={{ false: '#475569', true: '#667eea' }}
+                            thumbColor={diaConfig.activo ? '#ffffff' : '#cbd5e1'}
+                          />
+                        </View>
+
+                        {/* Bloques horarios si está activo */}
+                        {diaConfig.activo && (
+                          <View style={{ gap: 10 }}>
+                            {diaConfig.bloques.map((bloque, index) => (
+                              <View key={index} style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 10,
+                                backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                                padding: 12,
+                                borderRadius: 10,
+                                borderWidth: 1,
+                                borderColor: 'rgba(148, 163, 184, 0.3)'
+                              }}>
+                                <Ionicons name="time" size={16} color="#667eea" />
+
+                                {/* Hora inicio */}
+                                <TextInput
+                                  style={{
+                                    flex: 1,
+                                    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+                                    color: '#ffffff',
+                                    padding: 10,
+                                    borderRadius: 8,
+                                    borderWidth: 1,
+                                    borderColor: 'rgba(102, 126, 234, 0.3)',
+                                    fontSize: 14,
+                                    textAlign: 'center'
+                                  }}
+                                  placeholder="08:00"
+                                  placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                                  value={bloque.inicio}
+                                  onChangeText={(text) => {
+                                    const nuevosHorarios = { ...formData.horarios };
+                                    nuevosHorarios[dia].bloques[index].inicio = text;
+                                    setFormData({ ...formData, horarios: nuevosHorarios });
+                                  }}
+                                  maxLength={5}
+                                />
+
+                                <Text style={{ color: '#94a3b8', fontSize: 14 }}>a</Text>
+
+                                {/* Hora fin */}
+                                <TextInput
+                                  style={{
+                                    flex: 1,
+                                    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+                                    color: '#ffffff',
+                                    padding: 10,
+                                    borderRadius: 8,
+                                    borderWidth: 1,
+                                    borderColor: 'rgba(102, 126, 234, 0.3)',
+                                    fontSize: 14,
+                                    textAlign: 'center'
+                                  }}
+                                  placeholder="17:00"
+                                  placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                                  value={bloque.fin}
+                                  onChangeText={(text) => {
+                                    const nuevosHorarios = { ...formData.horarios };
+                                    nuevosHorarios[dia].bloques[index].fin = text;
+                                    setFormData({ ...formData, horarios: nuevosHorarios });
+                                  }}
+                                  maxLength={5}
+                                />
+
+                                {/* Botón eliminar bloque */}
+                                {diaConfig.bloques.length > 1 && (
+                                  <TouchableOpacity
+                                    onPress={() => {
+                                      const nuevosHorarios = { ...formData.horarios };
+                                      nuevosHorarios[dia].bloques = nuevosHorarios[dia].bloques.filter((_, i) => i !== index);
+                                      setFormData({ ...formData, horarios: nuevosHorarios });
+                                    }}
+                                    style={{
+                                      width: 32,
+                                      height: 32,
+                                      borderRadius: 8,
+                                      backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                                      borderWidth: 1,
+                                      borderColor: '#ef4444',
+                                      justifyContent: 'center',
+                                      alignItems: 'center'
+                                    }}
+                                  >
+                                    <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                                  </TouchableOpacity>
+                                )}
+                              </View>
+                            ))}
+
+                            {/* Botón agregar bloque */}
+                            <TouchableOpacity
+                              style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 8,
+                                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                borderWidth: 1,
+                                borderStyle: 'dashed',
+                                borderColor: '#667eea',
+                                borderRadius: 8,
+                                padding: 10,
+                                justifyContent: 'center'
+                              }}
+                              onPress={() => {
+                                const nuevosHorarios = { ...formData.horarios };
+                                nuevosHorarios[dia].bloques.push({ inicio: '13:00', fin: '18:00' });
+                                setFormData({ ...formData, horarios: nuevosHorarios });
+                              }}
+                            >
+                              <Ionicons name="add-circle-outline" size={16} color="#667eea" />
+                              <Text style={{ color: '#667eea', fontSize: 13, fontWeight: '600' }}>
+                                Agregar otro horario
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+
+                  <Text style={modalStyles.helperText}>
+                    💡 Formato 24 horas (HH:MM). Puedes agregar varios bloques por día
+                  </Text>
+                </View>
+
                 {/* Idioma Principal - BLOQUEADO */}
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Idioma Principal</Text>
@@ -3483,7 +3693,7 @@ const cargarEstadisticas = async () => {
                     </View>
                   )}
 
-                  {/* ⭐ NUEVO: Especialización */}
+                  {/*Especialización */}
                   {selectedAgente.prompt_especializado && (
                     <View style={modalStyles.detailSection}>
                       <Text style={modalStyles.detailSectionTitle}>🎯 Especialización</Text>
@@ -3507,6 +3717,70 @@ const cargarEstadisticas = async () => {
                     </View>
                   )}
 
+                  {/* HORARIOS DE ATENCIÓN */}
+                  {selectedAgente.horarios && (
+                    <View style={modalStyles.detailSection}>
+                      <Text style={modalStyles.detailSectionTitle}>🕐 Horarios de Atención</Text>
+                      <View style={{ gap: 12 }}>
+                        {Object.entries(
+                          typeof selectedAgente.horarios === 'string'
+                            ? JSON.parse(selectedAgente.horarios)
+                            : selectedAgente.horarios
+                        ).map(([dia, config]) => {
+                          const diaLabel = dia.charAt(0).toUpperCase() + dia.slice(1);
+
+                          return (
+                            <View key={dia} style={{
+                              backgroundColor: config.activo
+                                ? 'rgba(102, 126, 234, 0.1)'
+                                : 'rgba(71, 85, 105, 0.2)',
+                              borderRadius: 10,
+                              padding: 14,
+                              borderWidth: 1,
+                              borderColor: config.activo
+                                ? 'rgba(102, 126, 234, 0.3)'
+                                : 'rgba(148, 163, 184, 0.2)'
+                            }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: config.activo && config.bloques?.length > 0 ? 8 : 0 }}>
+                                <Ionicons
+                                  name={config.activo ? "checkmark-circle" : "close-circle"}
+                                  size={18}
+                                  color={config.activo ? '#22c55e' : '#94a3b8'}
+                                />
+                                <Text style={{
+                                  color: config.activo ? '#ffffff' : '#94a3b8',
+                                  fontSize: 15,
+                                  fontWeight: '600',
+                                  flex: 1
+                                }}>
+                                  {diaLabel}
+                                </Text>
+                                {!config.activo && (
+                                  <Text style={{ color: '#94a3b8', fontSize: 12 }}>
+                                    No disponible
+                                  </Text>
+                                )}
+                              </View>
+
+                              {config.activo && config.bloques?.length > 0 && (
+                                <View style={{ gap: 6, marginLeft: 28 }}>
+                                  {config.bloques.map((bloque, index) => (
+                                    <View key={index} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                      <Ionicons name="time-outline" size={14} color="#667eea" />
+                                      <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 13 }}>
+                                        {bloque.inicio} - {bloque.fin}
+                                      </Text>
+                                    </View>
+                                  ))}
+                                </View>
+                              )}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
+
                 </ScrollView>
 
                 <View style={modalStyles.footer}>
@@ -3515,6 +3789,7 @@ const cargarEstadisticas = async () => {
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={{ gap: 10, paddingHorizontal: 4 }}
                   >
+                    {/* Botón Editar */}
                     <TouchableOpacity
                       style={modalStyles.actionButton}
                       onPress={() => {
@@ -3526,24 +3801,32 @@ const cargarEstadisticas = async () => {
                       <Ionicons name="create-outline" size={18} color="#ffffff" />
                       <Text style={modalStyles.actionButtonText}>Editar</Text>
                     </TouchableOpacity>
+
+                    {/* Botón Activar/Desactivar */}
                     <TouchableOpacity
                       style={[
                         modalStyles.actionButton,
-                        { backgroundColor: selectedAgente?.activo ? '#ef4444' : '#22c55e' }
+                        {
+                          backgroundColor: selectedAgente?.activo ? '#fb923c' : '#22c55e',
+                          borderColor: selectedAgente?.activo ? '#fb923c' : '#22c55e',
+                        }
                       ]}
-                      onPress={() => {
-                        handleToggleStatus(selectedAgente);
-                        setShowDetailModal(false);
-                      }}
+                      onPress={() => handleToggleStatus(selectedAgente)}
                       activeOpacity={0.8}
                     >
-                      <Ionicons name="power" size={18} color="#ffffff" />
+                      <Ionicons
+                        name={selectedAgente?.activo ? "pause" : "play"}
+                        size={18}
+                        color="#ffffff"
+                      />
                       <Text style={modalStyles.actionButtonText}>
                         {selectedAgente?.activo ? 'Desactivar' : 'Activar'}
                       </Text>
                     </TouchableOpacity>
+
+                    {/* Botón Eliminar Permanente */}
                     <TouchableOpacity
-                      style={[modalStyles.actionButton, { backgroundColor: '#dc2626' }]}
+                      style={[modalStyles.actionButton, { backgroundColor: '#dc2626', borderColor: '#dc2626' }]}
                       onPress={() => handleDelete(selectedAgente)}
                       activeOpacity={0.8}
                     >
@@ -3557,8 +3840,417 @@ const cargarEstadisticas = async () => {
           </View>
         </View>
       </Modal>
+      {/* ============ MODAL CONFIRMACIÓN ELIMINAR ============ */}
+      <Modal
+        visible={showDeleteModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20,
+        }}>
+          <View style={{
+            backgroundColor: '#1e293b',
+            borderRadius: 20,
+            width: '100%',
+            maxWidth: 500,
+            overflow: 'hidden',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.5,
+            shadowRadius: 20,
+            elevation: 20,
+          }}>
+            {/* Header con ícono de advertencia */}
+            <View style={{
+              backgroundColor: 'rgba(220, 38, 38, 0.2)',
+              padding: 24,
+              alignItems: 'center',
+              borderBottomWidth: 1,
+              borderBottomColor: 'rgba(220, 38, 38, 0.3)',
+            }}>
+              <View style={{
+                width: 80,
+                height: 80,
+                borderRadius: 40,
+                backgroundColor: 'rgba(220, 38, 38, 0.2)',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 16,
+                borderWidth: 3,
+                borderColor: '#dc2626',
+              }}>
+                <Ionicons name="trash-outline" size={40} color="#dc2626" />
+              </View>
+              <Text style={{
+                fontSize: 24,
+                fontWeight: '700',
+                color: '#ffffff',
+                textAlign: 'center',
+              }}>
+                ⚠️ Confirmar Eliminación
+              </Text>
+            </View>
 
+            {/* Contenido */}
+            <View style={{ padding: 24 }}>
+              <Text style={{
+                fontSize: 16,
+                color: 'rgba(255, 255, 255, 0.9)',
+                textAlign: 'center',
+                lineHeight: 24,
+                marginBottom: 16,
+              }}>
+                ¿Estás seguro de eliminar permanentemente el agente
+              </Text>
+
+              <View style={{
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                padding: 16,
+                borderRadius: 12,
+                marginBottom: 16,
+                borderLeftWidth: 4,
+                borderLeftColor: '#667eea',
+              }}>
+                <Text style={{
+                  fontSize: 18,
+                  fontWeight: '700',
+                  color: '#ffffff',
+                  textAlign: 'center',
+                }}>
+                  "{agenteToDelete?.nombre_agente}"?
+                </Text>
+              </View>
+
+              <View style={{
+                backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                padding: 16,
+                borderRadius: 12,
+                borderLeftWidth: 4,
+                borderLeftColor: '#dc2626',
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+                  <Ionicons name="warning" size={20} color="#dc2626" style={{ marginTop: 2 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{
+                      fontSize: 14,
+                      fontWeight: '700',
+                      color: '#dc2626',
+                      marginBottom: 6,
+                    }}>
+                      ADVERTENCIA: Esta acción es irreversible
+                    </Text>
+                    <Text style={{
+                      fontSize: 13,
+                      color: 'rgba(220, 38, 38, 0.9)',
+                      lineHeight: 20,
+                    }}>
+                      El agente será marcado como eliminado y NO podrá recuperarse desde la aplicación.
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={{
+                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                  padding: 12,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: 'rgba(59, 130, 246, 0.3)',
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons name="information-circle" size={16} color="#3b82f6" />
+                    <Text style={{
+                      fontSize: 12,
+                      color: '#3b82f6',
+                      fontWeight: '600',
+                    }}>
+                      💡 Sugerencia
+                    </Text>
+                  </View>
+                  <Text style={{
+                    fontSize: 12,
+                    color: 'rgba(59, 130, 246, 0.9)',
+                    marginTop: 6,
+                    lineHeight: 18,
+                  }}>
+                    Si solo deseas desactivarlo temporalmente, usa el botón "Desactivar" en su lugar.
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Botones */}
+            <View style={{
+              flexDirection: 'row',
+              gap: 12,
+              padding: 24,
+              paddingTop: 0,
+            }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: 'rgba(71, 85, 105, 0.5)',
+                  padding: 16,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  borderWidth: 2,
+                  borderColor: 'rgba(148, 163, 184, 0.3)',
+                }}
+                onPress={() => {
+                  setShowDeleteModal(false);
+                  setAgenteToDelete(null);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={{
+                  color: '#ffffff',
+                  fontSize: 16,
+                  fontWeight: '600',
+                }}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: '#dc2626',
+                  padding: 16,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  gap: 8,
+                  borderWidth: 2,
+                  borderColor: '#b91c1c',
+                  shadowColor: '#dc2626',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.4,
+                  shadowRadius: 8,
+                  elevation: 8,
+                }}
+                onPress={confirmarEliminacion}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="trash" size={20} color="#ffffff" />
+                <Text style={{
+                  color: '#ffffff',
+                  fontSize: 16,
+                  fontWeight: '700',
+                }}>
+                  Eliminar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      {/* ============ MODAL ACTIVAR/DESACTIVAR ============ */}
+      <Modal
+        visible={showToggleModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowToggleModal(false)}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20,
+        }}>
+          <View style={{
+            backgroundColor: '#1e293b',
+            borderRadius: 20,
+            width: '100%',
+            maxWidth: 500,
+            overflow: 'hidden',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.5,
+            shadowRadius: 20,
+            elevation: 20,
+          }}>
+            {/* Header */}
+            <View style={{
+              backgroundColor: agenteToToggle?.activo
+                ? 'rgba(251, 146, 60, 0.2)'
+                : 'rgba(34, 197, 94, 0.2)',
+              padding: 24,
+              alignItems: 'center',
+              borderBottomWidth: 1,
+              borderBottomColor: agenteToToggle?.activo
+                ? 'rgba(251, 146, 60, 0.3)'
+                : 'rgba(34, 197, 94, 0.3)',
+            }}>
+              <View style={{
+                width: 80,
+                height: 80,
+                borderRadius: 40,
+                backgroundColor: agenteToToggle?.activo
+                  ? 'rgba(251, 146, 60, 0.2)'
+                  : 'rgba(34, 197, 94, 0.2)',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 16,
+                borderWidth: 3,
+                borderColor: agenteToToggle?.activo ? '#fb923c' : '#22c55e',
+              }}>
+                <Ionicons
+                  name={agenteToToggle?.activo ? "pause" : "play"}
+                  size={40}
+                  color={agenteToToggle?.activo ? '#fb923c' : '#22c55e'}
+                />
+              </View>
+              <Text style={{
+                fontSize: 24,
+                fontWeight: '700',
+                color: '#ffffff',
+                textAlign: 'center',
+              }}>
+                {agenteToToggle?.activo ? '⏸️ Desactivar Agente' : '▶️ Activar Agente'}
+              </Text>
+            </View>
+
+            {/* Contenido */}
+            <View style={{ padding: 24 }}>
+              <Text style={{
+                fontSize: 16,
+                color: 'rgba(255, 255, 255, 0.9)',
+                textAlign: 'center',
+                lineHeight: 24,
+                marginBottom: 16,
+              }}>
+                {agenteToToggle?.activo
+                  ? '¿Deseas desactivar el agente'
+                  : '¿Deseas reactivar el agente'}
+              </Text>
+
+              <View style={{
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                padding: 16,
+                borderRadius: 12,
+                marginBottom: 16,
+                borderLeftWidth: 4,
+                borderLeftColor: '#667eea',
+              }}>
+                <Text style={{
+                  fontSize: 18,
+                  fontWeight: '700',
+                  color: '#ffffff',
+                  textAlign: 'center',
+                }}>
+                  "{agenteToToggle?.nombre_agente}"?
+                </Text>
+              </View>
+
+              <View style={{
+                backgroundColor: agenteToToggle?.activo
+                  ? 'rgba(251, 146, 60, 0.1)'
+                  : 'rgba(34, 197, 94, 0.1)',
+                padding: 16,
+                borderRadius: 12,
+                borderLeftWidth: 4,
+                borderLeftColor: agenteToToggle?.activo ? '#fb923c' : '#22c55e',
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                  <Ionicons
+                    name="information-circle"
+                    size={20}
+                    color={agenteToToggle?.activo ? '#fb923c' : '#22c55e'}
+                    style={{ marginTop: 2 }}
+                  />
+                  <Text style={{
+                    fontSize: 13,
+                    color: agenteToToggle?.activo
+                      ? 'rgba(251, 146, 60, 0.9)'
+                      : 'rgba(34, 197, 94, 0.9)',
+                    lineHeight: 20,
+                    flex: 1,
+                  }}>
+                    {agenteToToggle?.activo
+                      ? 'El agente dejará de estar disponible pero podrás reactivarlo cuando quieras desde la sección de "Inactivos".'
+                      : 'El agente volverá a estar disponible inmediatamente para atender usuarios.'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Botones */}
+            <View style={{
+              flexDirection: 'row',
+              gap: 12,
+              padding: 24,
+              paddingTop: 0,
+            }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: 'rgba(71, 85, 105, 0.5)',
+                  padding: 16,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  borderWidth: 2,
+                  borderColor: 'rgba(148, 163, 184, 0.3)',
+                }}
+                onPress={() => {
+                  setShowToggleModal(false);
+                  setAgenteToToggle(null);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={{
+                  color: '#ffffff',
+                  fontSize: 16,
+                  fontWeight: '600',
+                }}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: agenteToToggle?.activo ? '#fb923c' : '#22c55e',
+                  padding: 16,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  gap: 8,
+                  borderWidth: 2,
+                  borderColor: agenteToToggle?.activo ? '#f97316' : '#16a34a',
+                  shadowColor: agenteToToggle?.activo ? '#fb923c' : '#22c55e',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.4,
+                  shadowRadius: 8,
+                  elevation: 8,
+                }}
+                onPress={confirmarToggleStatus}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={agenteToToggle?.activo ? "pause" : "play"}
+                  size={20}
+                  color="#ffffff"
+                />
+                <Text style={{
+                  color: '#ffffff',
+                  fontSize: 16,
+                  fontWeight: '700',
+                }}>
+                  {agenteToToggle?.activo ? 'Desactivar' : 'Activar'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
-

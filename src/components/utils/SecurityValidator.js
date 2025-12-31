@@ -3,34 +3,34 @@
 // ============================================================
 
 class SecurityValidator {
-  
+
   // ==================== CONFIGURACIÓN ====================
-  
+
   static CONFIG = {
     MAX_LENGTHS: {
       nombre: 100,
       descripcion: 500,
       prompt: 2000,
-      prompt_mision: 300,      
+      prompt_mision: 300,
       prompt_regla: 200,
-      prompt_especializado: 500, 
+      prompt_especializado: 500,
       mensaje: 500,
       url: 1000,
       palabras_clave: 500,
       acciones: 1000,
     },
-    
+
     RATE_LIMITS: {
       searchPerMinute: 30,
       actionsPerMinute: 10,
     },
-    
+
     DANGEROUS_DOMAINS: [
       'bit.ly', 'tinyurl.com', 'goo.gl', 't.co', // Acortadores
       'iplogger.org', 'grabify.link', // IP loggers
       'malware.com', 'phishing.net', // Ejemplo
     ],
-    
+
     TRUSTED_IMAGE_DOMAINS: [
       'googleusercontent.com',
       'pinimg.com',
@@ -46,7 +46,7 @@ class SecurityValidator {
   };
 
   // ==================== SANITIZACIÓN ====================
-  
+
   /**
    * Sanitizar texto eliminando código malicioso
    * @param {string} text - Texto a sanitizar
@@ -54,7 +54,7 @@ class SecurityValidator {
    */
   static sanitizeText(text) {
     if (!text || typeof text !== 'string') return '';
-    
+
     return text
       // Eliminar scripts
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
@@ -84,7 +84,7 @@ class SecurityValidator {
    */
   static sanitizeSqlInput(input) {
     if (!input || typeof input !== 'string') return '';
-    
+
     return input
       .replace(/'/g, "''") // Escapar comillas simples
       .replace(/--/g, '') // Eliminar comentarios SQL
@@ -111,7 +111,7 @@ class SecurityValidator {
   }
 
   // ==================== VALIDACIÓN DE URLS ====================
-  
+
   /**
    * Validar si una URL es segura
    * @param {string} url - URL a validar
@@ -119,35 +119,35 @@ class SecurityValidator {
    */
   static isSecureUrl(url) {
     if (!url || typeof url !== 'string') return false;
-    
+
     try {
       const urlObj = new URL(url);
-      
+
       // Solo permitir http y https
       if (!['http:', 'https:'].includes(urlObj.protocol)) {
         console.warn('🚫 Protocolo no permitido:', urlObj.protocol);
         return false;
       }
-      
+
       // Verificar blacklist de dominios
       const hostname = urlObj.hostname.toLowerCase();
       const isDangerous = this.CONFIG.DANGEROUS_DOMAINS.some(
         domain => hostname.includes(domain)
       );
-      
+
       if (isDangerous) {
         console.warn('🚫 Dominio peligroso detectado:', hostname);
         return false;
       }
-      
+
       // Prevenir localhost y IPs privadas
       if (this.isPrivateIP(hostname)) {
         console.warn('🚫 IP privada o localhost no permitida');
         return false;
       }
-      
+
       return true;
-      
+
     } catch (error) {
       console.error('❌ URL inválida:', error.message);
       return false;
@@ -161,29 +161,29 @@ class SecurityValidator {
    */
   static isValidImageUrl(url) {
     if (!this.isSecureUrl(url)) return false;
-    
+
     try {
       const urlObj = new URL(url);
       const hostname = urlObj.hostname.toLowerCase();
       const pathname = urlObj.pathname.toLowerCase();
-      
+
       // Verificar extensión de imagen
       const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i;
       if (imageExtensions.test(pathname)) {
         return true;
       }
-      
+
       // Verificar dominio confiable
       const isTrusted = this.CONFIG.TRUSTED_IMAGE_DOMAINS.some(
         domain => hostname.includes(domain)
       );
-      
+
       if (!isTrusted) {
         console.warn('⚠️ Dominio de imagen no confiable:', hostname);
       }
-      
+
       return isTrusted;
-      
+
     } catch (error) {
       return false;
     }
@@ -220,7 +220,7 @@ class SecurityValidator {
   }
 
   // ==================== VALIDACIÓN DE FORMATOS ====================
-  
+
   /**
    * Validar color hexadecimal
    * @param {string} color - Color a validar
@@ -256,7 +256,7 @@ class SecurityValidator {
   }
 
   // ==================== VALIDACIÓN DE FORMULARIOS ====================
-  
+
   /**
    * Validar datos del formulario de agente
    * @param {object} formData - Datos del formulario
@@ -360,11 +360,11 @@ class SecurityValidator {
       errors.prompt_reglas = '⚠️ Las reglas deben ser un array';
     } else {
       const reglasConContenido = formData.prompt_reglas.filter(r => r?.trim() !== '');
-      
+
       if (reglasConContenido.length < 2) {
         errors.prompt_reglas = '⚠️ Debes definir al menos 2 reglas de comportamiento';
       }
-      
+
       // Validar cada regla individualmente (solo las primeras 2 son obligatorias)
       formData.prompt_reglas.forEach((regla, index) => {
         if (index < 2 && !regla?.trim()) {
@@ -397,12 +397,93 @@ class SecurityValidator {
     // combinando: prompt_mision + prompt_reglas + prompt_tono
     // Por eso NO se valida en el formulario inicial (estará vacío o undefined)
     // Solo validamos si ya viene construido (ej: al editar un agente existente)
-    if (formData.prompt_sistema && 
-        typeof formData.prompt_sistema === 'string' && 
-        formData.prompt_sistema.trim() !== '') {
+    if (formData.prompt_sistema &&
+      typeof formData.prompt_sistema === 'string' &&
+      formData.prompt_sistema.trim() !== '') {
       // Si existe y tiene contenido real, validar longitud mínima
       if (formData.prompt_sistema.trim().length < 20) {
         errors.prompt_sistema = '⚠️ El prompt del sistema debe tener al menos 20 caracteres';
+      }
+    }
+
+    // 17. VALIDAR HORARIOS
+    if (formData.horarios) {
+      try {
+        let horarios = formData.horarios;
+
+        // Si viene como string, parsearlo
+        if (typeof horarios === 'string') {
+          try {
+            horarios = JSON.parse(horarios);
+          } catch (e) {
+            errors.horarios = '⚠️ Formato de horarios inválido (JSON corrupto)';
+          }
+        }
+
+        // Validar estructura de cada día
+        if (typeof horarios === 'object' && horarios !== null) {
+          const diasValidos = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
+
+          Object.keys(horarios).forEach(dia => {
+            // Verificar que sea un día válido
+            if (!diasValidos.includes(dia)) {
+              errors.horarios = `⚠️ Día inválido: ${dia}`;
+              return;
+            }
+
+            const config = horarios[dia];
+
+            // Verificar estructura del día
+            if (typeof config !== 'object' || config === null) {
+              errors[`horarios_${dia}`] = `⚠️ Configuración inválida para ${dia}`;
+              return;
+            }
+
+            // Si está activo, validar bloques
+            if (config.activo && Array.isArray(config.bloques)) {
+              config.bloques.forEach((bloque, index) => {
+                // Validar formato HH:MM (24 horas)
+                const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+
+                // Validar hora de inicio
+                if (!bloque.inicio || !timeRegex.test(bloque.inicio)) {
+                  errors[`horarios_${dia}_bloque${index}`] =
+                    `⚠️ Hora de inicio inválida en ${dia} (formato: HH:MM)`;
+                }
+
+                // Validar hora de fin
+                if (!bloque.fin || !timeRegex.test(bloque.fin)) {
+                  errors[`horarios_${dia}_bloque${index}`] =
+                    `⚠️ Hora de fin inválida en ${dia} (formato: HH:MM)`;
+                }
+
+                // Validar que hora fin sea mayor que hora inicio
+                if (bloque.inicio && bloque.fin && timeRegex.test(bloque.inicio) && timeRegex.test(bloque.fin)) {
+                  const [horaIni, minIni] = bloque.inicio.split(':').map(Number);
+                  const [horaFin, minFin] = bloque.fin.split(':').map(Number);
+                  const minutosIni = horaIni * 60 + minIni;
+                  const minutosFin = horaFin * 60 + minFin;
+
+                  if (minutosFin <= minutosIni) {
+                    errors[`horarios_${dia}_bloque${index}`] =
+                      `⚠️ La hora de fin debe ser mayor que la de inicio en ${dia}`;
+                  }
+                }
+              });
+
+              // Validar que haya al menos un bloque si está activo
+              if (config.bloques.length === 0) {
+                errors[`horarios_${dia}`] =
+                  `⚠️ ${dia} está activo pero no tiene horarios definidos`;
+              }
+            }
+          });
+        } else {
+          errors.horarios = '⚠️ El campo horarios debe ser un objeto';
+        }
+      } catch (error) {
+        console.error('Error validando horarios:', error);
+        errors.horarios = '⚠️ Error al procesar horarios';
       }
     }
 
@@ -414,7 +495,7 @@ class SecurityValidator {
   }
 
   // ==================== SANITIZACIÓN COMPLETA ====================
-  
+
   /**
    * Sanitizar todos los datos del formulario para guardar
    * @param {object} formData - Datos a sanitizar
@@ -440,11 +521,11 @@ class SecurityValidator {
         this.sanitizeText(formData.mensaje_bienvenida),
         this.CONFIG.MAX_LENGTHS.mensaje
       ),
-      prompt_especializado: formData.prompt_especializado ? 
-      this.truncateText(
-        this.sanitizeText(formData.prompt_especializado),
-        this.CONFIG.MAX_LENGTHS.prompt_especializado
-      ) : '',
+      prompt_especializado: formData.prompt_especializado ?
+        this.truncateText(
+          this.sanitizeText(formData.prompt_especializado),
+          this.CONFIG.MAX_LENGTHS.prompt_especializado
+        ) : '',
       mensaje_despedida: this.truncateText(
         this.sanitizeText(formData.mensaje_despedida),
         this.CONFIG.MAX_LENGTHS.mensaje
@@ -464,7 +545,7 @@ class SecurityValidator {
       prioridad_routing: Math.max(0, Math.min(100, parseInt(formData.prioridad_routing) || 0)),
 
       // IDs seguros
-      id_departamento: formData.id_departamento ? 
+      id_departamento: formData.id_departamento ?
         parseInt(formData.id_departamento) : null,
 
       // Booleanos seguros
@@ -500,13 +581,14 @@ class SecurityValidator {
       icono: formData.icono || '🤖',
       herramientas_disponibles: formData.herramientas_disponibles || '',
 
+      horarios: formData.horarios || null,
       creado_por: formData.creado_por ? parseInt(formData.creado_por) : null,
       actualizado_por: formData.actualizado_por ? parseInt(formData.actualizado_por) : null,
     };
   }
 
   // ==================== RATE LIMITING ====================
-  
+
   /**
    * Crear un rate limiter
    * @returns {object} Funciones de rate limiting
@@ -518,7 +600,7 @@ class SecurityValidator {
     return {
       check: (maxRequests = this.CONFIG.RATE_LIMITS.searchPerMinute) => {
         const now = Date.now();
-        
+
         // Resetear cada minuto
         if (now - lastResetTime > 60000) {
           requestCount = 0;
@@ -539,7 +621,7 @@ class SecurityValidator {
           remaining: maxRequests - requestCount,
         };
       },
-      
+
       reset: () => {
         requestCount = 0;
         lastResetTime = Date.now();

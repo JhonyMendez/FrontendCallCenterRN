@@ -81,6 +81,15 @@ export default function GestionAgentePage() {
         puede_ejecutar_acciones: false,
         acciones_disponibles: '',
         requiere_autenticacion: false,
+        horarios: {
+            lunes: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+            martes: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+            miercoles: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+            jueves: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+            viernes: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+            sabado: { activo: false, bloques: [] },
+            domingo: { activo: false, bloques: [] }
+        },
     });
     const [formErrors, setFormErrors] = useState({});
     const [showDeptPicker, setShowDeptPicker] = useState(false);
@@ -406,6 +415,15 @@ export default function GestionAgentePage() {
             requiere_autenticacion: false,
             creado_por: null,
             actualizado_por: null,
+            horarios: {
+                lunes: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+                martes: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+                miercoles: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+                jueves: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+                viernes: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+                sabado: { activo: false, bloques: [] },
+                domingo: { activo: false, bloques: [] }
+            },
         });
         setFormErrors({});
     };
@@ -580,6 +598,48 @@ export default function GestionAgentePage() {
             requiere_autenticacion: agente.requiere_autenticacion || false,
             creado_por: agente.creado_por || null,
             actualizado_por: null,
+            requiere_autenticacion: agente.requiere_autenticacion || false,
+            creado_por: agente.creado_por || null,
+            actualizado_por: null,
+            // ⭐ AGREGAR ESTO AL FINAL:
+            horarios: (() => {
+                if (!agente.horarios) {
+                    return {
+                        lunes: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+                        martes: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+                        miercoles: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+                        jueves: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+                        viernes: { activo: true, bloques: [{ inicio: '08:00', fin: '17:00' }] },
+                        sabado: { activo: false, bloques: [] },
+                        domingo: { activo: false, bloques: [] }
+                    };
+                }
+
+                const horariosDesdeDB = typeof agente.horarios === 'string'
+                    ? JSON.parse(agente.horarios)
+                    : agente.horarios;
+
+                const horariosParaFormulario = {
+                    lunes: { activo: false, bloques: [] },
+                    martes: { activo: false, bloques: [] },
+                    miercoles: { activo: false, bloques: [] },
+                    jueves: { activo: false, bloques: [] },
+                    viernes: { activo: false, bloques: [] },
+                    sabado: { activo: false, bloques: [] },
+                    domingo: { activo: false, bloques: [] }
+                };
+
+                Object.entries(horariosDesdeDB).forEach(([dia, bloques]) => {
+                    if (Array.isArray(bloques) && bloques.length > 0) {
+                        horariosParaFormulario[dia] = {
+                            activo: true,
+                            bloques: bloques
+                        };
+                    }
+                });
+
+                return horariosParaFormulario;
+            })(),
         });
 
         setShowFormModal(true);
@@ -664,10 +724,17 @@ export default function GestionAgentePage() {
             const tonoTexto = `\n\nTONO:\n${tonoMap[prompt_tono] || tonoMap.amigable}`;
             const prompt_sistema_final = `${contextoBase}${misionTexto}${especializacionTexto}${reglasTexto}${tonoTexto}`;
 
-            // Preparar datos ANTES de sanitizar
+            const horariosParaBD = {};
+            Object.entries(formData.horarios).forEach(([dia, config]) => {
+                if (config.activo && config.bloques && config.bloques.length > 0) {
+                    horariosParaBD[dia] = config.bloques;
+                }
+            });
+
             const dataPreSanitizar = {
                 ...formData,
-                prompt_sistema: prompt_sistema_final
+                prompt_sistema: prompt_sistema_final,
+                horarios: JSON.stringify(horariosParaBD)
             };
 
             // ⭐ ESTABLECER CAMPOS DE AUDITORÍA ANTES DE SANITIZAR
@@ -3440,7 +3507,205 @@ export default function GestionAgentePage() {
                                     </View>
                                 </View>
                             </View>
+                            {/* ============ SECCIÓN: HORARIOS DE ATENCIÓN ============ */}
+                            <View style={modalStyles.section}>
+                                <Text style={modalStyles.sectionTitle}>🕐 Horarios de Atención</Text>
 
+                                <View style={{
+                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                    borderRadius: 8,
+                                    padding: 12,
+                                    marginBottom: 16,
+                                    borderLeftWidth: 3,
+                                    borderLeftColor: '#3b82f6'
+                                }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                        <Ionicons name="information-circle" size={16} color="#3b82f6" />
+                                        <Text style={{ color: '#3b82f6', fontSize: 12, fontWeight: '600', flex: 1 }}>
+                                            Define cuándo el agente estará disponible para atender usuarios
+                                        </Text>
+                                    </View>
+                                </View>
+
+                                {/* Renderizar cada día */}
+                                {['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'].map((dia) => {
+                                    const diaConfig = formData.horarios[dia];
+                                    const diaLabel = dia.charAt(0).toUpperCase() + dia.slice(1);
+
+                                    return (
+                                        <View key={dia} style={modalStyles.formGroup}>
+                                            {/* Header del día con switch */}
+                                            <View style={{
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                marginBottom: 12,
+                                                backgroundColor: diaConfig.activo
+                                                    ? 'rgba(102, 126, 234, 0.1)'
+                                                    : 'rgba(71, 85, 105, 0.2)',
+                                                padding: 14,
+                                                borderRadius: 10,
+                                                borderWidth: 1,
+                                                borderColor: diaConfig.activo
+                                                    ? 'rgba(102, 126, 234, 0.3)'
+                                                    : 'rgba(148, 163, 184, 0.2)'
+                                            }}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                                    <Ionicons
+                                                        name="calendar"
+                                                        size={18}
+                                                        color={diaConfig.activo ? '#667eea' : '#94a3b8'}
+                                                    />
+                                                    <Text style={{
+                                                        color: diaConfig.activo ? '#ffffff' : '#94a3b8',
+                                                        fontSize: 15,
+                                                        fontWeight: '600'
+                                                    }}>
+                                                        {diaLabel}
+                                                    </Text>
+                                                </View>
+                                                <Switch
+                                                    value={diaConfig.activo}
+                                                    onValueChange={(value) => {
+                                                        const nuevosHorarios = { ...formData.horarios };
+                                                        nuevosHorarios[dia] = {
+                                                            ...nuevosHorarios[dia],
+                                                            activo: value,
+                                                            bloques: value ? [{ inicio: '08:00', fin: '17:00' }] : []
+                                                        };
+                                                        setFormData({ ...formData, horarios: nuevosHorarios });
+                                                    }}
+                                                    trackColor={{ false: '#475569', true: '#667eea' }}
+                                                    thumbColor={diaConfig.activo ? '#ffffff' : '#cbd5e1'}
+                                                />
+                                            </View>
+
+                                            {/* Bloques horarios si está activo */}
+                                            {diaConfig.activo && (
+                                                <View style={{ gap: 10 }}>
+                                                    {diaConfig.bloques.map((bloque, index) => (
+                                                        <View key={index} style={{
+                                                            flexDirection: 'row',
+                                                            alignItems: 'center',
+                                                            gap: 10,
+                                                            backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                                                            padding: 12,
+                                                            borderRadius: 10,
+                                                            borderWidth: 1,
+                                                            borderColor: 'rgba(148, 163, 184, 0.3)'
+                                                        }}>
+                                                            <Ionicons name="time" size={16} color="#667eea" />
+
+                                                            {/* Hora inicio */}
+                                                            <TextInput
+                                                                style={{
+                                                                    flex: 1,
+                                                                    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+                                                                    color: '#ffffff',
+                                                                    padding: 10,
+                                                                    borderRadius: 8,
+                                                                    borderWidth: 1,
+                                                                    borderColor: 'rgba(102, 126, 234, 0.3)',
+                                                                    fontSize: 14,
+                                                                    textAlign: 'center'
+                                                                }}
+                                                                placeholder="08:00"
+                                                                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                                                                value={bloque.inicio}
+                                                                onChangeText={(text) => {
+                                                                    const nuevosHorarios = { ...formData.horarios };
+                                                                    nuevosHorarios[dia].bloques[index].inicio = text;
+                                                                    setFormData({ ...formData, horarios: nuevosHorarios });
+                                                                }}
+                                                                maxLength={5}
+                                                            />
+
+                                                            <Text style={{ color: '#94a3b8', fontSize: 14 }}>a</Text>
+
+                                                            {/* Hora fin */}
+                                                            <TextInput
+                                                                style={{
+                                                                    flex: 1,
+                                                                    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+                                                                    color: '#ffffff',
+                                                                    padding: 10,
+                                                                    borderRadius: 8,
+                                                                    borderWidth: 1,
+                                                                    borderColor: 'rgba(102, 126, 234, 0.3)',
+                                                                    fontSize: 14,
+                                                                    textAlign: 'center'
+                                                                }}
+                                                                placeholder="17:00"
+                                                                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                                                                value={bloque.fin}
+                                                                onChangeText={(text) => {
+                                                                    const nuevosHorarios = { ...formData.horarios };
+                                                                    nuevosHorarios[dia].bloques[index].fin = text;
+                                                                    setFormData({ ...formData, horarios: nuevosHorarios });
+                                                                }}
+                                                                maxLength={5}
+                                                            />
+
+                                                            {/* Botón eliminar bloque */}
+                                                            {diaConfig.bloques.length > 1 && (
+                                                                <TouchableOpacity
+                                                                    onPress={() => {
+                                                                        const nuevosHorarios = { ...formData.horarios };
+                                                                        nuevosHorarios[dia].bloques = nuevosHorarios[dia].bloques.filter((_, i) => i !== index);
+                                                                        setFormData({ ...formData, horarios: nuevosHorarios });
+                                                                    }}
+                                                                    style={{
+                                                                        width: 32,
+                                                                        height: 32,
+                                                                        borderRadius: 8,
+                                                                        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                                                                        borderWidth: 1,
+                                                                        borderColor: '#ef4444',
+                                                                        justifyContent: 'center',
+                                                                        alignItems: 'center'
+                                                                    }}
+                                                                >
+                                                                    <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                                                                </TouchableOpacity>
+                                                            )}
+                                                        </View>
+                                                    ))}
+
+                                                    {/* Botón agregar bloque */}
+                                                    <TouchableOpacity
+                                                        style={{
+                                                            flexDirection: 'row',
+                                                            alignItems: 'center',
+                                                            gap: 8,
+                                                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                                            borderWidth: 1,
+                                                            borderStyle: 'dashed',
+                                                            borderColor: '#667eea',
+                                                            borderRadius: 8,
+                                                            padding: 10,
+                                                            justifyContent: 'center'
+                                                        }}
+                                                        onPress={() => {
+                                                            const nuevosHorarios = { ...formData.horarios };
+                                                            nuevosHorarios[dia].bloques.push({ inicio: '13:00', fin: '18:00' });
+                                                            setFormData({ ...formData, horarios: nuevosHorarios });
+                                                        }}
+                                                    >
+                                                        <Ionicons name="add-circle-outline" size={16} color="#667eea" />
+                                                        <Text style={{ color: '#667eea', fontSize: 13, fontWeight: '600' }}>
+                                                            Agregar otro horario
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            )}
+                                        </View>
+                                    );
+                                })}
+
+                                <Text style={modalStyles.helperText}>
+                                    💡 Formato 24 horas (HH:MM). Puedes agregar varios bloques por día
+                                </Text>
+                            </View>
                         </ScrollView>
 
                         <View style={modalStyles.footer}>
@@ -3832,6 +4097,72 @@ export default function GestionAgentePage() {
                                                 }}>
                                                     {selectedAgente.prompt_especializado}
                                                 </Text>
+                                            </View>
+                                        </View>
+                                    )}
+                                    {/* ⭐ HORARIOS DE ATENCIÓN */}
+                                    {selectedAgente.horarios && (
+                                        <View style={modalStyles.detailSection}>
+                                            <Text style={modalStyles.detailSectionTitle}>🕐 Horarios de Atención</Text>
+                                            <View style={{ gap: 12 }}>
+                                                {Object.entries(
+                                                    typeof selectedAgente.horarios === 'string'
+                                                        ? JSON.parse(selectedAgente.horarios)
+                                                        : selectedAgente.horarios
+                                                ).map(([dia, bloques]) => {
+                                                    const diaLabel = dia.charAt(0).toUpperCase() + dia.slice(1);
+                                                    const config = Array.isArray(bloques) && bloques.length > 0
+                                                        ? { activo: true, bloques }
+                                                        : { activo: false, bloques: [] };
+
+                                                    return (
+                                                        <View key={dia} style={{
+                                                            backgroundColor: config.activo
+                                                                ? 'rgba(102, 126, 234, 0.1)'
+                                                                : 'rgba(71, 85, 105, 0.2)',
+                                                            borderRadius: 10,
+                                                            padding: 14,
+                                                            borderWidth: 1,
+                                                            borderColor: config.activo
+                                                                ? 'rgba(102, 126, 234, 0.3)'
+                                                                : 'rgba(148, 163, 184, 0.2)'
+                                                        }}>
+                                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: config.activo && config.bloques?.length > 0 ? 8 : 0 }}>
+                                                                <Ionicons
+                                                                    name={config.activo ? "checkmark-circle" : "close-circle"}
+                                                                    size={18}
+                                                                    color={config.activo ? '#22c55e' : '#94a3b8'}
+                                                                />
+                                                                <Text style={{
+                                                                    color: config.activo ? '#ffffff' : '#94a3b8',
+                                                                    fontSize: 15,
+                                                                    fontWeight: '600',
+                                                                    flex: 1
+                                                                }}>
+                                                                    {diaLabel}
+                                                                </Text>
+                                                                {!config.activo && (
+                                                                    <Text style={{ color: '#94a3b8', fontSize: 12 }}>
+                                                                        No disponible
+                                                                    </Text>
+                                                                )}
+                                                            </View>
+
+                                                            {config.activo && config.bloques?.length > 0 && (
+                                                                <View style={{ gap: 6, marginLeft: 28 }}>
+                                                                    {config.bloques.map((bloque, index) => (
+                                                                        <View key={index} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                                            <Ionicons name="time-outline" size={14} color="#667eea" />
+                                                                            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 13 }}>
+                                                                                {bloque.inicio} - {bloque.fin}
+                                                                            </Text>
+                                                                        </View>
+                                                                    ))}
+                                                                </View>
+                                                            )}
+                                                        </View>
+                                                    );
+                                                })}
                                             </View>
                                         </View>
                                     )}
