@@ -86,11 +86,12 @@ export const departamentoService = {
     return await apiClient.put(ENDPOINTS.DEPARTAMENTOS.ASIGNAR_JEFE(id, idJefe));
   },
 
-  // 🔥 Eliminar departamento (Soft Delete - cambia activo a false)
-  delete: async (id) => {
-    console.log('🔍 [Service] delete (soft delete):', id);
-    return await apiClient.delete(ENDPOINTS.DEPARTAMENTOS.BY_ID(id));
-  },
+// 🔥 Desactivar departamento (Soft Delete - cambia activo a false)
+delete: async (id) => {
+  console.log('🔍 [Service] delete (soft delete):', id);
+  // El backend maneja el soft delete internamente con DELETE
+  return await apiClient.delete(ENDPOINTS.DEPARTAMENTOS.BY_ID(id));
+},
 
   // 🔥 NUEVO: Restaurar departamento (cambia activo a true)
   restore: async (id) => {
