@@ -242,31 +242,42 @@ export default function GestionDepartamentosPage() {
       console.log('🔍 Verificando departamento ID:', id);
       console.log('📊 Agentes disponibles:', agentesGlobal.length);
 
-      // Filtrar agentes que tengan este departamento asignado
-      const agentesConEsteDepartamento = agentesGlobal.filter(agente => {
+      // ✅ Filtrar solo agentes ACTIVOS y NO eliminados lógicamente
+      const agentesActivosConEsteDepartamento = agentesGlobal.filter(agente => {
         const tieneDepto = agente.id_departamento &&
           agente.id_departamento.toString() === id.toString();
 
+        // ⭐ NUEVO: Verificar que el agente esté ACTIVO (activo = true)
+        const estaActivo = agente.activo === true || agente.activo === 1;
+
+        // ⭐ Y que NO esté eliminado lógicamente
+        const noEstaEliminado = !agente.deleted_at && agente.deleted_at !== 1;
+
         if (tieneDepto) {
-          console.log(`✅ Agente "${agente.nombre_agente}" tiene departamento ${id}`);
+          if (estaActivo && noEstaEliminado) {
+            console.log(`✅ Agente ACTIVO "${agente.nombre_agente}" tiene departamento ${id}`);
+          } else {
+            console.log(`⚠️ Agente INACTIVO o ELIMINADO "${agente.nombre_agente}" ignorado (activo: ${agente.activo}, deleted_at: ${agente.deleted_at})`);
+          }
         }
 
-        return tieneDepto;
+        // ✅ Solo incluir si tiene departamento, está ACTIVO Y NO está eliminado
+        return tieneDepto && estaActivo && noEstaEliminado;
       });
 
-      console.log('👥 Agentes encontrados con este departamento:', agentesConEsteDepartamento);
-      const cantidadAgentes = agentesConEsteDepartamento.length;
+      console.log('👥 Agentes ACTIVOS y NO ELIMINADOS encontrados:', agentesActivosConEsteDepartamento);
+      const cantidadAgentesActivos = agentesActivosConEsteDepartamento.length;
 
-      // Si tiene agentes activos, mostrar modal de advertencia
-      if (cantidadAgentes > 0) {
-        setAgentesAsignados(agentesConEsteDepartamento);
+      // Si tiene agentes ACTIVOS y NO ELIMINADOS, mostrar modal de advertencia
+      if (cantidadAgentesActivos > 0) {
+        setAgentesAsignados(agentesActivosConEsteDepartamento);
         setShowWarningModal(true);
         return;
       }
 
-      console.log('✅ No tiene agentes, procediendo a abrir modal de confirmación');
+      console.log('✅ No tiene agentes activos, procediendo a abrir modal de confirmación');
 
-      // Si no tiene agentes, abrir el modal de confirmación
+      // ✅ Si solo hay agentes inactivos o eliminados, guardar ID y abrir modal
       setDepartamentoToDelete(id);
       setShowDeleteModal(true);
 
