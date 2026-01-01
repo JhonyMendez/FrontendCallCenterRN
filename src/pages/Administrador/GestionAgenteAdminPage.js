@@ -14,6 +14,8 @@ import {
   View
 } from 'react-native';
 import { agenteService } from '../../api/services/agenteService';
+import { categoriaService } from '../../api/services/categoriaService';
+import { contenidoService } from '../../api/services/contenidoService';
 import { departamentoService } from '../../api/services/departamentoService';
 import AdminSidebar from '../../components/Sidebar/sidebarAdmin';
 import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles';
@@ -663,6 +665,59 @@ export default function GestionAgentePage() {
     if (!agenteToDelete) return;
 
     try {
+      // ✅ VALIDACIÓN 1: Verificar si tiene contenidos asociados
+      const responseContenidos = await contenidoService.getByAgente(
+        agenteToDelete.id_agente
+      );
+      const contenidosAsociados = responseContenidos?.data || responseContenidos || [];
+
+      // ✅ VALIDACIÓN 2: Verificar si tiene categorías asociadas
+      const categoriasAsociadas = await categoriaService.getAll({
+        id_agente: agenteToDelete.id_agente
+      });
+
+      const tieneContenidos = contenidosAsociados && contenidosAsociados.length > 0;
+      const tieneCategorias = categoriasAsociadas && categoriasAsociadas.length > 0;
+
+      // ❌ Si tiene contenidos O categorías, no permitir eliminar
+      if (tieneContenidos || tieneCategorias) {
+        // Cerrar modal de confirmación
+        setShowDeleteModal(false);
+
+        // ✅ Construir mensaje de error MÁS CLARO
+        const cantidadContenidos = contenidosAsociados.length;
+        const cantidadCategorias = categoriasAsociadas.length;
+
+        const textoContenido = cantidadContenidos === 1 ? 'contenido asociado' : 'contenidos asociados';
+        const textoCategoria = cantidadCategorias === 1 ? 'categoría asociada' : 'categorías asociadas';
+
+        let mensajeError = `No se puede eliminar el agente "${agenteToDelete.nombre_agente}" porque tiene `;
+
+        // Construir frase según lo que tenga
+        if (tieneContenidos && tieneCategorias) {
+          // Tiene AMBOS
+          mensajeError += `${cantidadContenidos} ${textoContenido} y ${cantidadCategorias} ${textoCategoria}.`;
+        } else if (tieneContenidos) {
+          // Solo tiene contenidos
+          mensajeError += `${cantidadContenidos} ${textoContenido}.`;
+        } else {
+          // Solo tiene categorías
+          mensajeError += `${cantidadCategorias} ${textoCategoria}.`;
+        }
+
+        mensajeError += ' Primero debes eliminar o reasignar estos elementos a otro agente.';
+
+        // Mostrar modal de error
+        setErrorMessage(mensajeError);
+        setErrorDetails({
+          contenidos: tieneContenidos ? cantidadContenidos : 0,
+          categorias: tieneCategorias ? cantidadCategorias : 0
+        });
+        setShowErrorModal(true);
+        return;
+      }
+
+      // ✅ Si NO tiene contenidos NI categorías, proceder con la eliminación
       await agenteService.delete(agenteToDelete.id_agente);
 
       setSuccessMessage('🗑️ Agente eliminado permanentemente');
@@ -4386,6 +4441,34 @@ export default function GestionAgentePage() {
                     }}>
                       {errorMessage}
                     </Text>
+
+                    {/* ✅ NUEVO: Mostrar detalles de contenidos y categorías */}
+                    {errorDetails && (errorDetails.contenidos > 0 || errorDetails.categorias > 0) && (
+                      <View style={{
+                        marginTop: 12,
+                        backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                        padding: 12,
+                        borderRadius: 8,
+                        gap: 6,
+                      }}>
+                        {errorDetails.contenidos > 0 && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Ionicons name="document-text" size={16} color="#ef4444" />
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 13, fontWeight: '600' }}>
+                              {errorDetails.contenidos} {errorDetails.contenidos === 1 ? 'contenido' : 'contenidos'}
+                            </Text>
+                          </View>
+                        )}
+                        {errorDetails.categorias > 0 && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Ionicons name="folder" size={16} color="#ef4444" />
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 13, fontWeight: '600' }}>
+                              {errorDetails.categorias} {errorDetails.categorias === 1 ? 'categoría' : 'categorías'}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
                   </View>
                 </View>
               </View>
@@ -4441,27 +4524,44 @@ export default function GestionAgentePage() {
                     </Text>
 
                     <View style={{ gap: 8 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-                        <Text style={{ color: '#3b82f6', fontSize: 13 }}>1.</Text>
-                        <Text style={{
-                          fontSize: 13,
-                          color: 'rgba(59, 130, 246, 0.9)',
-                          lineHeight: 20,
-                          flex: 1,
-                        }}>
-                          Elimina o archiva los contenidos asociados primero
-                        </Text>
-                      </View>
+                      {/* ✅ NUEVO: Sugerencia dinámica según lo que tenga */}
+                      {errorDetails && errorDetails.contenidos > 0 && (
+                        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                          <Text style={{ color: '#3b82f6', fontSize: 13 }}>•</Text>
+                          <Text style={{
+                            fontSize: 13,
+                            color: 'rgba(59, 130, 246, 0.9)',
+                            lineHeight: 20,
+                            flex: 1,
+                          }}>
+                            Elimina o reasigna los <Text style={{ fontWeight: '700' }}>contenidos</Text> asociados
+                          </Text>
+                        </View>
+                      )}
+
+                      {errorDetails && errorDetails.categorias > 0 && (
+                        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                          <Text style={{ color: '#3b82f6', fontSize: 13 }}>•</Text>
+                          <Text style={{
+                            fontSize: 13,
+                            color: 'rgba(59, 130, 246, 0.9)',
+                            lineHeight: 20,
+                            flex: 1,
+                          }}>
+                            Elimina o reasigna las <Text style={{ fontWeight: '700' }}>categorías</Text> asociadas
+                          </Text>
+                        </View>
+                      )}
 
                       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-                        <Text style={{ color: '#3b82f6', fontSize: 13 }}>2.</Text>
+                        <Text style={{ color: '#3b82f6', fontSize: 13 }}>•</Text>
                         <Text style={{
                           fontSize: 13,
                           color: 'rgba(59, 130, 246, 0.9)',
                           lineHeight: 20,
                           flex: 1,
                         }}>
-                          O simplemente desactiva el agente temporalmente
+                          O simplemente <Text style={{ fontWeight: '700' }}>desactiva el agente</Text> temporalmente
                         </Text>
                       </View>
                     </View>

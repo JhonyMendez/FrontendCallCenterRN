@@ -1646,11 +1646,8 @@ export default function GestionCategoriaPage() {
                         )}
                       </View>
                     )}
-
                   </View>
-
                 </ScrollView>
-
               </View>
             </View>
           </Modal>
