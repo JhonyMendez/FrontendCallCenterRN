@@ -671,10 +671,15 @@ export default function GestionAgentePage() {
       );
       const contenidosAsociados = responseContenidos?.data || responseContenidos || [];
 
-      // ✅ VALIDACIÓN 2: Verificar si tiene categorías asociadas
-      const categoriasAsociadas = await categoriaService.getAll({
+      // ✅ VALIDACIÓN 2: Verificar si tiene categorías asociadas (NO ELIMINADAS)
+      const todasCategorias = await categoriaService.getAll({
         id_agente: agenteToDelete.id_agente
       });
+
+      // 🔥 FILTRAR solo categorías NO eliminadas
+      const categoriasAsociadas = Array.isArray(todasCategorias)
+        ? todasCategorias.filter(cat => !cat.eliminado)
+        : [];
 
       const tieneContenidos = contenidosAsociados && contenidosAsociados.length > 0;
       const tieneCategorias = categoriasAsociadas && categoriasAsociadas.length > 0;

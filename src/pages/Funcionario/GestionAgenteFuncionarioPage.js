@@ -16,6 +16,8 @@ import {
 } from 'react-native';
 import { agenteService } from '../../api/services/agenteService';
 import authService from '../../api/services/authService';
+import { categoriaService } from '../../api/services/categoriaService';
+import { contenidoService } from '../../api/services/contenidoService';
 import { departamentoService } from '../../api/services/departamentoService';
 import { usuarioAgenteService } from '../../api/services/usuarioAgenteService';
 import FuncionarioSidebar from '../../components/Sidebar/sidebarFuncionario';
@@ -24,6 +26,7 @@ import { getUserIdFromToken } from "../../components/utils/authHelper";
 import SecurityValidator from '../../components/utils/SecurityValidator';
 import { contentStyles } from '../../styles/contentStyles';
 import { getStatIconColor, modalStyles, styles } from '../../styles/gestionAgenteStyles';
+
 
 export default function GestionAgentePage() {
     // ============ STATE ============
@@ -820,10 +823,15 @@ export default function GestionAgentePage() {
             );
             const contenidosAsociados = responseContenidos?.data || responseContenidos || [];
 
-            // ✅ VALIDACIÓN 2: Verificar si tiene categorías asociadas
-            const categoriasAsociadas = await categoriaService.getAll({
+            // ✅ VALIDACIÓN 2: Verificar si tiene categorías asociadas (NO ELIMINADAS)
+            const todasCategorias = await categoriaService.getAll({
                 id_agente: agenteToDelete.id_agente
             });
+
+            // 🔥 FILTRAR solo categorías NO eliminadas
+            const categoriasAsociadas = Array.isArray(todasCategorias)
+                ? todasCategorias.filter(cat => !cat.eliminado)
+                : [];
 
             const tieneContenidos = contenidosAsociados && contenidosAsociados.length > 0;
             const tieneCategorias = categoriasAsociadas && categoriasAsociadas.length > 0;
