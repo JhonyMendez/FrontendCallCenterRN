@@ -14,33 +14,17 @@ export const categoriaService = {
       queryParams.append('id_agente', params.id_agente);
     }
     
-    // ✅ NUEVO: Agregar timestamp para evitar caché de Axios
-    queryParams.append('_t', Date.now());
-    
     const queryString = queryParams.toString();
     const endpoint = queryString 
       ? `${ENDPOINTS.CATEGORIAS.BASE}?${queryString}`
-      : `${ENDPOINTS.CATEGORIAS.BASE}?_t=${Date.now()}`;
+      : ENDPOINTS.CATEGORIAS.BASE;
     
-    // ✅ NUEVO: Configuración para evitar caché
-    return await apiClient.get(endpoint, {
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
-    });
+    return await apiClient.get(endpoint);
   },
 
   // Obtener una categoría por ID
   getById: async (id) => {
-    return await apiClient.get(`${ENDPOINTS.CATEGORIAS.BY_ID(id)}?_t=${Date.now()}`, {
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
-    });
+    return await apiClient.get(ENDPOINTS.CATEGORIAS.BY_ID(id));
   },
 
   // Crear una nueva categoría
@@ -50,18 +34,11 @@ export const categoriaService = {
 
   // Obtener categorías por agente (opcionalmente filtradas por estado activo)
   getByAgente: async (idAgente, activo = null) => {
-    const timestamp = Date.now();
     const endpoint = activo !== null 
-      ? `${ENDPOINTS.CATEGORIAS.BY_AGENTE(idAgente)}?activo=${activo}&_t=${timestamp}`
-      : `${ENDPOINTS.CATEGORIAS.BY_AGENTE(idAgente)}?_t=${timestamp}`;
+      ? `${ENDPOINTS.CATEGORIAS.BY_AGENTE(idAgente)}?activo=${activo}`
+      : ENDPOINTS.CATEGORIAS.BY_AGENTE(idAgente);
     
-    return await apiClient.get(endpoint, {
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
-    });
+    return await apiClient.get(endpoint);
   },
 
   // Actualizar una categoría existente
@@ -73,4 +50,6 @@ export const categoriaService = {
   delete: async (id) => {
     return await apiClient.delete(ENDPOINTS.CATEGORIAS.BY_ID(id));
   }
+
+  
 };
