@@ -1,15 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Modal,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Modal,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { agenteService } from '../../api/services/agenteService';
 import { categoriaService } from '../../api/services/categoriaService';
@@ -17,7 +17,6 @@ import AdminSidebar from '../../components/Sidebar/sidebarAdmin';
 import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles';
 import GestionCategoriaCard from '../../components/SuperAdministrador/GestionCategoriaCard';
 import { styles } from '../../styles/gestionCategoriaStyles';
-
 
 export default function GestionCategoriaPage() {
   // ============ STATE ============
@@ -41,51 +40,52 @@ export default function GestionCategoriaPage() {
   const [searchAgente, setSearchAgente] = useState('');
   const [searchFilterAgente, setSearchFilterAgente] = useState('');
   const [showDetalleModal, setShowDetalleModal] = useState(false);
-const [categoriaDetalle, setCategoriaDetalle] = useState(null);
-const [breadcrumb, setBreadcrumb] = useState([]);
-    
+  const [categoriaDetalle, setCategoriaDetalle] = useState(null);
+  const [breadcrumb, setBreadcrumb] = useState([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [categoriaToDelete, setCategoriaToDelete] = useState(null);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorModalMessage, setErrorModalMessage] = useState('');
 
 
-// Arrays de iconos y colores disponibles
-const iconosDisponibles = [
-  'folder', 'document', 'file-tray', 'archive', 'briefcase', 
-  'cart', 'cash', 'card', 'calculator', 'calendar',
-  'clipboard', 'bookmark', 'flag', 'star', 'heart',
+  // Arrays de iconos y colores disponibles
+  const iconosDisponibles = [
+    'folder', 'document', 'file-tray', 'archive', 'briefcase',
+    'cart', 'cash', 'card', 'calculator', 'calendar',
+    'clipboard', 'bookmark', 'flag', 'star', 'heart',
 
-  'bulb'
-];
+    'bulb'
+  ];
 
-const coloresDisponibles = [
-  { nombre: 'Púrpura', hex: '#667eea' },
-  { nombre: 'Azul', hex: '#3b82f6' },
-  { nombre: 'Cyan', hex: '#06b6d4' },
-  { nombre: 'Verde', hex: '#10b981' },
-  { nombre: 'Lima', hex: '#84cc16' },
-  { nombre: 'Amarillo', hex: '#fbbf24' },
-  { nombre: 'Naranja', hex: '#f97316' },
-  { nombre: 'Rojo', hex: '#ef4444' },
-  { nombre: 'Rosa', hex: '#ec4899' },
-  { nombre: 'Fucsia', hex: '#d946ef' },
-  { nombre: 'Índigo', hex: '#6366f1' },
-  { nombre: 'Violeta', hex: '#8b5cf6' },
-  { nombre: 'Gris', hex: '#6b7280' },
+  const coloresDisponibles = [
+    { nombre: 'Púrpura', hex: '#667eea' },
+    { nombre: 'Azul', hex: '#3b82f6' },
+    { nombre: 'Cyan', hex: '#06b6d4' },
+    { nombre: 'Verde', hex: '#10b981' },
+    { nombre: 'Lima', hex: '#84cc16' },
+    { nombre: 'Amarillo', hex: '#fbbf24' },
+    { nombre: 'Naranja', hex: '#f97316' },
+    { nombre: 'Rojo', hex: '#ef4444' },
+    { nombre: 'Rosa', hex: '#ec4899' },
+    { nombre: 'Fucsia', hex: '#d946ef' },
+    { nombre: 'Índigo', hex: '#6366f1' },
+    { nombre: 'Violeta', hex: '#8b5cf6' },
+    { nombre: 'Gris', hex: '#6b7280' },
 
-
-  { nombre: 'Esmeralda', hex: '#059669' }
-];
-
-
+    { nombre: 'Esmeralda', hex: '#059669' }
+  ];
 
   const [formData, setFormData] = useState({
-  nombre: '',
-  descripcion: '',
-  icono: 'folder',           
-  color: '#667eea',          
-  orden: 0,                 
-  activo: true,
-  id_agente: null,
-  id_categoria_padre: null,  
-});
+    nombre: '',
+    descripcion: '',
+    icono: 'folder',
+    color: '#667eea',
+    orden: 0,
+    activo: true,
+    eliminado: false,
+    id_agente: null,
+    id_categoria_padre: null,
+  });
 
   // ============ VALIDACIONES ============
   const sanitizeInput = (text) => {
@@ -94,7 +94,6 @@ const coloresDisponibles = [
       .replace(/<[^>]*>/g, '')
       .trim();
   };
-
 
   const validateForm = () => {
     const newErrors = {};
@@ -125,10 +124,10 @@ const coloresDisponibles = [
   };
 
   // ============ EFFECTS ============
-    useEffect(() => {
+  useEffect(() => {
     cargarAgentes();
-    cargarCategorias();  
-    }, []);
+    cargarCategorias();
+  }, []);
 
   // ============ FUNCIONES ============
   const cargarAgentes = async () => {
@@ -146,19 +145,24 @@ const coloresDisponibles = [
   };
 
   const cargarCategorias = async () => {
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const data = await categoriaService.getAll();
-    setCategorias(Array.isArray(data) ? data : []);
-  } catch (err) {
-    console.error('Error al cargar categorías:', err);
-    Alert.alert('Error', 'No se pudieron cargar las categorías');
-    setCategorias([]);
-  } finally {
-    setLoading(false);
-  }
-};
+      const data = await categoriaService.getAll();
+
+      const categoriasActivas = Array.isArray(data)
+        ? data.filter(cat => !cat.eliminado)
+        : [];
+
+      setCategorias(categoriasActivas);
+    } catch (err) {
+      console.error('Error al cargar categorías:', err);
+      Alert.alert('Error', 'No se pudieron cargar las categorías');
+      setCategorias([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
   const handleSubmit = async () => {
@@ -168,16 +172,17 @@ const coloresDisponibles = [
     }
 
     try {
-        const sanitizedData = {
+      const sanitizedData = {
         nombre: sanitizeInput(formData.nombre),
         descripcion: sanitizeInput(formData.descripcion),
-        icono: formData.icono,                       // ✅ NUEVO
-        color: formData.color,                       // ✅ NUEVO
-        orden: parseInt(formData.orden),             // ✅ NUEVO
+        icono: formData.icono,
+        color: formData.color,
+        orden: parseInt(formData.orden),
         activo: formData.activo,
+        eliminado: formData.eliminado || false,
         id_agente: parseInt(formData.id_agente),
-        id_categoria_padre: formData.id_categoria_padre ? parseInt(formData.id_categoria_padre) : null,  // ✅ NUEVO
-    };  
+        id_categoria_padre: formData.id_categoria_padre ? parseInt(formData.id_categoria_padre) : null,
+      };
 
       if (editingCategoria) {
         await categoriaService.update(editingCategoria.id_categoria, sanitizedData);
@@ -186,16 +191,16 @@ const coloresDisponibles = [
         await categoriaService.create(sanitizedData);
         setSuccessMessage('✅ Categoría creada exitosamente');
       }
-      
+
       setShowModal(false);
       resetForm();
       setShowSuccessMessage(true);
       cargarCategorias();
-      
+
       setTimeout(() => {
         setShowSuccessMessage(false);
       }, 3000);
-      
+
     } catch (err) {
       console.error('Error al guardar:', err);
       const errorMessage = err?.message || err?.data?.message || 'No se pudo guardar la categoría';
@@ -206,59 +211,68 @@ const coloresDisponibles = [
   const handleEdit = (categoria) => {
     setEditingCategoria(categoria);
     setFormData({
-    nombre: categoria.nombre || '',
-    descripcion: categoria.descripcion || '',
-    icono: categoria.icono || 'folder',     
-    color: categoria.color || '#667eea',      
-    orden: categoria.orden || 0,              
-    activo: categoria.activo !== undefined ? categoria.activo : true,
-    id_agente: categoria.id_agente || null,
-    id_categoria_padre: categoria.id_categoria_padre || null, 
+      nombre: categoria.nombre || '',
+      descripcion: categoria.descripcion || '',
+      icono: categoria.icono || 'folder',
+      color: categoria.color || '#667eea',
+      orden: categoria.orden || 0,
+      activo: categoria.activo !== undefined ? categoria.activo : true,
+      eliminado: categoria.eliminado || false,
+      id_agente: categoria.id_agente || null,
+      id_categoria_padre: categoria.id_categoria_padre || null,
     });
     setErrors({});
     setShowModal(true);
   };
 
-  const handleDelete = async (id) => {
-    Alert.alert(
-      'Confirmar eliminación',
-      '¿Está seguro de eliminar esta categoría? Esta acción no se puede deshacer.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await categoriaService.delete(id);
-              setSuccessMessage('🗑️ Categoría eliminada correctamente');
-              setShowSuccessMessage(true);
-              cargarCategorias();
-              
-              setTimeout(() => {
-                setShowSuccessMessage(false);
-              }, 3000);
-            } catch (err) {
-              console.error('Error al eliminar:', err);
-              const errorMessage = err?.message || 'No se pudo eliminar la categoría';
-              Alert.alert('Error', errorMessage);
-            }
-          },
-        },
-      ]
-    );
+  const handleDelete = (id) => {
+    // Guardar la categoría a eliminar y mostrar modal
+    setCategoriaToDelete(id);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!categoriaToDelete) return;
+
+    try {
+      // ✅ Eliminado lógico
+      await categoriaService.delete(categoriaToDelete);
+      setSuccessMessage('🗑️ Categoría eliminada correctamente');
+      setShowSuccessMessage(true);
+      setShowDeleteModal(false);
+      setCategoriaToDelete(null);
+      cargarCategorias();
+
+      setTimeout(() => {
+        setShowSuccessMessage(false);
+      }, 3000);
+    } catch (err) {
+      console.error('Error al eliminar:', err);
+
+      setShowDeleteModal(false);
+      setCategoriaToDelete(null);
+
+      const errorMessage = err?.response?.data?.message
+        || err?.message
+        || 'No se pudo eliminar la categoría';
+
+      // ✅ Mostrar modal de error personalizado
+      setErrorModalMessage(errorMessage);
+      setShowErrorModal(true);
+    }
   };
 
   const resetForm = () => {
     setFormData({
-    nombre: '',
-    descripcion: '',
-    icono: 'folder',         
-    color: '#667eea',        
-    orden: 0,                
-    activo: true,
-    id_agente: null,
-    id_categoria_padre: null,  
+      nombre: '',
+      descripcion: '',
+      icono: 'folder',
+      color: '#667eea',
+      orden: 0,
+      activo: true,
+      eliminado: false,
+      id_agente: null,
+      id_categoria_padre: null,
     });
     setEditingCategoria(null);
     setErrors({});
@@ -284,13 +298,11 @@ const coloresDisponibles = [
   };
 
   const getSubcategorias = (idCategoriaPadre) => {
-    return categorias.filter(cat => cat.id_categoria_padre === idCategoriaPadre);
+    return categorias.filter(cat =>
+      cat.id_categoria_padre === idCategoriaPadre &&
+      !cat.eliminado
+    );
   };
-
-
-
-
-
 
   const handleInputChange = (field, value) => {
     if (errors[field]) {
@@ -309,26 +321,27 @@ const coloresDisponibles = [
 
     // Buscar por nombre o descripción
     const matchesSearch =
-        !search ||
-        cat.nombre?.toLowerCase().includes(search) ||
-        cat.descripcion?.toLowerCase().includes(search);
+      !search ||
+      cat.nombre?.toLowerCase().includes(search) ||
+      cat.descripcion?.toLowerCase().includes(search);
 
     // Filtro por estado (Todas / Activas / Inactivas)
     const matchesActivo =
-        filterActivo === 'all'
+      filterActivo === 'all'
         ? true
         : cat.activo === (filterActivo === 'true');
 
     // Filtro por agente (Todos / uno específico)
     const matchesAgente =
-        filterAgente === 'all'
+      filterAgente === 'all'
         ? true
         : String(cat.id_agente) === String(filterAgente);
 
-    // NUEVO: Solo mostrar categorías padre (sin id_categoria_padre)
     const isCategoriaPadre = cat.id_categoria_padre === null;
 
-    return matchesSearch && matchesActivo && matchesAgente && isCategoriaPadre;
+    const noEliminada = !cat.eliminado;
+
+    return matchesSearch && matchesActivo && matchesAgente && isCategoriaPadre && noEliminada;
   });
 
 
@@ -338,21 +351,21 @@ const coloresDisponibles = [
   };
 
   const filteredAgentes = agentes.filter((agente) => {
-  const search = searchAgente.toLowerCase();
-  return !search || agente.nombre_agente?.toLowerCase().includes(search);
-  }); 
+    const search = searchAgente.toLowerCase();
+    return !search || agente.nombre_agente?.toLowerCase().includes(search);
+  });
 
   const filteredFilterAgentes = agentes.filter((agente) => {
-  const search = searchFilterAgente.toLowerCase();
-  return !search || agente.nombre_agente?.toLowerCase().includes(search);
+    const search = searchFilterAgente.toLowerCase();
+    return !search || agente.nombre_agente?.toLowerCase().includes(search);
   });
 
   // ============ RENDER ============
   return (
     <View style={contentStyles.wrapper}>
-      
+
       {/* ============ SIDEBAR ============ */}
-      <AdminSidebar 
+      <AdminSidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
       />
@@ -380,11 +393,11 @@ const coloresDisponibles = [
 
       {/* ============ CONTENIDO PRINCIPAL ============ */}
       <View style={[
-        contentStyles.mainContent, 
+        contentStyles.mainContent,
         sidebarOpen && contentStyles.mainContentWithSidebar
       ]}>
         <View style={styles.container}>
-          
+
           {/* ============ HEADER ============ */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
@@ -482,10 +495,10 @@ const coloresDisponibles = [
                   activeOpacity={0.7}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Ionicons 
-                      name={filter.icon} 
-                      size={14} 
-                      color={filterActivo === filter.key ? 'white' : 'rgba(255, 255, 255, 0.6)'} 
+                    <Ionicons
+                      name={filter.icon}
+                      size={14}
+                      color={filterActivo === filter.key ? 'white' : 'rgba(255, 255, 255, 0.6)'}
                     />
                     <Text
                       style={[
@@ -500,7 +513,7 @@ const coloresDisponibles = [
               ))}
             </View>
 
-{/* Filtro por Agente */}
+            {/* Filtro por Agente */}
             <View style={{ marginTop: 12 }}>
               {/* 🔍 Búsqueda compacta */}
               <View style={{
@@ -579,10 +592,10 @@ const coloresDisponibles = [
                   activeOpacity={0.7}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Ionicons 
-                      name="globe" 
-                      size={14} 
-                      color={filterAgente === 'all' ? 'white' : 'rgba(255, 255, 255, 0.6)'} 
+                    <Ionicons
+                      name="globe"
+                      size={14}
+                      color={filterAgente === 'all' ? 'white' : 'rgba(255, 255, 255, 0.6)'}
                     />
                     <Text
                       style={[
@@ -607,10 +620,10 @@ const coloresDisponibles = [
                     activeOpacity={0.7}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Ionicons 
-                        name="person" 
-                        size={14} 
-                        color={filterAgente === agente.id_agente.toString() ? 'white' : 'rgba(255, 255, 255, 0.6)'} 
+                      <Ionicons
+                        name="person"
+                        size={14}
+                        color={filterAgente === agente.id_agente.toString() ? 'white' : 'rgba(255, 255, 255, 0.6)'}
                       />
                       <Text
                         style={[
@@ -643,7 +656,7 @@ const coloresDisponibles = [
                   categoria={item}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
-                  onPress={handleOpenDetalle} 
+                  onPress={handleOpenDetalle}
                   agenteNombre={getAgenteNombre(item.id_agente)}
                 />
               )}
@@ -665,7 +678,7 @@ const coloresDisponibles = [
           <Modal visible={showModal} animationType="fade" transparent>
             <View style={styles.modalOverlay}>
               <View style={styles.modal}>
-                
+
                 {/* Header del Modal */}
                 <View style={styles.modalHeader}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -682,10 +695,10 @@ const coloresDisponibles = [
                       shadowOffset: { width: 0, height: 4 },
                       elevation: 6,
                     }}>
-                      <Ionicons 
-                        name={editingCategoria ? "create-outline" : "add-circle-outline"} 
-                        size={28} 
-                        color="#667eea" 
+                      <Ionicons
+                        name={editingCategoria ? "create-outline" : "add-circle-outline"}
+                        size={28}
+                        color="#667eea"
                       />
                     </View>
                     <View>
@@ -697,7 +710,7 @@ const coloresDisponibles = [
                       </Text>
                     </View>
                   </View>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={() => {
                       setShowModal(false);
                       resetForm();
@@ -719,7 +732,7 @@ const coloresDisponibles = [
 
                 {/* Contenido del Modal */}
                 <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-                  
+
                   {/* Selector de Agente */}
                   <View style={styles.formGroup}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -728,127 +741,127 @@ const coloresDisponibles = [
                         Agente Virtual <Text style={styles.required}>*</Text>
                       </Text>
                     </View>
-                    
-                  {loadingAgentes ? (
-                    <View style={{
-                      padding: 16,
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                      borderRadius: 12,
-                      alignItems: 'center',
-                    }}>
-                      <ActivityIndicator size="small" color="#667eea" />
-                      <Text style={{ color: 'rgba(255, 255, 255, 0.5)', marginTop: 8, fontSize: 12 }}>
-                        Cargando agentes...
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={{ gap: 8 }}>
-                      {/* 🔍 Campo de búsqueda de agentes - SIEMPRE VISIBLE */}
+
+                    {loadingAgentes ? (
                       <View style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 10,
-                        paddingHorizontal: 14,
-                        paddingVertical: 10,
-                        borderRadius: 10,
+                        padding: 16,
                         backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                        borderWidth: 1,
-                        borderColor: 'rgba(255, 255, 255, 0.1)',
-                        marginBottom: 8,
+                        borderRadius: 12,
+                        alignItems: 'center',
                       }}>
-                        <Ionicons name="search" size={18} color="rgba(255, 255, 255, 0.5)" />
-                        <TextInput
-                          style={{
-                            flex: 1,
-                            color: 'white',
-                            fontSize: 14,
-                            paddingVertical: 4,
-                          }}
-                          placeholder="Buscar agente..."
-                          placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                          value={searchAgente}
-                          onChangeText={(text) => setSearchAgente(sanitizeInput(text))}
-                        />
-                        {searchAgente.length > 0 && (
-                          <TouchableOpacity onPress={() => setSearchAgente('')}>
-                            <Ionicons name="close-circle" size={18} color="rgba(255, 255, 255, 0.5)" />
-                          </TouchableOpacity>
+                        <ActivityIndicator size="small" color="#667eea" />
+                        <Text style={{ color: 'rgba(255, 255, 255, 0.5)', marginTop: 8, fontSize: 12 }}>
+                          Cargando agentes...
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={{ gap: 8 }}>
+                        {/* 🔍 Campo de búsqueda de agentes - SIEMPRE VISIBLE */}
+                        <View style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 10,
+                          paddingHorizontal: 14,
+                          paddingVertical: 10,
+                          borderRadius: 10,
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          borderWidth: 1,
+                          borderColor: 'rgba(255, 255, 255, 0.1)',
+                          marginBottom: 8,
+                        }}>
+                          <Ionicons name="search" size={18} color="rgba(255, 255, 255, 0.5)" />
+                          <TextInput
+                            style={{
+                              flex: 1,
+                              color: 'white',
+                              fontSize: 14,
+                              paddingVertical: 4,
+                            }}
+                            placeholder="Buscar agente..."
+                            placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                            value={searchAgente}
+                            onChangeText={(text) => setSearchAgente(sanitizeInput(text))}
+                          />
+                          {searchAgente.length > 0 && (
+                            <TouchableOpacity onPress={() => setSearchAgente('')}>
+                              <Ionicons name="close-circle" size={18} color="rgba(255, 255, 255, 0.5)" />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+
+                        {/* Lista de agentes filtrados */}
+                        {filteredAgentes.length === 0 ? (
+                          <View style={{
+                            padding: 20,
+                            alignItems: 'center',
+                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                            borderRadius: 12,
+                          }}>
+                            <Ionicons name="search-outline" size={40} color="rgba(255, 255, 255, 0.3)" />
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.5)', marginTop: 8, fontSize: 13 }}>
+                              No se encontraron agentes
+                            </Text>
+                          </View>
+                        ) : (
+                          filteredAgentes.map((agente) => (
+                            <TouchableOpacity
+                              key={agente.id_agente}
+                              style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 12,
+                                padding: 14,
+                                borderRadius: 12,
+                                borderWidth: 2,
+                                borderColor: formData.id_agente === agente.id_agente
+                                  ? '#667eea'
+                                  : 'rgba(255, 255, 255, 0.15)',
+                                backgroundColor: formData.id_agente === agente.id_agente
+                                  ? 'rgba(102, 126, 234, 0.2)'
+                                  : 'rgba(255, 255, 255, 0.05)',
+                              }}
+                              onPress={() => handleInputChange('id_agente', agente.id_agente)}
+                              activeOpacity={0.7}
+                            >
+                              <View style={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: 10,
+                                backgroundColor: agente.color_tema || '#667eea',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                              }}>
+                                <Ionicons
+                                  name="person"
+                                  size={22}
+                                  color="white"
+                                />
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={{
+                                  color: formData.id_agente === agente.id_agente ? '#667eea' : 'white',
+                                  fontWeight: '700',
+                                  fontSize: 15,
+                                }}>
+                                  {agente.nombre_agente}
+                                </Text>
+                                <Text style={{
+                                  color: 'rgba(255, 255, 255, 0.5)',
+                                  fontSize: 12,
+                                  marginTop: 2,
+                                }}>
+                                  {agente.area_especialidad || 'Agente general'}
+                                </Text>
+                              </View>
+                              {formData.id_agente === agente.id_agente && (
+                                <Ionicons name="checkmark-circle" size={24} color="#667eea" />
+                              )}
+                            </TouchableOpacity>
+                          ))
                         )}
                       </View>
+                    )}
 
-                      {/* Lista de agentes filtrados */}
-                      {filteredAgentes.length === 0 ? (
-                        <View style={{
-                          padding: 20,
-                          alignItems: 'center',
-                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                          borderRadius: 12,
-                        }}>
-                          <Ionicons name="search-outline" size={40} color="rgba(255, 255, 255, 0.3)" />
-                          <Text style={{ color: 'rgba(255, 255, 255, 0.5)', marginTop: 8, fontSize: 13 }}>
-                            No se encontraron agentes
-                          </Text>
-                        </View>
-                      ) : (
-                        filteredAgentes.map((agente) => (
-                          <TouchableOpacity
-                            key={agente.id_agente}
-                            style={{
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              gap: 12,
-                              padding: 14,
-                              borderRadius: 12,
-                              borderWidth: 2,
-                              borderColor: formData.id_agente === agente.id_agente 
-                                ? '#667eea' 
-                                : 'rgba(255, 255, 255, 0.15)',
-                              backgroundColor: formData.id_agente === agente.id_agente 
-                                ? 'rgba(102, 126, 234, 0.2)' 
-                                : 'rgba(255, 255, 255, 0.05)',
-                            }}
-                            onPress={() => handleInputChange('id_agente', agente.id_agente)}
-                            activeOpacity={0.7}
-                          >
-                            <View style={{
-                              width: 40,
-                              height: 40,
-                              borderRadius: 10,
-                              backgroundColor: agente.color_tema || '#667eea',
-                              justifyContent: 'center',
-                              alignItems: 'center',
-                            }}>
-                              <Ionicons 
-                                name="person" 
-                                size={22} 
-                                color="white" 
-                              />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                              <Text style={{
-                                color: formData.id_agente === agente.id_agente ? '#667eea' : 'white',
-                                fontWeight: '700',
-                                fontSize: 15,
-                              }}>
-                                {agente.nombre_agente}
-                              </Text>
-                              <Text style={{
-                                color: 'rgba(255, 255, 255, 0.5)',
-                                fontSize: 12,
-                                marginTop: 2,
-                              }}>
-                                {agente.area_especialidad || 'Agente general'}
-                              </Text>
-                            </View>
-                            {formData.id_agente === agente.id_agente && (
-                              <Ionicons name="checkmark-circle" size={24} color="#667eea" />
-                            )}
-                          </TouchableOpacity>
-                        ))
-                      )}
-                    </View>
-                  )}
-                    
                     {errors.id_agente && (
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
                         <Ionicons name="alert-circle" size={14} color="#ef4444" />
@@ -880,11 +893,11 @@ const coloresDisponibles = [
                         padding: 14,
                         borderRadius: 12,
                         borderWidth: 2,
-                        borderColor: formData.id_categoria_padre === null 
-                          ? '#667eea' 
+                        borderColor: formData.id_categoria_padre === null
+                          ? '#667eea'
                           : 'rgba(255, 255, 255, 0.15)',
-                        backgroundColor: formData.id_categoria_padre === null 
-                          ? 'rgba(102, 126, 234, 0.2)' 
+                        backgroundColor: formData.id_categoria_padre === null
+                          ? 'rgba(102, 126, 234, 0.2)'
                           : 'rgba(255, 255, 255, 0.05)',
                         marginBottom: 8,
                       }}
@@ -927,13 +940,13 @@ const coloresDisponibles = [
                       .filter(cat => {
                         // Filtrar: solo categorías del mismo agente
                         if (!formData.id_agente || cat.id_agente !== formData.id_agente) return false;
-                        
+
                         // Filtrar: no puede ser padre de sí misma (al editar)
                         if (editingCategoria && cat.id_categoria === editingCategoria.id_categoria) return false;
-                        
+
                         // Filtrar: no mostrar categorías que ya son hijas de esta (evitar ciclos)
                         if (editingCategoria && cat.id_categoria_padre === editingCategoria.id_categoria) return false;
-                        
+
                         return true;
                       })
                       .map((cat) => (
@@ -946,11 +959,11 @@ const coloresDisponibles = [
                             padding: 14,
                             borderRadius: 12,
                             borderWidth: 2,
-                            borderColor: formData.id_categoria_padre === cat.id_categoria 
-                              ? '#667eea' 
+                            borderColor: formData.id_categoria_padre === cat.id_categoria
+                              ? '#667eea'
                               : 'rgba(255, 255, 255, 0.15)',
-                            backgroundColor: formData.id_categoria_padre === cat.id_categoria 
-                              ? 'rgba(102, 126, 234, 0.2)' 
+                            backgroundColor: formData.id_categoria_padre === cat.id_categoria
+                              ? 'rgba(102, 126, 234, 0.2)'
                               : 'rgba(255, 255, 255, 0.05)',
                             marginBottom: 8,
                           }}
@@ -976,7 +989,7 @@ const coloresDisponibles = [
                               {cat.nombre}
                             </Text>
                             {cat.descripcion && (
-                              <Text 
+                              <Text
                                 style={{
                                   color: 'rgba(255, 255, 255, 0.5)',
                                   fontSize: 12,
@@ -996,23 +1009,23 @@ const coloresDisponibles = [
                     }
 
                     {/* Mensaje si no hay categorías disponibles */}
-                    {formData.id_agente && categorias.filter(cat => 
-                      cat.id_agente === formData.id_agente && 
+                    {formData.id_agente && categorias.filter(cat =>
+                      cat.id_agente === formData.id_agente &&
                       (!editingCategoria || cat.id_categoria !== editingCategoria.id_categoria)
                     ).length === 0 && (
-                      <View style={{
-                        padding: 16,
-                        alignItems: 'center',
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                        borderRadius: 12,
-                        marginTop: 8,
-                      }}>
-                        <Ionicons name="information-circle" size={32} color="rgba(255, 255, 255, 0.3)" />
-                        <Text style={{ color: 'rgba(255, 255, 255, 0.5)', marginTop: 8, fontSize: 13, textAlign: 'center' }}>
-                          No hay categorías disponibles del agente seleccionado
-                        </Text>
-                      </View>
-                    )}
+                        <View style={{
+                          padding: 16,
+                          alignItems: 'center',
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          borderRadius: 12,
+                          marginTop: 8,
+                        }}>
+                          <Ionicons name="information-circle" size={32} color="rgba(255, 255, 255, 0.3)" />
+                          <Text style={{ color: 'rgba(255, 255, 255, 0.5)', marginTop: 8, fontSize: 13, textAlign: 'center' }}>
+                            No hay categorías disponibles del agente seleccionado
+                          </Text>
+                        </View>
+                      )}
 
                     {/* Mensaje si no se ha seleccionado agente */}
                     {!formData.id_agente && (
@@ -1073,190 +1086,186 @@ const coloresDisponibles = [
                     </View>
                   </View>
 
-{/* Selector de Icono */}
-<View style={styles.formGroup}>
-  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-    <Ionicons name="star" size={16} color="#667eea" />
-    <Text style={styles.label}>Icono Seleccionado</Text>
-  </View>
-  
-  {/* Vista previa del icono seleccionado */}
-  <View style={{
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: 'rgba(102, 126, 234, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(102, 126, 234, 0.3)',
-    marginBottom: 12,
-  }}>
-    <View style={{
-      width: 48,
-      height: 48,
-      borderRadius: 12,
-      backgroundColor: formData.color || '#667eea',
-      justifyContent: 'center',
-      alignItems: 'center',
-    }}>
-      <Ionicons name={formData.icono || 'folder'} size={28} color="white" />
-    </View>
-    <View>
-      <Text style={{ color: '#667eea', fontWeight: '700', fontSize: 15 }}>
-        {formData.icono || 'folder'}
-      </Text>
-      <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}>
-        Vista previa del icono
-      </Text>
-    </View>
-  </View>
-
-  {/* Grid de iconos */}
-  <View style={{
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    maxHeight: 300,
-  }}>
-    <ScrollView 
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}
-    >
-      {iconosDisponibles.map((icono) => (
-        <TouchableOpacity
-          key={icono}
-          style={{
-            width: 52,
-            height: 52,
-            borderRadius: 12,
-            justifyContent: 'center',
-            alignItems: 'center',
-            backgroundColor: formData.icono === icono 
-              ? 'rgba(102, 126, 234, 0.3)' 
-              : 'rgba(255, 255, 255, 0.05)',
-            borderWidth: 2,
-            borderColor: formData.icono === icono 
-              ? '#667eea' 
-              : 'transparent',
-          }}
-          onPress={() => handleInputChange('icono', icono)}
-          activeOpacity={0.7}
-        >
-          <Ionicons 
-            name={icono} 
-            size={24} 
-            color={formData.icono === icono ? '#667eea' : 'rgba(255, 255, 255, 0.6)'} 
-          />
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
-  </View>
-</View>
-
-                   
-
-
-
-{/* Selector de Color */}
-<View style={styles.formGroup}>
-  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-    <Ionicons name="color-palette" size={16} color="#667eea" />
-    <Text style={styles.label}>Color Seleccionado</Text>
-  </View>
-  
-  {/* Color actual */}
-  <View style={{
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    marginBottom: 12,
-  }}>
-    <View style={{
-      width: 48,
-      height: 48,
-      borderRadius: 12,
-      backgroundColor: formData.color || '#667eea',
-      borderWidth: 2,
-      borderColor: 'rgba(255, 255, 255, 0.2)',
-    }} />
-    <View>
-      <Text style={{ color: 'white', fontWeight: '700', fontSize: 15 }}>
-        {coloresDisponibles.find(c => c.hex === formData.color)?.nombre || 'Personalizado'}
-      </Text>
-      <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}>
-        {formData.color || '#667eea'}
-      </Text>
-    </View>
-  </View>
-
-  {/* Grid de colores */}
-  <View style={{
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  }}>
-    {coloresDisponibles.map((color) => (
-      <TouchableOpacity
-        key={color.hex}
-        style={{
-          width: 56,
-          height: 56,
-          borderRadius: 14,
-          backgroundColor: color.hex,
-          justifyContent: 'center',
-          alignItems: 'center',
-          borderWidth: 3,
-          borderColor: formData.color === color.hex 
-            ? 'white' 
-            : 'transparent',
-          shadowColor: color.hex,
-          shadowOpacity: formData.color === color.hex ? 0.5 : 0.2,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 4 },
-          elevation: formData.color === color.hex ? 8 : 2,
-        }}
-        onPress={() => handleInputChange('color', color.hex)}
-        activeOpacity={0.8}
-      >
-        {formData.color === color.hex && (
-          <Ionicons name="checkmark" size={28} color="white" />
-        )}
-      </TouchableOpacity>
-    ))}
-  </View>
-</View>
-
-                    {/* Orden */}
-                    <View style={styles.formGroup}>
+                  {/* Selector de Icono */}
+                  <View style={styles.formGroup}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                        <Ionicons name="reorder-three" size={16} color="#667eea" />
-                        <Text style={styles.label}>Orden</Text>
+                      <Ionicons name="star" size={16} color="#667eea" />
+                      <Text style={styles.label}>Icono Seleccionado</Text>
+                    </View>
+
+                    {/* Vista previa del icono seleccionado */}
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: 16,
+                      borderRadius: 12,
+                      backgroundColor: 'rgba(102, 126, 234, 0.15)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(102, 126, 234, 0.3)',
+                      marginBottom: 12,
+                    }}>
+                      <View style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 12,
+                        backgroundColor: formData.color || '#667eea',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                      }}>
+                        <Ionicons name={formData.icono || 'folder'} size={28} color="white" />
+                      </View>
+                      <View>
+                        <Text style={{ color: '#667eea', fontWeight: '700', fontSize: 15 }}>
+                          {formData.icono || 'folder'}
+                        </Text>
+                        <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}>
+                          Vista previa del icono
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Grid de iconos */}
+                    <View style={{
+                      flexDirection: 'row',
+                      flexWrap: 'wrap',
+                      gap: 8,
+                      padding: 12,
+                      borderRadius: 12,
+                      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255, 255, 255, 0.08)',
+                      maxHeight: 300,
+                    }}>
+                      <ScrollView
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}
+                      >
+                        {iconosDisponibles.map((icono) => (
+                          <TouchableOpacity
+                            key={icono}
+                            style={{
+                              width: 52,
+                              height: 52,
+                              borderRadius: 12,
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                              backgroundColor: formData.icono === icono
+                                ? 'rgba(102, 126, 234, 0.3)'
+                                : 'rgba(255, 255, 255, 0.05)',
+                              borderWidth: 2,
+                              borderColor: formData.icono === icono
+                                ? '#667eea'
+                                : 'transparent',
+                            }}
+                            onPress={() => handleInputChange('icono', icono)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons
+                              name={icono}
+                              size={24}
+                              color={formData.icono === icono ? '#667eea' : 'rgba(255, 255, 255, 0.6)'}
+                            />
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  </View>
+
+                  {/* Selector de Color */}
+                  <View style={styles.formGroup}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                      <Ionicons name="color-palette" size={16} color="#667eea" />
+                      <Text style={styles.label}>Color Seleccionado</Text>
+                    </View>
+
+                    {/* Color actual */}
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: 16,
+                      borderRadius: 12,
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255, 255, 255, 0.1)',
+                      marginBottom: 12,
+                    }}>
+                      <View style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 12,
+                        backgroundColor: formData.color || '#667eea',
+                        borderWidth: 2,
+                        borderColor: 'rgba(255, 255, 255, 0.2)',
+                      }} />
+                      <View>
+                        <Text style={{ color: 'white', fontWeight: '700', fontSize: 15 }}>
+                          {coloresDisponibles.find(c => c.hex === formData.color)?.nombre || 'Personalizado'}
+                        </Text>
+                        <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}>
+                          {formData.color || '#667eea'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Grid de colores */}
+                    <View style={{
+                      flexDirection: 'row',
+                      flexWrap: 'wrap',
+                      gap: 12,
+                      padding: 16,
+                      borderRadius: 12,
+                      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255, 255, 255, 0.08)',
+                    }}>
+                      {coloresDisponibles.map((color) => (
+                        <TouchableOpacity
+                          key={color.hex}
+                          style={{
+                            width: 56,
+                            height: 56,
+                            borderRadius: 14,
+                            backgroundColor: color.hex,
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            borderWidth: 3,
+                            borderColor: formData.color === color.hex
+                              ? 'white'
+                              : 'transparent',
+                            shadowColor: color.hex,
+                            shadowOpacity: formData.color === color.hex ? 0.5 : 0.2,
+                            shadowRadius: 8,
+                            shadowOffset: { width: 0, height: 4 },
+                            elevation: formData.color === color.hex ? 8 : 2,
+                          }}
+                          onPress={() => handleInputChange('color', color.hex)}
+                          activeOpacity={0.8}
+                        >
+                          {formData.color === color.hex && (
+                            <Ionicons name="checkmark" size={28} color="white" />
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* Orden */}
+                  <View style={styles.formGroup}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                      <Ionicons name="reorder-three" size={16} color="#667eea" />
+                      <Text style={styles.label}>Orden</Text>
                     </View>
                     <TextInput
-                        style={styles.input}
-                        value={formData.orden.toString()}
-                        onChangeText={(text) => handleInputChange('orden', parseInt(text) || 0)}
-                        placeholder="0"
-                        placeholderTextColor="rgba(255, 255, 255, 0.3)"
-                        keyboardType="numeric"
+                      style={styles.input}
+                      value={formData.orden.toString()}
+                      onChangeText={(text) => handleInputChange('orden', parseInt(text) || 0)}
+                      placeholder="0"
+                      placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                      keyboardType="numeric"
                     />
-                    </View>               
+                  </View>
 
                   {/* Descripción */}
                   <View style={styles.formGroup}>
@@ -1321,16 +1330,16 @@ const coloresDisponibles = [
                   >
                     <Text style={styles.secondaryButtonText}>Cancelar</Text>
                   </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    style={styles.primaryButton} 
+
+                  <TouchableOpacity
+                    style={styles.primaryButton}
                     onPress={handleSubmit}
                     activeOpacity={0.8}
                   >
-                    <Ionicons 
-                      name={editingCategoria ? "checkmark-circle" : "add-circle"} 
-                      size={20} 
-                      color="white" 
+                    <Ionicons
+                      name={editingCategoria ? "checkmark-circle" : "add-circle"}
+                      size={20}
+                      color="white"
                     />
                     <Text style={styles.buttonText}>
                       {editingCategoria ? 'Actualizar' : 'Crear'}
@@ -1342,320 +1351,563 @@ const coloresDisponibles = [
             </View>
           </Modal>
 
-{/* ============ MODAL DETALLE CATEGORÍA ============ */}
-<Modal visible={showDetalleModal} animationType="fade" transparent>
-  <View style={styles.modalOverlay}>
-    <View style={[styles.modal, { maxWidth: 700 }]}>
-      
-      {/* Header del Modal */}
-      <View style={styles.modalHeader}>
-        <View style={{ flex: 1 }}>
-          {/* Breadcrumb */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-            {breadcrumb.map((item, index) => (
-              <View key={item.id_categoria} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <TouchableOpacity
-                  onPress={() => handleBreadcrumbClick(index)}
-                  style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 8,
-                    backgroundColor: index === breadcrumb.length - 1 
-                      ? 'rgba(102, 126, 234, 0.3)' 
-                      : 'rgba(255, 255, 255, 0.05)',
-                  }}
-                >
-                  <Text style={{
-                    color: index === breadcrumb.length - 1 ? '#667eea' : 'rgba(255, 255, 255, 0.6)',
-                    fontSize: 13,
-                    fontWeight: index === breadcrumb.length - 1 ? '700' : '500',
-                  }}>
-                    {item.nombre}
-                  </Text>
-                </TouchableOpacity>
-                {index < breadcrumb.length - 1 && (
-                  <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.4)" />
-                )}
-              </View>
-            ))}
-          </View>
+          {/* ============ MODAL DETALLE CATEGORÍA ============ */}
+          <Modal visible={showDetalleModal} animationType="fade" transparent>
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modal, { maxWidth: 700 }]}>
 
-          {/* Título e info */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View style={{
-              width: 48,
-              height: 48,
-              borderRadius: 14,
-              backgroundColor: categoriaDetalle?.color || '#667eea',
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}>
-              <Ionicons 
-                name={categoriaDetalle?.icono || 'folder'} 
-                size={28} 
-                color="white" 
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.modalTitle}>{categoriaDetalle?.nombre}</Text>
-              <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}>
-                {getAgenteNombre(categoriaDetalle?.id_agente)}
-              </Text>
-            </View>
-          </View>
-        </View>
+                {/* Header del Modal */}
+                <View style={styles.modalHeader}>
+                  <View style={{ flex: 1 }}>
+                    {/* Breadcrumb */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                      {breadcrumb.map((item, index) => (
+                        <View key={item.id_categoria} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <TouchableOpacity
+                            onPress={() => handleBreadcrumbClick(index)}
+                            style={{
+                              paddingHorizontal: 12,
+                              paddingVertical: 6,
+                              borderRadius: 8,
+                              backgroundColor: index === breadcrumb.length - 1
+                                ? 'rgba(102, 126, 234, 0.3)'
+                                : 'rgba(255, 255, 255, 0.05)',
+                            }}
+                          >
+                            <Text style={{
+                              color: index === breadcrumb.length - 1 ? '#667eea' : 'rgba(255, 255, 255, 0.6)',
+                              fontSize: 13,
+                              fontWeight: index === breadcrumb.length - 1 ? '700' : '500',
+                            }}>
+                              {item.nombre}
+                            </Text>
+                          </TouchableOpacity>
+                          {index < breadcrumb.length - 1 && (
+                            <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.4)" />
+                          )}
+                        </View>
+                      ))}
+                    </View>
 
-        <TouchableOpacity 
-          onPress={() => {
-            setShowDetalleModal(false);
-            setCategoriaDetalle(null);
-            setBreadcrumb([]);
-          }}
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 12,
-            backgroundColor: 'rgba(239, 68, 68, 0.15)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            borderWidth: 1,
-            borderColor: 'rgba(239, 68, 68, 0.3)',
-          }}
-        >
-          <Ionicons name="close" size={22} color="#ef4444" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Contenido del Modal */}
-      <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-        
-        {/* Información de la categoría */}
-        <View style={{ gap: 16 }}>
-          
-          {/* Estado */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View style={{
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderRadius: 8,
-              backgroundColor: categoriaDetalle?.activo 
-                ? 'rgba(16, 185, 129, 0.2)' 
-                : 'rgba(239, 68, 68, 0.2)',
-              borderWidth: 1,
-              borderColor: categoriaDetalle?.activo 
-                ? 'rgba(16, 185, 129, 0.3)' 
-                : 'rgba(239, 68, 68, 0.3)',
-            }}>
-              <Text style={{
-                color: categoriaDetalle?.activo ? '#10b981' : '#ef4444',
-                fontWeight: '700',
-                fontSize: 13,
-              }}>
-                {categoriaDetalle?.activo ? '✓ Activa' : '✗ Inactiva'}
-              </Text>
-            </View>
-
-            <View style={{
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderRadius: 8,
-              backgroundColor: 'rgba(102, 126, 234, 0.15)',
-              borderWidth: 1,
-              borderColor: 'rgba(102, 126, 234, 0.3)',
-            }}>
-              <Text style={{ color: '#667eea', fontWeight: '700', fontSize: 13 }}>
-                Orden: {categoriaDetalle?.orden || 0}
-              </Text>
-            </View>
-          </View>
-
-          {/* Descripción */}
-          {categoriaDetalle?.descripcion && (
-            <View style={{
-              padding: 16,
-              borderRadius: 12,
-              backgroundColor: 'rgba(255, 255, 255, 0.05)',
-              borderWidth: 1,
-              borderColor: 'rgba(255, 255, 255, 0.1)',
-            }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <Ionicons name="document-text" size={16} color="#667eea" />
-                <Text style={{ color: '#667eea', fontWeight: '700', fontSize: 14 }}>
-                  Descripción
-                </Text>
-              </View>
-              <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 14, lineHeight: 20 }}>
-                {categoriaDetalle.descripcion}
-              </Text>
-            </View>
-          )}
-
-          {/* Acciones rápidas */}
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <TouchableOpacity
-              style={{
-                flex: 1,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                padding: 14,
-                borderRadius: 12,
-                backgroundColor: 'rgba(102, 126, 234, 0.15)',
-                borderWidth: 1,
-                borderColor: 'rgba(102, 126, 234, 0.3)',
-              }}
-              onPress={() => {
-                setShowDetalleModal(false);
-                handleEdit(categoriaDetalle);
-              }}
-            >
-              <Ionicons name="create" size={20} color="#667eea" />
-              <Text style={{ color: '#667eea', fontWeight: '700', fontSize: 14 }}>
-                Editar
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={{
-                flex: 1,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                padding: 14,
-                borderRadius: 12,
-                backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                borderWidth: 1,
-                borderColor: 'rgba(239, 68, 68, 0.3)',
-              }}
-              onPress={() => {
-                setShowDetalleModal(false);
-                handleDelete(categoriaDetalle?.id_categoria);
-              }}
-            >
-              <Ionicons name="trash" size={20} color="#ef4444" />
-              <Text style={{ color: '#ef4444', fontWeight: '700', fontSize: 14 }}>
-                Eliminar
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Subcategorías */}
-          {categoriaDetalle && (
-            <View style={{ marginTop: 8 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <Ionicons name="git-branch" size={18} color="#667eea" />
-                <Text style={{ color: 'white', fontWeight: '700', fontSize: 16 }}>
-                  Subcategorías
-                </Text>
-                <View style={{
-                  paddingHorizontal: 8,
-                  paddingVertical: 2,
-                  borderRadius: 6,
-                  backgroundColor: 'rgba(102, 126, 234, 0.3)',
-                }}>
-                  <Text style={{ color: '#667eea', fontWeight: '700', fontSize: 12 }}>
-                    {getSubcategorias(categoriaDetalle.id_categoria).length}
-                  </Text>
-                </View>
-              </View>
-
-              {getSubcategorias(categoriaDetalle.id_categoria).length > 0 ? (
-                <View style={{ gap: 12 }}>
-                  {getSubcategorias(categoriaDetalle.id_categoria).map((sub) => (
-                    <TouchableOpacity
-                      key={sub.id_categoria}
-                      style={{
-                        flexDirection: 'row',
+                    {/* Título e info */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <View style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 14,
+                        backgroundColor: categoriaDetalle?.color || '#667eea',
+                        justifyContent: 'center',
                         alignItems: 'center',
-                        gap: 12,
+                      }}>
+                        <Ionicons
+                          name={categoriaDetalle?.icono || 'folder'}
+                          size={28}
+                          color="white"
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.modalTitle}>{categoriaDetalle?.nombre}</Text>
+                        <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}>
+                          {getAgenteNombre(categoriaDetalle?.id_agente)}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowDetalleModal(false);
+                      setCategoriaDetalle(null);
+                      setBreadcrumb([]);
+                    }}
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 12,
+                      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      borderWidth: 1,
+                      borderColor: 'rgba(239, 68, 68, 0.3)',
+                    }}
+                  >
+                    <Ionicons name="close" size={22} color="#ef4444" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Contenido del Modal */}
+                <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+
+                  {/* Información de la categoría */}
+                  <View style={{ gap: 16 }}>
+
+                    {/* Estado */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <View style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 8,
+                        backgroundColor: categoriaDetalle?.activo
+                          ? 'rgba(16, 185, 129, 0.2)'
+                          : 'rgba(239, 68, 68, 0.2)',
+                        borderWidth: 1,
+                        borderColor: categoriaDetalle?.activo
+                          ? 'rgba(16, 185, 129, 0.3)'
+                          : 'rgba(239, 68, 68, 0.3)',
+                      }}>
+                        <Text style={{
+                          color: categoriaDetalle?.activo ? '#10b981' : '#ef4444',
+                          fontWeight: '700',
+                          fontSize: 13,
+                        }}>
+                          {categoriaDetalle?.activo ? '✓ Activa' : '✗ Inactiva'}
+                        </Text>
+                      </View>
+
+                      <View style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 8,
+                        backgroundColor: 'rgba(102, 126, 234, 0.15)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(102, 126, 234, 0.3)',
+                      }}>
+                        <Text style={{ color: '#667eea', fontWeight: '700', fontSize: 13 }}>
+                          Orden: {categoriaDetalle?.orden || 0}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Descripción */}
+                    {categoriaDetalle?.descripcion && (
+                      <View style={{
                         padding: 16,
                         borderRadius: 12,
                         backgroundColor: 'rgba(255, 255, 255, 0.05)',
                         borderWidth: 1,
                         borderColor: 'rgba(255, 255, 255, 0.1)',
-                      }}
-                      onPress={() => handleNavigateToSubcategoria(sub)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 12,
-                        backgroundColor: sub.color || '#667eea',
-                        justifyContent: 'center',
-                        alignItems: 'center',
                       }}>
-                        <Ionicons name={sub.icono || 'folder'} size={24} color="white" />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: 'white', fontWeight: '700', fontSize: 15 }}>
-                          {sub.nombre}
-                        </Text>
-                        {sub.descripcion && (
-                          <Text 
-                            style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}
-                            numberOfLines={1}
-                          >
-                            {sub.descripcion}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                          <Ionicons name="document-text" size={16} color="#667eea" />
+                          <Text style={{ color: '#667eea', fontWeight: '700', fontSize: 14 }}>
+                            Descripción
                           </Text>
-                        )}
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                        </View>
+                        <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 14, lineHeight: 20 }}>
+                          {categoriaDetalle.descripcion}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Acciones rápidas */}
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                      <TouchableOpacity
+                        style={{
+                          flex: 1,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 8,
+                          padding: 14,
+                          borderRadius: 12,
+                          backgroundColor: 'rgba(102, 126, 234, 0.15)',
+                          borderWidth: 1,
+                          borderColor: 'rgba(102, 126, 234, 0.3)',
+                        }}
+                        onPress={() => {
+                          setShowDetalleModal(false);
+                          handleEdit(categoriaDetalle);
+                        }}
+                      >
+                        <Ionicons name="create" size={20} color="#667eea" />
+                        <Text style={{ color: '#667eea', fontWeight: '700', fontSize: 14 }}>
+                          Editar
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={{
+                          flex: 1,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 8,
+                          padding: 14,
+                          borderRadius: 12,
+                          backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                          borderWidth: 1,
+                          borderColor: 'rgba(239, 68, 68, 0.3)',
+                        }}
+                        onPress={() => {
+                          setShowDetalleModal(false);
+                          handleDelete(categoriaDetalle?.id_categoria);
+                        }}
+                      >
+                        <Ionicons name="trash" size={20} color="#ef4444" />
+                        <Text style={{ color: '#ef4444', fontWeight: '700', fontSize: 14 }}>
+                          Eliminar
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Subcategorías */}
+                    {categoriaDetalle && (
+                      <View style={{ marginTop: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                          <Ionicons name="git-branch" size={18} color="#667eea" />
+                          <Text style={{ color: 'white', fontWeight: '700', fontSize: 16 }}>
+                            Subcategorías
+                          </Text>
                           <View style={{
-                            paddingHorizontal: 6,
+                            paddingHorizontal: 8,
                             paddingVertical: 2,
-                            borderRadius: 4,
-                            backgroundColor: sub.activo 
-                              ? 'rgba(16, 185, 129, 0.2)' 
-                              : 'rgba(239, 68, 68, 0.2)',
+                            borderRadius: 6,
+                            backgroundColor: 'rgba(102, 126, 234, 0.3)',
                           }}>
-                            <Text style={{
-                              color: sub.activo ? '#10b981' : '#ef4444',
-                              fontSize: 10,
-                              fontWeight: '700',
-                            }}>
-                              {sub.activo ? 'Activa' : 'Inactiva'}
+                            <Text style={{ color: '#667eea', fontWeight: '700', fontSize: 12 }}>
+                              {getSubcategorias(categoriaDetalle.id_categoria).length}
                             </Text>
                           </View>
-                          {getSubcategorias(sub.id_categoria).length > 0 && (
-                            <Text style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 11 }}>
-                              {getSubcategorias(sub.id_categoria).length} sub
-                            </Text>
-                          )}
                         </View>
+
+                        {getSubcategorias(categoriaDetalle.id_categoria).length > 0 ? (
+                          <View style={{ gap: 12 }}>
+                            {getSubcategorias(categoriaDetalle.id_categoria).map((sub) => (
+                              <TouchableOpacity
+                                key={sub.id_categoria}
+                                style={{
+                                  flexDirection: 'row',
+                                  alignItems: 'center',
+                                  gap: 12,
+                                  padding: 16,
+                                  borderRadius: 12,
+                                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                  borderWidth: 1,
+                                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                                }}
+                                onPress={() => handleNavigateToSubcategoria(sub)}
+                                activeOpacity={0.7}
+                              >
+                                <View style={{
+                                  width: 44,
+                                  height: 44,
+                                  borderRadius: 12,
+                                  backgroundColor: sub.color || '#667eea',
+                                  justifyContent: 'center',
+                                  alignItems: 'center',
+                                }}>
+                                  <Ionicons name={sub.icono || 'folder'} size={24} color="white" />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={{ color: 'white', fontWeight: '700', fontSize: 15 }}>
+                                    {sub.nombre}
+                                  </Text>
+                                  {sub.descripcion && (
+                                    <Text
+                                      style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}
+                                      numberOfLines={1}
+                                    >
+                                      {sub.descripcion}
+                                    </Text>
+                                  )}
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                                    <View style={{
+                                      paddingHorizontal: 6,
+                                      paddingVertical: 2,
+                                      borderRadius: 4,
+                                      backgroundColor: sub.activo
+                                        ? 'rgba(16, 185, 129, 0.2)'
+                                        : 'rgba(239, 68, 68, 0.2)',
+                                    }}>
+                                      <Text style={{
+                                        color: sub.activo ? '#10b981' : '#ef4444',
+                                        fontSize: 10,
+                                        fontWeight: '700',
+                                      }}>
+                                        {sub.activo ? 'Activa' : 'Inactiva'}
+                                      </Text>
+                                    </View>
+                                    {getSubcategorias(sub.id_categoria).length > 0 && (
+                                      <Text style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 11 }}>
+                                        {getSubcategorias(sub.id_categoria).length} sub
+                                      </Text>
+                                    )}
+                                  </View>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        ) : (
+                          <View style={{
+                            padding: 24,
+                            alignItems: 'center',
+                            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                            borderRadius: 12,
+                            borderWidth: 1,
+                            borderColor: 'rgba(255, 255, 255, 0.05)',
+                          }}>
+                            <Ionicons name="file-tray-outline" size={40} color="rgba(255, 255, 255, 0.2)" />
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.5)', marginTop: 8, fontSize: 13 }}>
+                              No hay subcategorías
+                            </Text>
+                          </View>
+                        )}
                       </View>
-                      <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.3)" />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              ) : (
+                    )}
+
+                  </View>
+
+                </ScrollView>
+
+              </View>
+            </View>
+          </Modal>
+
+          {/* ============ MODAL CONFIRMACIÓN ELIMINAR ============ */}
+          <Modal visible={showDeleteModal} animationType="fade" transparent>
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modal, { maxWidth: 500, padding: 0 }]}>
+
+                {/* Header del Modal */}
                 <View style={{
                   padding: 24,
-                  alignItems: 'center',
-                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: 'rgba(255, 255, 255, 0.05)',
+                  borderBottomWidth: 1,
+                  borderBottomColor: 'rgba(255, 255, 255, 0.1)',
                 }}>
-                  <Ionicons name="file-tray-outline" size={40} color="rgba(255, 255, 255, 0.2)" />
-                  <Text style={{ color: 'rgba(255, 255, 255, 0.5)', marginTop: 8, fontSize: 13 }}>
-                    No hay subcategorías
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 14,
+                      backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}>
+                      <Ionicons name="warning" size={28} color="#ef4444" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{
+                        color: 'white',
+                        fontSize: 18,
+                        fontWeight: '700',
+                      }}>
+                        Confirmar eliminación
+                      </Text>
+                      <Text style={{
+                        color: 'rgba(255, 255, 255, 0.5)',
+                        fontSize: 13,
+                        marginTop: 4,
+                      }}>
+                        Esta acción no se puede deshacer
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Contenido */}
+                <View style={{ padding: 24 }}>
+                  <Text
+                    style={{
+                      color: 'rgba(255, 255, 255, 0.85)',
+                      fontSize: 15,
+                      lineHeight: 22,
+                      textAlign: 'center',
+                    }}
+                  >
+                    ¿Está seguro de eliminar esta categoría?
+                    {'\n'}
+                    Esta acción es permanente y no se podrán restaurar los datos.
                   </Text>
                 </View>
-              )}
+
+                {/* Footer con botones */}
+                <View style={{
+                  flexDirection: 'row',
+                  gap: 12,
+                  padding: 24,
+                  paddingTop: 0,
+                }}>
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      paddingVertical: 14,
+                      borderRadius: 12,
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                      alignItems: 'center',
+                    }}
+                    onPress={() => {
+                      setShowDeleteModal(false);
+                      setCategoriaToDelete(null);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{
+                      color: 'white',
+                      fontSize: 15,
+                      fontWeight: '600',
+                    }}>
+                      Cancelar
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      paddingVertical: 14,
+                      borderRadius: 12,
+                      backgroundColor: '#ef4444',
+                      alignItems: 'center',
+                      flexDirection: 'row',
+                      justifyContent: 'center',
+                      gap: 8,
+                    }}
+                    onPress={confirmDelete}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="trash" size={20} color="white" />
+                    <Text style={{
+                      color: 'white',
+                      fontSize: 15,
+                      fontWeight: '700',
+                    }}>
+                      Eliminar
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+              </View>
             </View>
-          )}
+          </Modal>
 
-        </View>
+          {/* ============ MODAL DE ERROR ============ */}
+          <Modal visible={showErrorModal} animationType="fade" transparent>
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modal, { maxWidth: 500, padding: 0 }]}>
 
-      </ScrollView>
+                {/* Header del Modal */}
+                <View style={{
+                  padding: 24,
+                  borderBottomWidth: 1,
+                  borderBottomColor: 'rgba(239, 68, 68, 0.2)',
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  borderTopLeftRadius: 24,
+                  borderTopRightRadius: 24,
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 14,
+                      backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}>
+                      <Ionicons name="close-circle" size={28} color="#ef4444" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{
+                        color: '#ef4444',
+                        fontSize: 18,
+                        fontWeight: '700',
+                      }}>
+                        No se puede eliminar
+                      </Text>
+                      <Text style={{
+                        color: 'rgba(255, 255, 255, 0.5)',
+                        fontSize: 12,
+                        marginTop: 2,
+                      }}>
+                        La categoría tiene dependencias
+                      </Text>
+                    </View>
+                  </View>
+                </View>
 
-    </View>
-  </View>
-</Modal>
+                {/* Contenido */}
+                <View style={{ padding: 24 }}>
+                  <View style={{
+                    flexDirection: 'row',
+                    gap: 12,
+                    padding: 16,
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderRadius: 12,
+                    borderLeftWidth: 4,
+                    borderLeftColor: '#ef4444',
+                  }}>
+                    <Ionicons name="information-circle" size={24} color="#ef4444" />
+                    <Text style={{
+                      flex: 1,
+                      color: 'rgba(255, 255, 255, 0.9)',
+                      fontSize: 14,
+                      lineHeight: 20,
+                    }}>
+                      {errorModalMessage}
+                    </Text>
+                  </View>
 
+                  <Text style={{
+                    color: 'rgba(255, 255, 255, 0.6)',
+                    fontSize: 13,
+                    marginTop: 16,
+                    lineHeight: 18,
+                  }}>
+                    Para eliminar esta categoría, primero debes:
+                  </Text>
 
+                  <View style={{ marginTop: 12, gap: 8 }}>
+                    {errorModalMessage.includes('contenido') && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Ionicons name="checkmark-circle-outline" size={16} color="#667eea" />
+                        <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 13 }}>
+                          Eliminar o mover los contenidos asociados
+                        </Text>
+                      </View>
+                    )}
+                    {errorModalMessage.includes('subcategoría') && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Ionicons name="checkmark-circle-outline" size={16} color="#667eea" />
+                        <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 13 }}>
+                          Eliminar o mover las subcategorías
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                {/* Footer */}
+                <View style={{
+                  padding: 24,
+                  paddingTop: 0,
+                }}>
+                  <TouchableOpacity
+                    style={{
+                      paddingVertical: 14,
+                      borderRadius: 12,
+                      backgroundColor: '#667eea',
+                      alignItems: 'center',
+                      flexDirection: 'row',
+                      justifyContent: 'center',
+                      gap: 8,
+                    }}
+                    onPress={() => setShowErrorModal(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="checkmark" size={20} color="white" />
+                    <Text style={{
+                      color: 'white',
+                      fontSize: 15,
+                      fontWeight: '700',
+                    }}>
+                      Entendido
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
         </View>
       </View>
     </View>

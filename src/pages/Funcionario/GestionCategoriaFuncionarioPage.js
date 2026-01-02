@@ -51,7 +51,10 @@ export default function GestionCategoriaPage() {
     const [mensajeError, setMensajeError] = useState('');
     const [departamentoUsuario, setDepartamentoUsuario] = useState(null);
     const [estadoCarga, setEstadoCarga] = useState('cargando');
-
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [categoriaToDelete, setCategoriaToDelete] = useState(null);
+    const [showErrorModal, setShowErrorModal] = useState(false);
+    const [errorModalMessage, setErrorModalMessage] = useState('');
 
 
     const verificarPermisoCategoria = async () => {
@@ -149,6 +152,7 @@ export default function GestionCategoriaPage() {
         color: '#667eea',
         orden: 0,
         activo: true,
+        eliminado: false,
         id_agente: null,
         id_categoria_padre: null,
     });
@@ -368,13 +372,17 @@ export default function GestionCategoriaPage() {
             const data = await categoriaService.getAll();
             const todasCategorias = Array.isArray(data) ? data : [];
 
-            // 3️⃣ Si es SuperAdmin, mostrar todas
+            // 3️⃣ Si es SuperAdmin, mostrar todas (pero filtrar eliminadas)
             if (rolPrincipal === 'superadministrador') {
-                console.log('✅ SuperAdmin - Mostrando todas las categorías:', todasCategorias.length);
-                setCategorias(todasCategorias);
+                const categoriasActivas = todasCategorias.filter(cat => !cat.eliminado);
+                console.log('✅ SuperAdmin - Mostrando categorías activas:', categoriasActivas.length);
+                setCategorias(categoriasActivas);
             } else {
-                // 4️⃣ Filtrar SOLO categorías del agente del departamento del usuario
+                // 4️⃣ Filtrar categorías del departamento Y no eliminadas
                 const categoriasDelDepartamento = todasCategorias.filter(categoria => {
+                    // Filtrar eliminadas
+                    if (categoria.eliminado) return false;
+
                     // Buscar si el agente de esta categoría pertenece al departamento del usuario
                     const agenteDeCategoria = agentes.find(a => a.id_agente === categoria.id_agente);
 
@@ -392,7 +400,7 @@ export default function GestionCategoriaPage() {
                     return esDeMiDepartamento && tienePermiso;
                 });
 
-                console.log('🔒 Categorías del departamento del usuario:', categoriasDelDepartamento.length);
+                console.log('🔒 Categorías del departamento (no eliminadas):', categoriasDelDepartamento.length);
                 setCategorias(categoriasDelDepartamento);
             }
 
@@ -404,7 +412,6 @@ export default function GestionCategoriaPage() {
             setLoading(false);
         }
     };
-
 
     const handleSubmit = async () => {
         if (!validateForm()) {
@@ -486,7 +493,7 @@ export default function GestionCategoriaPage() {
         setShowModal(true);
     };
 
-    const handleDelete = async (id) => {
+    const handleDelete = (id) => {
         // 🔥 VALIDACIÓN: Buscar la categoría para verificar permisos
         const categoria = categorias.find(cat => cat.id_categoria === id);
 
@@ -496,7 +503,7 @@ export default function GestionCategoriaPage() {
         }
 
         // 🔥 VALIDACIÓN: Verificar que el usuario puede eliminar esta categoría
-        const usuarioData = await authService.getUsuarioActual();
+        const usuarioData = authService.getUsuarioActual();
         const rolPrincipal = usuarioData?.rol_principal?.nombre_rol?.toLowerCase();
 
         if (rolPrincipal !== 'superadministrador') {
@@ -515,33 +522,40 @@ export default function GestionCategoriaPage() {
             }
         }
 
-        Alert.alert(
-            'Confirmar eliminación',
-            '¿Está seguro de eliminar esta categoría? Esta acción no se puede deshacer.',
-            [
-                { text: 'Cancelar', style: 'cancel' },
-                {
-                    text: 'Eliminar',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await categoriaService.delete(id);
-                            setSuccessMessage('🗑️ Categoría eliminada correctamente');
-                            setShowSuccessMessage(true);
-                            cargarCategorias();
+        // Guardar la categoría a eliminar y mostrar modal
+        setCategoriaToDelete(id);
+        setShowDeleteModal(true);
+    };
 
-                            setTimeout(() => {
-                                setShowSuccessMessage(false);
-                            }, 3000);
-                        } catch (err) {
-                            console.error('Error al eliminar:', err);
-                            const errorMessage = err?.message || 'No se pudo eliminar la categoría';
-                            Alert.alert('Error', errorMessage);
-                        }
-                    },
-                },
-            ]
-        );
+    const confirmDelete = async () => {
+        if (!categoriaToDelete) return;
+
+        try {
+            // ✅ Eliminado lógico
+            await categoriaService.delete(categoriaToDelete);
+            setSuccessMessage('🗑️ Categoría eliminada correctamente');
+            setShowSuccessMessage(true);
+            setShowDeleteModal(false);
+            setCategoriaToDelete(null);
+            cargarCategorias();
+
+            setTimeout(() => {
+                setShowSuccessMessage(false);
+            }, 3000);
+        } catch (err) {
+            console.error('Error al eliminar:', err);
+
+            setShowDeleteModal(false);
+            setCategoriaToDelete(null);
+
+            const errorMessage = err?.response?.data?.message
+                || err?.message
+                || 'No se pudo eliminar la categoría';
+
+            // ✅ Mostrar modal de error personalizado
+            setErrorModalMessage(errorMessage);
+            setShowErrorModal(true);
+        }
     };
 
     const resetForm = () => {
@@ -620,10 +634,12 @@ export default function GestionCategoriaPage() {
                 ? true
                 : String(cat.id_agente) === String(filterAgente);
 
-        // NUEVO: Solo mostrar categorías padre (sin id_categoria_padre)
         const isCategoriaPadre = cat.id_categoria_padre === null;
 
-        return matchesSearch && matchesActivo && matchesAgente && isCategoriaPadre;
+        // ✅ NUEVO: No mostrar categorías eliminadas
+        const noEliminada = !cat.eliminado;
+
+        return matchesSearch && matchesActivo && matchesAgente && isCategoriaPadre && noEliminada;
     });
 
 
@@ -2167,6 +2183,250 @@ export default function GestionCategoriaPage() {
                                             )}
                                         </View>
                                     </ScrollView>
+                                </View>
+                            </View>
+                        </Modal>
+                        {/* ============ MODAL CONFIRMACIÓN ELIMINAR ============ */}
+                        <Modal visible={showDeleteModal} animationType="fade" transparent>
+                            <View style={styles.modalOverlay}>
+                                <View style={[styles.modal, { maxWidth: 500, padding: 0 }]}>
+
+                                    {/* Header del Modal */}
+                                    <View style={{
+                                        padding: 24,
+                                        borderBottomWidth: 1,
+                                        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+                                    }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                            <View style={{
+                                                width: 48,
+                                                height: 48,
+                                                borderRadius: 14,
+                                                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                            }}>
+                                                <Ionicons name="warning" size={28} color="#ef4444" />
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={{
+                                                    color: 'white',
+                                                    fontSize: 18,
+                                                    fontWeight: '700',
+                                                }}>
+                                                    Confirmar eliminación
+                                                </Text>
+                                                <Text style={{
+                                                    color: 'rgba(255, 255, 255, 0.5)',
+                                                    fontSize: 13,
+                                                    marginTop: 4,
+                                                }}>
+                                                    Esta acción no se puede deshacer
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    </View>
+
+                                    {/* Contenido */}
+                                    <View style={{ padding: 24 }}>
+                                        <Text
+                                            style={{
+                                                color: 'rgba(255, 255, 255, 0.85)',
+                                                fontSize: 15,
+                                                lineHeight: 22,
+                                                textAlign: 'center',
+                                            }}
+                                        >
+                                            ¿Está seguro de eliminar esta categoría?
+                                            {'\n'}
+                                            Esta acción es permanente y no se podrán restaurar los datos.
+                                        </Text>
+                                    </View>
+
+                                    {/* Footer con botones */}
+                                    <View style={{
+                                        flexDirection: 'row',
+                                        gap: 12,
+                                        padding: 24,
+                                        paddingTop: 0,
+                                    }}>
+                                        <TouchableOpacity
+                                            style={{
+                                                flex: 1,
+                                                paddingVertical: 14,
+                                                borderRadius: 12,
+                                                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                                borderWidth: 1,
+                                                borderColor: 'rgba(255, 255, 255, 0.2)',
+                                                alignItems: 'center',
+                                            }}
+                                            onPress={() => {
+                                                setShowDeleteModal(false);
+                                                setCategoriaToDelete(null);
+                                            }}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Text style={{
+                                                color: 'white',
+                                                fontSize: 15,
+                                                fontWeight: '600',
+                                            }}>
+                                                Cancelar
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            style={{
+                                                flex: 1,
+                                                paddingVertical: 14,
+                                                borderRadius: 12,
+                                                backgroundColor: '#ef4444',
+                                                alignItems: 'center',
+                                                flexDirection: 'row',
+                                                justifyContent: 'center',
+                                                gap: 8,
+                                            }}
+                                            onPress={confirmDelete}
+                                            activeOpacity={0.8}
+                                        >
+                                            <Ionicons name="trash" size={20} color="white" />
+                                            <Text style={{
+                                                color: 'white',
+                                                fontSize: 15,
+                                                fontWeight: '700',
+                                            }}>
+                                                Eliminar
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+
+                                </View>
+                            </View>
+                        </Modal>
+
+                        {/* ============ MODAL DE ERROR ============ */}
+                        <Modal visible={showErrorModal} animationType="fade" transparent>
+                            <View style={styles.modalOverlay}>
+                                <View style={[styles.modal, { maxWidth: 500, padding: 0 }]}>
+
+                                    {/* Header del Modal */}
+                                    <View style={{
+                                        padding: 24,
+                                        borderBottomWidth: 1,
+                                        borderBottomColor: 'rgba(239, 68, 68, 0.2)',
+                                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                        borderTopLeftRadius: 24,
+                                        borderTopRightRadius: 24,
+                                    }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                            <View style={{
+                                                width: 48,
+                                                height: 48,
+                                                borderRadius: 14,
+                                                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                            }}>
+                                                <Ionicons name="close-circle" size={28} color="#ef4444" />
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={{
+                                                    color: '#ef4444',
+                                                    fontSize: 18,
+                                                    fontWeight: '700',
+                                                }}>
+                                                    No se puede eliminar
+                                                </Text>
+                                                <Text style={{
+                                                    color: 'rgba(255, 255, 255, 0.5)',
+                                                    fontSize: 12,
+                                                    marginTop: 2,
+                                                }}>
+                                                    La categoría tiene dependencias
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    </View>
+
+                                    {/* Contenido */}
+                                    <View style={{ padding: 24 }}>
+                                        <View style={{
+                                            flexDirection: 'row',
+                                            gap: 12,
+                                            padding: 16,
+                                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                            borderRadius: 12,
+                                            borderLeftWidth: 4,
+                                            borderLeftColor: '#ef4444',
+                                        }}>
+                                            <Ionicons name="information-circle" size={24} color="#ef4444" />
+                                            <Text style={{
+                                                flex: 1,
+                                                color: 'rgba(255, 255, 255, 0.9)',
+                                                fontSize: 14,
+                                                lineHeight: 20,
+                                            }}>
+                                                {errorModalMessage}
+                                            </Text>
+                                        </View>
+
+                                        <Text style={{
+                                            color: 'rgba(255, 255, 255, 0.6)',
+                                            fontSize: 13,
+                                            marginTop: 16,
+                                            lineHeight: 18,
+                                        }}>
+                                            Para eliminar esta categoría, primero debes:
+                                        </Text>
+
+                                        <View style={{ marginTop: 12, gap: 8 }}>
+                                            {errorModalMessage.includes('contenido') && (
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                    <Ionicons name="checkmark-circle-outline" size={16} color="#667eea" />
+                                                    <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 13 }}>
+                                                        Eliminar o mover los contenidos asociados
+                                                    </Text>
+                                                </View>
+                                            )}
+                                            {errorModalMessage.includes('subcategoría') && (
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                    <Ionicons name="checkmark-circle-outline" size={16} color="#667eea" />
+                                                    <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 13 }}>
+                                                        Eliminar o mover las subcategorías
+                                                    </Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                    </View>
+
+                                    {/* Footer */}
+                                    <View style={{
+                                        padding: 24,
+                                        paddingTop: 0,
+                                    }}>
+                                        <TouchableOpacity
+                                            style={{
+                                                paddingVertical: 14,
+                                                borderRadius: 12,
+                                                backgroundColor: '#667eea',
+                                                alignItems: 'center',
+                                                flexDirection: 'row',
+                                                justifyContent: 'center',
+                                                gap: 8,
+                                            }}
+                                            onPress={() => setShowErrorModal(false)}
+                                            activeOpacity={0.8}
+                                        >
+                                            <Ionicons name="checkmark" size={20} color="white" />
+                                            <Text style={{
+                                                color: 'white',
+                                                fontSize: 15,
+                                                fontWeight: '700',
+                                            }}>
+                                                Entendido
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
                             </View>
                         </Modal>
