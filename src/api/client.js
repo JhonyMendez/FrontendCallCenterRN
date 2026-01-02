@@ -13,7 +13,7 @@ const Storage = {
       await AsyncStorage.setItem(key, value);
     }
   },
-  
+
   async getItem(key) {
     if (Platform.OS === 'web') {
       return localStorage.getItem(key);
@@ -21,7 +21,7 @@ const Storage = {
       return await AsyncStorage.getItem(key);
     }
   },
-  
+
   async removeItem(key) {
     if (Platform.OS === 'web') {
       localStorage.removeItem(key);
@@ -36,7 +36,7 @@ class ApiClient {
     this.baseURL = config.BASE_URL;
     this.timeout = config.TIMEOUT;
     this.token = null;
-    
+
     // Configurar instancia de axios
     this.axiosInstance = axios.create({
       baseURL: this.baseURL,
@@ -51,11 +51,11 @@ class ApiClient {
         if (token) {
           config.headers['Authorization'] = `Bearer ${token}`;
         }
-        
+
         console.log('─────────────────────────────────────────────────');
         console.log(`🌐 ${config.method.toUpperCase()} ${config.url}`);
         console.log(`⏰ Hora: ${new Date().toLocaleTimeString()}`);
-        
+
         return config;
       },
       (error) => {
@@ -66,14 +66,21 @@ class ApiClient {
 
     // Interceptor para manejar respuestas y errores
     this.axiosInstance.interceptors.response.use(
-      (response) => {
+      async (response) => {  // ✅ AHORA ES ASYNC
         console.log(`✅ Response status: ${response.status}`);
+
+        const newToken = response.headers['x-new-token'];
+        if (newToken) {
+          console.log('🔄 Token renovado automáticamente');
+          await this.setToken(newToken);
+        }
+
         console.log('─────────────────────────────────────────────────');
         return response;
       },
       (error) => {
         console.log('─────────────────────────────────────────────────');
-        
+
         if (error.code === 'ECONNABORTED') {
           console.error('❌ TIMEOUT: El servidor tardó más de', this.timeout / 1000, 'segundos');
           const timeoutError = new Error(`Tiempo de espera agotado (${this.timeout / 1000}s)`);
@@ -90,7 +97,7 @@ class ApiClient {
           console.error('   3. Firewall bloqueando el puerto 8000');
           console.error('   4. IP incorrecta (verifica con ipconfig)');
           console.log('─────────────────────────────────────────────────');
-          
+
           const networkError = new Error(
             'No se puede conectar al servidor.\n\n' +
             'Verifica que:\n' +
@@ -108,10 +115,10 @@ class ApiClient {
           console.error('❌ Error response:', error.response.status);
           console.error('❌ Error data:', error.response.data);
           console.log('─────────────────────────────────────────────────');
-          
+
           const apiError = new Error(
-            error.response.data?.detail || 
-            error.response.data?.message || 
+            error.response.data?.detail ||
+            error.response.data?.message ||
             `Error ${error.response.status}`
           );
           apiError.status = error.response.status;
@@ -124,7 +131,7 @@ class ApiClient {
         return Promise.reject(error);
       }
     );
-    
+
     console.log('═══════════════════════════════════════════════════');
     console.log('🔧 API CLIENT INITIALIZED (AXIOS)');
     console.log('═══════════════════════════════════════════════════');
@@ -185,7 +192,7 @@ class ApiClient {
     }
   }
 
-async put(endpoint, data, options = {}) {
+  async put(endpoint, data, options = {}) {
     try {
       const response = await this.axiosInstance.put(endpoint, data, options);
       return response.data;
