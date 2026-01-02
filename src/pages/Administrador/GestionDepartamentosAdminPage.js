@@ -23,7 +23,6 @@ export default function GestionDepartamentosPage() {
   const [departamentos, setDepartamentos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterActivo, setFilterActivo] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [editingDepartamento, setEditingDepartamento] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -44,7 +43,6 @@ export default function GestionDepartamentosPage() {
     telefono: '',
     ubicacion: '',
     facultad: '',
-    activo: true,
   });
 
   // ============ VALIDACIONES ============
@@ -135,7 +133,7 @@ export default function GestionDepartamentosPage() {
   // ============ EFFECTS ============
   useEffect(() => {
     cargarDepartamentos();
-  }, [filterActivo]);
+  }, []);
 
   useEffect(() => {
     cargarAgentes();
@@ -145,8 +143,8 @@ export default function GestionDepartamentosPage() {
   const cargarDepartamentos = async () => {
     try {
       setLoading(true);
-      const params = filterActivo !== 'all' ? { activo: filterActivo === 'true' } : {};
-      const data = await departamentoService.getAll(params);
+      // Solo traer departamentos NO eliminados (activo: true)
+      const data = await departamentoService.getAll({ activo: true });
       setDepartamentos(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error al cargar departamentos:', err);
@@ -187,7 +185,6 @@ export default function GestionDepartamentosPage() {
         telefono: sanitizeInput(formData.telefono),
         ubicacion: sanitizeInput(formData.ubicacion),
         descripcion: sanitizeInput(formData.descripcion),
-        activo: formData.activo,
       };
 
       if (editingDepartamento) {
@@ -231,7 +228,6 @@ export default function GestionDepartamentosPage() {
       telefono: departamento.telefono || '',
       ubicacion: departamento.ubicacion || '',
       facultad: departamento.facultad || '',
-      activo: departamento.activo !== undefined ? departamento.activo : true,
     });
     setErrors({});
     setShowModal(true);
@@ -295,7 +291,9 @@ export default function GestionDepartamentosPage() {
     if (!departamentoToDelete) return;
 
     try {
-      await departamentoService.delete(departamentoToDelete);
+      // ✅ ELIMINADO LÓGICO: actualizar activo a false
+      await departamentoService.update(departamentoToDelete, { activo: false });
+
       setSuccessMessage('🗑️ Departamento eliminado correctamente');
       setShowSuccessMessage(true);
 
@@ -303,7 +301,7 @@ export default function GestionDepartamentosPage() {
       setShowDeleteModal(false);
       setDepartamentoToDelete(null);
 
-      // Recargar lista
+      // Recargar lista (ahora sin el departamento eliminado)
       cargarDepartamentos();
       cargarAgentes();
 
@@ -331,7 +329,6 @@ export default function GestionDepartamentosPage() {
       telefono: '',
       ubicacion: '',
       facultad: '',
-      activo: true,
     });
     setEditingDepartamento(null);
     setErrors({});
@@ -472,41 +469,6 @@ export default function GestionDepartamentosPage() {
                 <Ionicons name="close-circle" size={20} color="rgba(255, 255, 255, 0.5)" />
               </TouchableOpacity>
             )}
-          </View>
-
-          {/* ============ FILTROS ============ */}
-          <View style={styles.filterContainer}>
-            {[
-              { key: 'all', label: 'Todos', icon: 'apps' },
-              { key: 'true', label: 'Activos', icon: 'checkmark-circle' },
-              { key: 'false', label: 'Inactivos', icon: 'close-circle' }
-            ].map((filter) => (
-              <TouchableOpacity
-                key={filter.key}
-                style={[
-                  styles.filterButton,
-                  filterActivo === filter.key && styles.filterButtonActive,
-                ]}
-                onPress={() => setFilterActivo(filter.key)}
-                activeOpacity={0.7}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons
-                    name={filter.icon}
-                    size={14}
-                    color={filterActivo === filter.key ? 'white' : 'rgba(255, 255, 255, 0.6)'}
-                  />
-                  <Text
-                    style={[
-                      styles.filterText,
-                      filterActivo === filter.key && styles.filterTextActive,
-                    ]}
-                  >
-                    {filter.label}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
           </View>
 
           {/* ============ LISTA ============ */}
@@ -825,21 +787,6 @@ export default function GestionDepartamentosPage() {
                       {formData.descripcion.length}/500 caracteres
                     </Text>
                   </View>
-
-                  {/* Checkbox Activo */}
-                  <TouchableOpacity
-                    style={styles.checkboxContainer}
-                    onPress={() => setFormData({ ...formData, activo: !formData.activo })}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name={formData.activo ? 'checkbox' : 'square-outline'}
-                      size={28}
-                      color="#667eea"
-                    />
-                    <Text style={styles.checkboxLabel}>Departamento activo</Text>
-                  </TouchableOpacity>
-
                 </ScrollView>
 
                 {/* Footer del Modal */}
