@@ -212,23 +212,42 @@ export default function GestionCategoriaPage() {
         color: formData.color,
         orden: parseInt(formData.orden),
         activo: formData.activo,
-        eliminado: formData.eliminado || false,  // ✅ NUEVO
+        eliminado: formData.eliminado || false,
         id_agente: parseInt(formData.id_agente),
         id_categoria_padre: formData.id_categoria_padre ? parseInt(formData.id_categoria_padre) : null,
       };
 
       if (editingCategoria) {
+        // ✅ Validar si está cambiando el agente y tiene subcategorías
+        if (editingCategoria.id_agente !== formData.id_agente) {
+          const subcategorias = getSubcategorias(editingCategoria.id_categoria);
+          if (subcategorias.length > 0) {
+            setErrorModalMessage(
+              `No puedes cambiar el agente de esta categoría porque tiene ${subcategorias.length} subcategoría${subcategorias.length === 1 ? '' : 's'} asociada${subcategorias.length === 1 ? '' : 's'}. Primero debes eliminar o mover las subcategorías.`
+            );
+            setShowErrorModal(true);
+            return;
+          }
+        }
+
         await categoriaService.update(editingCategoria.id_categoria, sanitizedData);
         setSuccessMessage('✅ Categoría actualizada exitosamente');
+
+        // 🔥 CRÍTICO: Recargar INMEDIATAMENTE después de actualizar
+        await cargarCategorias();
+
       } else {
         await categoriaService.create(sanitizedData);
         setSuccessMessage('✅ Categoría creada exitosamente');
+
+        // 🔥 CRÍTICO: Recargar INMEDIATAMENTE después de crear
+        await cargarCategorias();
       }
 
+      // Cerrar modal y mostrar mensaje
       setShowModal(false);
       resetForm();
       setShowSuccessMessage(true);
-      cargarCategorias();
 
       setTimeout(() => {
         setShowSuccessMessage(false);
@@ -343,7 +362,17 @@ export default function GestionCategoriaPage() {
     if (errors[field]) {
       setErrors({ ...errors, [field]: null });
     }
-    setFormData({ ...formData, [field]: value });
+
+    // 🔥 Si cambió el agente, resetear la categoría padre
+    if (field === 'id_agente') {
+      setFormData({
+        ...formData,
+        [field]: value,
+        id_categoria_padre: null // ✅ Limpiar categoría padre
+      });
+    } else {
+      setFormData({ ...formData, [field]: value });
+    }
   };
 
   const handleSearchChange = (text) => {
@@ -749,7 +778,32 @@ export default function GestionCategoriaPage() {
                       </Text>
                     </View>
 
+                    {editingCategoria && getSubcategorias(editingCategoria.id_categoria).length > 0 && (
+                      <View style={{
+                        flexDirection: 'row',
+                        gap: 12,
+                        padding: 12,
+                        backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                        borderRadius: 12,
+                        borderLeftWidth: 4,
+                        borderLeftColor: '#fbbf24',
+                        marginBottom: 12,
+                      }}>
+                        <Ionicons name="warning" size={20} color="#fbbf24" />
+                        <Text style={{
+                          flex: 1,
+                          color: '#fbbf24',
+                          fontSize: 13,
+                          lineHeight: 18,
+                        }}>
+                          Esta categoría tiene {getSubcategorias(editingCategoria.id_categoria).length} subcategoría{getSubcategorias(editingCategoria.id_categoria).length === 1 ? '' : 's'}.
+                          No podrás cambiar el agente hasta que elimines o muevas las subcategorías.
+                        </Text>
+                      </View>
+                    )}
+
                     {loadingAgentes ? (
+
                       <View style={{
                         padding: 16,
                         backgroundColor: 'rgba(255, 255, 255, 0.05)',
@@ -810,61 +864,78 @@ export default function GestionCategoriaPage() {
                             </Text>
                           </View>
                         ) : (
-                          filteredAgentes.map((agente) => (
-                            <TouchableOpacity
-                              key={agente.id_agente}
-                              style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                gap: 12,
-                                padding: 14,
-                                borderRadius: 12,
-                                borderWidth: 2,
-                                borderColor: formData.id_agente === agente.id_agente
-                                  ? '#667eea'
-                                  : 'rgba(255, 255, 255, 0.15)',
-                                backgroundColor: formData.id_agente === agente.id_agente
-                                  ? 'rgba(102, 126, 234, 0.2)'
-                                  : 'rgba(255, 255, 255, 0.05)',
-                              }}
-                              onPress={() => handleInputChange('id_agente', agente.id_agente)}
-                              activeOpacity={0.7}
-                            >
-                              <View style={{
-                                width: 40,
-                                height: 40,
-                                borderRadius: 10,
-                                backgroundColor: agente.color_tema || '#667eea',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                              }}>
-                                <Ionicons
-                                  name="person"
-                                  size={22}
-                                  color="white"
-                                />
-                              </View>
-                              <View style={{ flex: 1 }}>
-                                <Text style={{
-                                  color: formData.id_agente === agente.id_agente ? '#667eea' : 'white',
-                                  fontWeight: '700',
-                                  fontSize: 15,
+                          filteredAgentes.map((agente) => {
+                            // ✅ Calcular si tiene subcategorías y si está deshabilitado
+                            const tieneSubcategorias = editingCategoria && getSubcategorias(editingCategoria.id_categoria).length > 0;
+                            const esAgenteActual = editingCategoria && editingCategoria.id_agente === agente.id_agente;
+                            const estaDeshabilitado = tieneSubcategorias && !esAgenteActual;
+
+                            return (
+                              <TouchableOpacity
+                                key={agente.id_agente}
+                                style={{
+                                  flexDirection: 'row',
+                                  alignItems: 'center',
+                                  gap: 12,
+                                  padding: 14,
+                                  borderRadius: 12,
+                                  borderWidth: 2,
+                                  borderColor: formData.id_agente === agente.id_agente
+                                    ? '#667eea'
+                                    : 'rgba(255, 255, 255, 0.15)',
+                                  backgroundColor: formData.id_agente === agente.id_agente
+                                    ? 'rgba(102, 126, 234, 0.2)'
+                                    : 'rgba(255, 255, 255, 0.05)',
+                                  opacity: estaDeshabilitado ? 0.4 : 1, // ✅ Opacidad reducida si está deshabilitado
+                                }}
+                                onPress={() => {
+                                  if (!estaDeshabilitado) { // ✅ Solo permite clic si no está deshabilitado
+                                    handleInputChange('id_agente', agente.id_agente);
+                                  }
+                                }}
+                                activeOpacity={estaDeshabilitado ? 1 : 0.7} // ✅ Sin efecto visual si está deshabilitado
+                                disabled={estaDeshabilitado} // ✅ Deshabilitar el botón
+                              >
+                                <View style={{
+                                  width: 40,
+                                  height: 40,
+                                  borderRadius: 10,
+                                  backgroundColor: agente.color_tema || '#667eea',
+                                  justifyContent: 'center',
+                                  alignItems: 'center',
                                 }}>
-                                  {agente.nombre_agente}
-                                </Text>
-                                <Text style={{
-                                  color: 'rgba(255, 255, 255, 0.5)',
-                                  fontSize: 12,
-                                  marginTop: 2,
-                                }}>
-                                  {agente.area_especialidad || 'Agente general'}
-                                </Text>
-                              </View>
-                              {formData.id_agente === agente.id_agente && (
-                                <Ionicons name="checkmark-circle" size={24} color="#667eea" />
-                              )}
-                            </TouchableOpacity>
-                          ))
+                                  <Ionicons
+                                    name="person"
+                                    size={22}
+                                    color="white"
+                                  />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={{
+                                    color: formData.id_agente === agente.id_agente ? '#667eea' : 'white',
+                                    fontWeight: '700',
+                                    fontSize: 15,
+                                  }}>
+                                    {agente.nombre_agente}
+                                  </Text>
+                                  <Text style={{
+                                    color: 'rgba(255, 255, 255, 0.5)',
+                                    fontSize: 12,
+                                    marginTop: 2,
+                                  }}>
+                                    {agente.area_especialidad || 'Agente general'}
+                                  </Text>
+                                </View>
+                                {formData.id_agente === agente.id_agente && (
+                                  <Ionicons name="checkmark-circle" size={24} color="#667eea" />
+                                )}
+                                {/* ✅ NUEVO: Icono de bloqueo si está deshabilitado */}
+                                {estaDeshabilitado && (
+                                  <Ionicons name="lock-closed" size={20} color="rgba(255, 255, 255, 0.3)" />
+                                )}
+                              </TouchableOpacity>
+                            );
+                          })
                         )}
                       </View>
                     )}
@@ -1911,7 +1982,6 @@ export default function GestionCategoriaPage() {
                     </Text>
                   </TouchableOpacity>
                 </View>
-
               </View>
             </View>
           </Modal>
