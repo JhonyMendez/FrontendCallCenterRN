@@ -13,6 +13,7 @@ export const contenidoService = {
     if (params.estado) query.append('estado', params.estado);
     if (params.skip !== undefined) query.append('skip', params.skip);
     if (params.limit !== undefined) query.append('limit', params.limit);
+    // 🔥 NO incluir include_deleted - por defecto el backend filtra eliminados
     
     const queryString = query.toString();
     const endpoint = queryString
@@ -30,5 +31,10 @@ export const contenidoService = {
   // Publicar contenido
   publicar: async (id) => {
     return await apiClient.post(ENDPOINTS.CONTENIDOS.PUBLICAR(id));
+  },
+
+  // 🔥 Eliminar contenido (soft delete permanente)
+  softDelete: async (id) => {
+    return await apiClient.delete(`${ENDPOINTS.CONTENIDOS.BY_ID(id)}?hard_delete=false`);
   }
 };

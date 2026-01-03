@@ -181,12 +181,14 @@ const GestionContenidoPage = () => {
   const [modalViewVisible, setModalViewVisible] = useState(false);
   const [contenidoView, setContenidoView] = useState(null);
   const [agentesPermitidos, setAgentesPermitidos] = useState([]);
+  const [modalEliminarVisible, setModalEliminarVisible] = useState(false);
+  const [contenidoAEliminar, setContenidoAEliminar] = useState(null);
 
   // Estados para personas designado a departamento
   const [departamentoUsuario, setDepartamentoUsuario] = useState(null);
   const [estadoCarga, setEstadoCarga] = useState('cargando'); // 'cargando' | 'sin_departamento' | 'sin_agente' | 'ok'
   const [mensajeError, setMensajeError] = useState('');
-  
+
 
   const [formData, setFormData] = useState({
     id_contenido: null,
@@ -714,8 +716,10 @@ const GestionContenidoPage = () => {
     );
   };
 
-  const eliminarContenido = async (id) => {
-    // 🔥 Verificar permisos antes de eliminar
+  const eliminarContenido = (id) => {
+    console.log('🗑️ Abriendo modal de eliminación para ID:', id);
+
+    // 🔥 Verificar permisos antes de abrir modal
     const contenido = contenidos.find(c => c.id_contenido === id);
     if (!contenido) return;
 
@@ -728,27 +732,31 @@ const GestionContenidoPage = () => {
       return;
     }
 
-    Alert.alert(
-      '⚠️ Confirmar eliminación',
-      '¿Estás seguro de eliminar este contenido? Esta acción no se puede deshacer.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await contenidoService.delete(id);
-              mostrarNotificacionExito('Contenido eliminado correctamente');
-              cargarContenidos();
-            } catch (error) {
-              console.error('Error eliminando:', error);
-              Alert.alert('Error', 'No se pudo eliminar el contenido');
-            }
-          }
-        }
-      ]
-    );
+    // Abrir modal de confirmación
+    setContenidoAEliminar(id);
+    setModalEliminarVisible(true);
+  };
+
+  const confirmarEliminacion = async () => {
+    console.log('✅ Confirmando eliminación del ID:', contenidoAEliminar);
+
+    try {
+      const resultado = await contenidoService.softDelete(contenidoAEliminar);
+      console.log('✅ Contenido eliminado:', resultado);
+
+      mostrarNotificacionExito('Contenido eliminado correctamente');
+
+      // Cerrar modal
+      setModalEliminarVisible(false);
+      setContenidoAEliminar(null);
+
+      // Recargar contenidos
+      await cargarContenidos();
+    } catch (error) {
+      console.error('❌ Error eliminando:', error);
+      setModalEliminarVisible(false);
+      mostrarNotificacionError('No se pudo eliminar el contenido. Intenta nuevamente.');
+    }
   };
 
   // 🔥 PANTALLAS DE ESTADO
@@ -2426,7 +2434,148 @@ const GestionContenidoPage = () => {
               )}
             </View>
           </View>
+        </Modal>  {/* ← Cierre del modal de visualización */}
+
+        {/* 🔥 Modal de confirmación de eliminación */}
+        <Modal
+          visible={modalEliminarVisible}
+          animationType="fade"
+          transparent={true}
+          onRequestClose={() => setModalEliminarVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { maxWidth: 500 }]}>
+
+              {/* Header */}
+              <View style={{
+                padding: 20,
+                borderBottomWidth: 1,
+                borderBottomColor: 'rgba(239, 68, 68, 0.2)',
+                backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, justifyContent: 'center' }}>
+                  <View style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 14,
+                    backgroundColor: 'rgba(239, 68, 68, 0.3)',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}>
+                    <Text style={{ fontSize: 28 }}>⚠️</Text>
+                  </View>
+                  <View>
+                    <Text style={{ fontSize: 20, fontWeight: '900', color: '#ef4444' }}>
+                      Eliminar Contenido
+                    </Text>
+                    <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}>
+                      Esta acción es reversible
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Contenido */}
+              <View style={{ padding: 24 }}>
+                <Text style={{
+                  color: 'rgba(255, 255, 255, 0.8)',
+                  fontSize: 15,
+                  textAlign: 'center',
+                  marginBottom: 8,
+                  lineHeight: 22
+                }}>
+                  ¿Estás seguro de que deseas eliminar este contenido?
+                </Text>
+
+                <View style={{
+                  padding: 14,
+                  backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                  borderRadius: 12,
+                  borderLeftWidth: 3,
+                  borderLeftColor: '#fbbf24',
+                  marginBottom: 24,
+                }}>
+                  <Text style={{
+                    color: 'rgba(255, 255, 255, 0.6)',
+                    fontSize: 13,
+                    textAlign: 'center',
+                    lineHeight: 20
+                  }}>
+                    ℹ️ El contenido se marcará como eliminado pero un administrador podrá restaurarlo desde la papelera de reciclaje.
+                  </Text>
+                </View>
+
+                {/* Botones */}
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      paddingVertical: 14,
+                      paddingHorizontal: 20,
+                      borderRadius: 12,
+                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255, 255, 255, 0.15)',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                    }}
+                    onPress={() => {
+                      console.log('❌ Usuario canceló la eliminación');
+                      setModalEliminarVisible(false);
+                      setContenidoAEliminar(null);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ fontSize: 16 }}>✖️</Text>
+                    <Text style={{
+                      color: 'rgba(255, 255, 255, 0.9)',
+                      fontWeight: '700',
+                      fontSize: 15
+                    }}>
+                      Cancelar
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      paddingVertical: 14,
+                      paddingHorizontal: 20,
+                      borderRadius: 12,
+                      backgroundColor: '#ef4444',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      shadowColor: '#ef4444',
+                      shadowOpacity: 0.6,
+                      shadowRadius: 12,
+                      shadowOffset: { width: 0, height: 4 },
+                      elevation: 8,
+                    }}
+                    onPress={confirmarEliminacion}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={{ fontSize: 16 }}>🗑️</Text>
+                    <Text style={{
+                      color: 'white',
+                      fontWeight: '700',
+                      fontSize: 15,
+                      letterSpacing: 0.5
+                    }}>
+                      Eliminar
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </View>
         </Modal>
+
 
         {/* Notificación de ERROR */}
         <ErrorNotification

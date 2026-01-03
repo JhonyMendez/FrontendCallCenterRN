@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-export default function GestionContenidoCard({ contenido, onEdit, onPublish, onView }) {
+export default function GestionContenidoCard({ contenido, onEdit, onPublish, onDelete, onView }) {
   // Formatear fecha de manera segura
   const formatDate = (dateString) => {
     if (!dateString) return 'Sin fecha';
@@ -156,6 +156,15 @@ export default function GestionContenidoCard({ contenido, onEdit, onPublish, onV
             activeOpacity={0.7}
           >
             <Ionicons name="create" size={18} color="#fbbf24" />
+          </TouchableOpacity>
+
+          {/* 🔥 NUEVO: Botón Eliminar */}
+          <TouchableOpacity
+            style={[styles.actionButton, styles.deleteButton]}
+            onPress={() => onDelete(contenido?.id_contenido)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="trash" size={18} color="#ef4444" />
           </TouchableOpacity>
         </View>
       </View>
@@ -355,5 +364,9 @@ const styles = StyleSheet.create({
   editButton: {
     backgroundColor: 'rgba(251, 191, 36, 0.15)',
     borderColor: 'rgba(251, 191, 36, 0.3)',
+  },
+  deleteButton: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
 });

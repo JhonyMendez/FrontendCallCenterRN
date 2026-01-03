@@ -53,6 +53,8 @@ const GestionContenidoPage = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [modalViewVisible, setModalViewVisible] = useState(false);
   const [contenidoView, setContenidoView] = useState(null);
+  const [modalEliminarVisible, setModalEliminarVisible] = useState(false);
+  const [contenidoAEliminar, setContenidoAEliminar] = useState(null);
 
   const [formData, setFormData] = useState({
     id_contenido: null,
@@ -298,217 +300,217 @@ const GestionContenidoPage = () => {
     });
   };
 
-const guardarContenido = async () => {
-  console.log('🚀 ========== INICIO guardarContenido ==========');
+  const guardarContenido = async () => {
+    console.log('🚀 ========== INICIO guardarContenido ==========');
 
-  // 🔥 FUNCIÓN DE VALIDACIÓN
-  const validarFormulario = () => {
-    const nuevosErrores = {
-      id_categoria: '',
-      titulo: '',
-      contenido: '',
-      resumen: '',
-      palabras_clave: '',
-      etiquetas: '',
-      prioridad: '',
-      estado: ''
-    };
-
-    let hayErrores = false;
-
-    if (!formData.id_categoria) {
-      nuevosErrores.id_categoria = '⚠️ Debes seleccionar una categoría';
-      hayErrores = true;
-    }
-
-    if (!formData.titulo || formData.titulo.trim() === '') {
-      nuevosErrores.titulo = '⚠️ El título es obligatorio';
-      hayErrores = true;
-    } else if (formData.titulo.trim().length < 5) {
-      nuevosErrores.titulo = `⚠️ El título debe tener al menos 5 caracteres (actual: ${formData.titulo.trim().length})`;
-      hayErrores = true;
-    }
-
-    if (!formData.contenido || formData.contenido.trim() === '') {
-      nuevosErrores.contenido = '⚠️ El contenido es obligatorio';
-      hayErrores = true;
-    } else if (formData.contenido.trim().length < 50) {
-      nuevosErrores.contenido = `⚠️ El contenido debe tener al menos 50 caracteres (actual: ${formData.contenido.trim().length})`;
-      hayErrores = true;
-    }
-
-    if (!formData.resumen || formData.resumen.trim() === '') {
-      nuevosErrores.resumen = '⚠️ El resumen es obligatorio';
-      hayErrores = true;
-    } else if (formData.resumen.trim().length < 10) {
-      nuevosErrores.resumen = `⚠️ El resumen debe tener al menos 10 caracteres (actual: ${formData.resumen.trim().length})`;
-      hayErrores = true;
-    }
-
-    if (!formData.palabras_clave || formData.palabras_clave.trim() === '') {
-      nuevosErrores.palabras_clave = '⚠️ Las palabras clave son obligatorias';
-      hayErrores = true;
-    }
-
-    if (!formData.etiquetas || formData.etiquetas.trim() === '') {
-      nuevosErrores.etiquetas = '⚠️ Las etiquetas son obligatorias';
-      hayErrores = true;
-    }
-
-    if (!formData.prioridad || formData.prioridad < 1 || formData.prioridad > 10) {
-      nuevosErrores.prioridad = '⚠️ Selecciona una prioridad válida (1-10)';
-      hayErrores = true;
-    }
-
-    if (!formData.estado) {
-      nuevosErrores.estado = '⚠️ Debes seleccionar un estado';
-      hayErrores = true;
-    }
-
-    setErrores(nuevosErrores);
-    return !hayErrores;
-  };
-
-  const detectarContenidoSimilar = () => {
-    const tituloNormalizado = formData.titulo.toLowerCase().trim();
-    const contenidoNormalizado = formData.contenido.toLowerCase().trim();
-
-    // Buscar contenidos similares (excluyendo el actual si es edición)
-    const similares = contenidos.filter(c => {
-      // Si estamos editando, excluir el contenido actual
-      if (editando && c.id_contenido === formData.id_contenido) {
-        return false;
-      }
-
-      const tituloExistente = c.titulo.toLowerCase().trim();
-      const contenidoExistente = c.contenido.toLowerCase().trim();
-
-      // Verificar similitud exacta del título
-      if (tituloNormalizado === tituloExistente) {
-        return true;
-      }
-
-      // Verificar similitud del contenido (primeros 200 caracteres)
-      const fragmentoNuevo = contenidoNormalizado.substring(0, 200);
-      const fragmentoExistente = contenidoExistente.substring(0, 200);
-      
-      if (fragmentoNuevo === fragmentoExistente) {
-        return true;
-      }
-
-      // Verificar si el título es muy similar (más del 80% de coincidencia)
-      const palabrasTituloNuevo = tituloNormalizado.split(' ');
-      const palabrasTituloExistente = tituloExistente.split(' ');
-      const coincidencias = palabrasTituloNuevo.filter(palabra => 
-        palabrasTituloExistente.includes(palabra)
-      ).length;
-      
-      const porcentajeSimilitud = coincidencias / Math.max(palabrasTituloNuevo.length, palabrasTituloExistente.length);
-      
-      if (porcentajeSimilitud > 0.8) {
-        return true;
-      }
-
-      return false;
-    });
-
-    return similares;
-  };
-
-  // 🔥 FUNCIÓN INTERNA para el guardado real
-  const guardarContenidoReal = async () => {
-    try {
-      const categoriaSeleccionada = categorias.find(
-        (cat) => Number(cat.id_categoria) === Number(formData.id_categoria)
-      );
-
-      if (!categoriaSeleccionada) {
-        Alert.alert('Error', 'La categoría seleccionada no existe o no se pudo cargar');
-        return;
-      }
-
-      const agenteSeleccionado = agentes.find(
-        ag => ag.id_agente === categoriaSeleccionada?.id_agente
-      );
-
-      const id_departamento = agenteSeleccionado?.id_departamento || null;
-
-      const dataToSend = {
-        id_agente: parseInt(categoriaSeleccionada.id_agente),
-        id_categoria: parseInt(formData.id_categoria),
-        id_departamento: id_departamento ? parseInt(id_departamento) : null,
-        titulo: formData.titulo.trim(),
-        contenido: formData.contenido.trim(),
-        resumen: formData.resumen,
-        palabras_clave: formData.palabras_clave,
-        etiquetas: formData.etiquetas,
-        prioridad: parseInt(formData.prioridad),
-        estado: formData.estado
+    // 🔥 FUNCIÓN DE VALIDACIÓN
+    const validarFormulario = () => {
+      const nuevosErrores = {
+        id_categoria: '',
+        titulo: '',
+        contenido: '',
+        resumen: '',
+        palabras_clave: '',
+        etiquetas: '',
+        prioridad: '',
+        estado: ''
       };
 
-      console.log('📤 Datos a enviar:', JSON.stringify(dataToSend, null, 2));
+      let hayErrores = false;
 
-      if (editando) {
-        console.log('✏️ Modo EDICIÓN - ID:', formData.id_contenido);
-        await contenidoService.update(formData.id_contenido, dataToSend);
-        mostrarNotificacionExito('✅ Contenido actualizado correctamente');
-      } else {
-        console.log('➕ Modo CREACIÓN');
-        await contenidoService.create(dataToSend);
-        mostrarNotificacionExito('✅ Contenido creado correctamente');
+      if (!formData.id_categoria) {
+        nuevosErrores.id_categoria = '⚠️ Debes seleccionar una categoría';
+        hayErrores = true;
       }
 
-      console.log('🔄 Cerrando modal y recargando...');
-      cerrarModal();
-      await cargarContenidos();
-      console.log('✅ Contenidos recargados');
+      if (!formData.titulo || formData.titulo.trim() === '') {
+        nuevosErrores.titulo = '⚠️ El título es obligatorio';
+        hayErrores = true;
+      } else if (formData.titulo.trim().length < 5) {
+        nuevosErrores.titulo = `⚠️ El título debe tener al menos 5 caracteres (actual: ${formData.titulo.trim().length})`;
+        hayErrores = true;
+      }
 
-    } catch (error) {
-      console.error('❌ Error:', error);
-      Alert.alert('Error', error.message || 'No se pudo guardar el contenido');
-    }
-  };
+      if (!formData.contenido || formData.contenido.trim() === '') {
+        nuevosErrores.contenido = '⚠️ El contenido es obligatorio';
+        hayErrores = true;
+      } else if (formData.contenido.trim().length < 50) {
+        nuevosErrores.contenido = `⚠️ El contenido debe tener al menos 50 caracteres (actual: ${formData.contenido.trim().length})`;
+        hayErrores = true;
+      }
 
-  // 🔥 VALIDAR PRIMERO
-  if (!validarFormulario()) {
-    Alert.alert('Campos incompletos', 'Por favor completa todos los campos obligatorios marcados en rojo');
-    return;
-  }
+      if (!formData.resumen || formData.resumen.trim() === '') {
+        nuevosErrores.resumen = '⚠️ El resumen es obligatorio';
+        hayErrores = true;
+      } else if (formData.resumen.trim().length < 10) {
+        nuevosErrores.resumen = `⚠️ El resumen debe tener al menos 10 caracteres (actual: ${formData.resumen.trim().length})`;
+        hayErrores = true;
+      }
 
-  // 🔥 NUEVO: Detectar contenido duplicado/similar
-  const similares = detectarContenidoSimilar();
-  if (similares.length > 0) {
-    setContenidoDuplicado(similares[0]);
-    setModalDuplicadoVisible(true);
-    return; // Detener el proceso y mostrar el modal
-  }
+      if (!formData.palabras_clave || formData.palabras_clave.trim() === '') {
+        nuevosErrores.palabras_clave = '⚠️ Las palabras clave son obligatorias';
+        hayErrores = true;
+      }
 
-  // 🔥 VALIDACIÓN DE PRIORIDAD ALTA
-  if (formData.prioridad >= 8) {
-    const count = contenidos.filter(c =>
-      c.prioridad === formData.prioridad &&
-      c.estado === 'activo' &&
-      c.id_contenido !== formData.id_contenido
-    ).length;
+      if (!formData.etiquetas || formData.etiquetas.trim() === '') {
+        nuevosErrores.etiquetas = '⚠️ Las etiquetas son obligatorias';
+        hayErrores = true;
+      }
 
-    if (count >= 5) {
-      Alert.alert(
-        '⚠️ Muchos contenidos con esta prioridad',
-        `Ya tienes ${count} contenidos activos con prioridad ${formData.prioridad}. La prioridad será menos efectiva.\n\n¿Deseas continuar?`,
-        [
-          { text: 'Cambiar prioridad', style: 'cancel' },
-          { text: 'Continuar', onPress: guardarContenidoReal }
-        ]
-      );
+      if (!formData.prioridad || formData.prioridad < 1 || formData.prioridad > 10) {
+        nuevosErrores.prioridad = '⚠️ Selecciona una prioridad válida (1-10)';
+        hayErrores = true;
+      }
+
+      if (!formData.estado) {
+        nuevosErrores.estado = '⚠️ Debes seleccionar un estado';
+        hayErrores = true;
+      }
+
+      setErrores(nuevosErrores);
+      return !hayErrores;
+    };
+
+    const detectarContenidoSimilar = () => {
+      const tituloNormalizado = formData.titulo.toLowerCase().trim();
+      const contenidoNormalizado = formData.contenido.toLowerCase().trim();
+
+      // Buscar contenidos similares (excluyendo el actual si es edición)
+      const similares = contenidos.filter(c => {
+        // Si estamos editando, excluir el contenido actual
+        if (editando && c.id_contenido === formData.id_contenido) {
+          return false;
+        }
+
+        const tituloExistente = c.titulo.toLowerCase().trim();
+        const contenidoExistente = c.contenido.toLowerCase().trim();
+
+        // Verificar similitud exacta del título
+        if (tituloNormalizado === tituloExistente) {
+          return true;
+        }
+
+        // Verificar similitud del contenido (primeros 200 caracteres)
+        const fragmentoNuevo = contenidoNormalizado.substring(0, 200);
+        const fragmentoExistente = contenidoExistente.substring(0, 200);
+
+        if (fragmentoNuevo === fragmentoExistente) {
+          return true;
+        }
+
+        // Verificar si el título es muy similar (más del 80% de coincidencia)
+        const palabrasTituloNuevo = tituloNormalizado.split(' ');
+        const palabrasTituloExistente = tituloExistente.split(' ');
+        const coincidencias = palabrasTituloNuevo.filter(palabra =>
+          palabrasTituloExistente.includes(palabra)
+        ).length;
+
+        const porcentajeSimilitud = coincidencias / Math.max(palabrasTituloNuevo.length, palabrasTituloExistente.length);
+
+        if (porcentajeSimilitud > 0.8) {
+          return true;
+        }
+
+        return false;
+      });
+
+      return similares;
+    };
+
+    // 🔥 FUNCIÓN INTERNA para el guardado real
+    const guardarContenidoReal = async () => {
+      try {
+        const categoriaSeleccionada = categorias.find(
+          (cat) => Number(cat.id_categoria) === Number(formData.id_categoria)
+        );
+
+        if (!categoriaSeleccionada) {
+          Alert.alert('Error', 'La categoría seleccionada no existe o no se pudo cargar');
+          return;
+        }
+
+        const agenteSeleccionado = agentes.find(
+          ag => ag.id_agente === categoriaSeleccionada?.id_agente
+        );
+
+        const id_departamento = agenteSeleccionado?.id_departamento || null;
+
+        const dataToSend = {
+          id_agente: parseInt(categoriaSeleccionada.id_agente),
+          id_categoria: parseInt(formData.id_categoria),
+          id_departamento: id_departamento ? parseInt(id_departamento) : null,
+          titulo: formData.titulo.trim(),
+          contenido: formData.contenido.trim(),
+          resumen: formData.resumen,
+          palabras_clave: formData.palabras_clave,
+          etiquetas: formData.etiquetas,
+          prioridad: parseInt(formData.prioridad),
+          estado: formData.estado
+        };
+
+        console.log('📤 Datos a enviar:', JSON.stringify(dataToSend, null, 2));
+
+        if (editando) {
+          console.log('✏️ Modo EDICIÓN - ID:', formData.id_contenido);
+          await contenidoService.update(formData.id_contenido, dataToSend);
+          mostrarNotificacionExito('✅ Contenido actualizado correctamente');
+        } else {
+          console.log('➕ Modo CREACIÓN');
+          await contenidoService.create(dataToSend);
+          mostrarNotificacionExito('✅ Contenido creado correctamente');
+        }
+
+        console.log('🔄 Cerrando modal y recargando...');
+        cerrarModal();
+        await cargarContenidos();
+        console.log('✅ Contenidos recargados');
+
+      } catch (error) {
+        console.error('❌ Error:', error);
+        Alert.alert('Error', error.message || 'No se pudo guardar el contenido');
+      }
+    };
+
+    // 🔥 VALIDAR PRIMERO
+    if (!validarFormulario()) {
+      Alert.alert('Campos incompletos', 'Por favor completa todos los campos obligatorios marcados en rojo');
       return;
     }
-  }
 
-  // Si todo está bien, guardar
-  await guardarContenidoReal();
+    // 🔥 NUEVO: Detectar contenido duplicado/similar
+    const similares = detectarContenidoSimilar();
+    if (similares.length > 0) {
+      setContenidoDuplicado(similares[0]);
+      setModalDuplicadoVisible(true);
+      return; // Detener el proceso y mostrar el modal
+    }
 
-  console.log('🏁 ========== FIN guardarContenido ==========');
-};
+    // 🔥 VALIDACIÓN DE PRIORIDAD ALTA
+    if (formData.prioridad >= 8) {
+      const count = contenidos.filter(c =>
+        c.prioridad === formData.prioridad &&
+        c.estado === 'activo' &&
+        c.id_contenido !== formData.id_contenido
+      ).length;
+
+      if (count >= 5) {
+        Alert.alert(
+          '⚠️ Muchos contenidos con esta prioridad',
+          `Ya tienes ${count} contenidos activos con prioridad ${formData.prioridad}. La prioridad será menos efectiva.\n\n¿Deseas continuar?`,
+          [
+            { text: 'Cambiar prioridad', style: 'cancel' },
+            { text: 'Continuar', onPress: guardarContenidoReal }
+          ]
+        );
+        return;
+      }
+    }
+
+    // Si todo está bien, guardar
+    await guardarContenidoReal();
+
+    console.log('🏁 ========== FIN guardarContenido ==========');
+  };
 
   const publicarContenido = async (id) => {
     Alert.alert(
@@ -531,6 +533,36 @@ const guardarContenido = async () => {
         }
       ]
     );
+  };
+
+  // En GestionContenidoPage.jsx
+
+  const eliminarContenido = (id) => {
+    console.log('🗑️ Abriendo modal de eliminación para ID:', id);
+    setContenidoAEliminar(id);
+    setModalEliminarVisible(true);
+  };
+
+  const confirmarEliminacion = async () => {
+    console.log('✅ Confirmando eliminación del ID:', contenidoAEliminar);
+
+    try {
+      const resultado = await contenidoService.softDelete(contenidoAEliminar);
+      console.log('✅ Contenido eliminado:', resultado);
+
+      mostrarNotificacionExito('🗑️ Contenido eliminado correctamente');
+
+      // Cerrar modal
+      setModalEliminarVisible(false);
+      setContenidoAEliminar(null);
+
+      // Recargar contenidos
+      await cargarContenidos();
+    } catch (error) {
+      console.error('❌ Error eliminando:', error);
+      setModalEliminarVisible(false);
+      Alert.alert('Error', 'No se pudo eliminar el contenido');
+    }
   };
 
   if (loading) {
@@ -764,6 +796,7 @@ const guardarContenido = async () => {
                       contenido={contenido}
                       onEdit={abrirModal}
                       onPublish={publicarContenido}
+                      onDelete={eliminarContenido}
                       onView={(cont) => {
                         setContenidoView(cont);
                         setModalViewVisible(true);
@@ -773,7 +806,7 @@ const guardarContenido = async () => {
                 )}
               </View>
             </View>
-          </ScrollView>  {/* 🔥 AGREGAR ESTA LÍNEA */}
+          </ScrollView>
         </View>
       </View>
 
@@ -2024,7 +2057,7 @@ const guardarContenido = async () => {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { maxWidth: 600 }]}>
-            
+
             {/* Header */}
             <View style={{
               padding: 20,
@@ -2078,11 +2111,11 @@ const guardarContenido = async () => {
                       Contenido Existente
                     </Text>
                   </View>
-                  
+
                   <Text style={{ color: 'white', fontWeight: '600', fontSize: 15, marginBottom: 6 }}>
                     {contenidoDuplicado.titulo}
                   </Text>
-                  
+
                   <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12, marginBottom: 8 }} numberOfLines={3}>
                     {contenidoDuplicado.contenido}
                   </Text>
@@ -2098,7 +2131,7 @@ const guardarContenido = async () => {
                         {categorias.find(c => c.id_categoria === contenidoDuplicado.id_categoria)?.nombre || 'N/A'}
                       </Text>
                     </View>
-                    
+
                     <View style={{
                       paddingHorizontal: 8,
                       paddingVertical: 4,
@@ -2213,6 +2246,146 @@ const guardarContenido = async () => {
                 </View>
               </View>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* 🔥 Modal de confirmación de eliminación */}
+      <Modal
+        visible={modalEliminarVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setModalEliminarVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxWidth: 500 }]}>
+
+            {/* Header */}
+            <View style={{
+              padding: 20,
+              borderBottomWidth: 1,
+              borderBottomColor: 'rgba(239, 68, 68, 0.2)',
+              backgroundColor: 'rgba(239, 68, 68, 0.05)',
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, justifyContent: 'center' }}>
+                <View style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 14,
+                  backgroundColor: 'rgba(239, 68, 68, 0.3)',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                  <Text style={{ fontSize: 28 }}>⚠️</Text>
+                </View>
+                <View>
+                  <Text style={{ fontSize: 20, fontWeight: '900', color: '#ef4444' }}>
+                    Eliminar Contenido
+                  </Text>
+                  <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}>
+                    Esta acción es reversible
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Contenido */}
+            <View style={{ padding: 24 }}>
+              <Text style={{
+                color: 'rgba(255, 255, 255, 0.8)',
+                fontSize: 15,
+                textAlign: 'center',
+                marginBottom: 8,
+                lineHeight: 22
+              }}>
+                ¿Estás seguro de que deseas eliminar este contenido?
+              </Text>
+
+              <View style={{
+                padding: 14,
+                backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                borderRadius: 12,
+                borderLeftWidth: 3,
+                borderLeftColor: '#fbbf24',
+                marginBottom: 24,
+              }}>
+                <Text style={{
+                  color: 'rgba(255, 255, 255, 0.6)',
+                  fontSize: 13,
+                  textAlign: 'center',
+                  lineHeight: 20
+                }}>
+                  ℹ️ Esta acción eliminará el contenido de manera permanente y sin posibilidad de recuperación.
+                </Text>
+              </View>
+
+              {/* Botones */}
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    paddingVertical: 14,
+                    paddingHorizontal: 20,
+                    borderRadius: 12,
+                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.15)',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                  }}
+                  onPress={() => {
+                    console.log('❌ Usuario canceló la eliminación');
+                    setModalEliminarVisible(false);
+                    setContenidoAEliminar(null);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 16 }}>✖️</Text>
+                  <Text style={{
+                    color: 'rgba(255, 255, 255, 0.9)',
+                    fontWeight: '700',
+                    fontSize: 15
+                  }}>
+                    Cancelar
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    paddingVertical: 14,
+                    paddingHorizontal: 20,
+                    borderRadius: 12,
+                    backgroundColor: '#ef4444',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    shadowColor: '#ef4444',
+                    shadowOpacity: 0.6,
+                    shadowRadius: 12,
+                    shadowOffset: { width: 0, height: 4 },
+                    elevation: 8,
+                  }}
+                  onPress={confirmarEliminacion}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ fontSize: 16 }}>🗑️</Text>
+                  <Text style={{
+                    color: 'white',
+                    fontWeight: '700',
+                    fontSize: 15,
+                    letterSpacing: 0.5
+                  }}>
+                    Eliminar
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </View>
       </Modal>
