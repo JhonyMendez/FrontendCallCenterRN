@@ -237,26 +237,44 @@ export default function GestionDepartamentosPage() {
       console.log('🔍 Verificando departamento ID:', id);
       console.log('📊 Agentes disponibles:', agentesGlobal.length);
 
-      // ✅ Filtrar solo agentes ACTIVOS con este departamento
+      // ✅ Filtrar solo agentes ACTIVOS y NO ELIMINADOS con este departamento
       const agentesActivosConEsteDepartamento = agentesGlobal.filter(agente => {
         const tieneDepto = agente.id_departamento &&
           agente.id_departamento.toString() === id.toString();
         const estaActivo = agente.activo === true || agente.activo === 1;
-        const noEstaEliminado = !agente.deleted_at && agente.deleted_at !== 1;
 
+        // ⭐ NUEVA VALIDACIÓN: Verificar que NO esté eliminado lógicamente
+        const noEstaEliminado = !agente.eliminado &&
+          agente.eliminado !== 1 &&
+          !agente.deleted_at;
+
+        console.log(`Agente ${agente.nombre_agente}:`, {
+          tieneDepto,
+          estaActivo,
+          noEstaEliminado,
+          eliminado: agente.eliminado,
+          deleted_at: agente.deleted_at
+        });
+
+        // ✅ Solo bloquear si el agente está activo Y NO está eliminado
         return tieneDepto && estaActivo && noEstaEliminado;
       });
 
       const cantidadAgentesActivos = agentesActivosConEsteDepartamento.length;
 
-      // Si tiene agentes ACTIVOS, mostrar modal de advertencia
+      console.log('📊 Resultado filtrado:');
+      console.log('  - Agentes activos NO eliminados:', cantidadAgentesActivos);
+
+      // ✅ Si tiene agentes ACTIVOS y NO ELIMINADOS, mostrar modal de advertencia
       if (cantidadAgentesActivos > 0) {
+        console.log('⚠️ No se puede eliminar - hay agentes activos asignados');
         setAgentesAsignados(agentesActivosConEsteDepartamento);
         setShowWarningModal(true);
         return;
       }
 
-      // ✅ Si no tiene agentes activos, abrir modal de confirmación
+      // ✅ Si NO tiene agentes activos (o solo tiene eliminados), permitir eliminación
+      console.log('✅ Se puede eliminar - no hay agentes activos');
       setDepartamentoToDelete(id);
       setShowDeleteModal(true);
 

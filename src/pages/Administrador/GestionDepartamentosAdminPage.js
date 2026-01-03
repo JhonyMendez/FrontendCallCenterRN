@@ -238,42 +238,51 @@ export default function GestionDepartamentosPage() {
       console.log('🔍 Verificando departamento ID:', id);
       console.log('📊 Agentes disponibles:', agentesGlobal.length);
 
-      // ✅ Filtrar solo agentes ACTIVOS y NO eliminados lógicamente
+      // ✅ Filtrar solo agentes ACTIVOS y NO ELIMINADOS con este departamento
       const agentesActivosConEsteDepartamento = agentesGlobal.filter(agente => {
         const tieneDepto = agente.id_departamento &&
           agente.id_departamento.toString() === id.toString();
 
-        // ⭐ NUEVO: Verificar que el agente esté ACTIVO (activo = true)
+        // ⭐ Verificar que el agente esté ACTIVO
         const estaActivo = agente.activo === true || agente.activo === 1;
 
-        // ⭐ Y que NO esté eliminado lógicamente
-        const noEstaEliminado = !agente.deleted_at && agente.deleted_at !== 1;
+        // ⭐ NUEVA VALIDACIÓN: Verificar que NO esté eliminado lógicamente
+        const noEstaEliminado = !agente.eliminado &&      // Campo eliminado booleano
+          agente.eliminado !== 1 &&  // Campo eliminado numérico
+          !agente.deleted_at;        // Timestamp de soft delete
 
+        // 📊 Log detallado para debug
         if (tieneDepto) {
-          if (estaActivo && noEstaEliminado) {
-            console.log(`✅ Agente ACTIVO "${agente.nombre_agente}" tiene departamento ${id}`);
-          } else {
-            console.log(`⚠️ Agente INACTIVO o ELIMINADO "${agente.nombre_agente}" ignorado (activo: ${agente.activo}, deleted_at: ${agente.deleted_at})`);
-          }
+          console.log(`📌 Agente "${agente.nombre_agente}":`, {
+            tieneDepto,
+            estaActivo,
+            noEstaEliminado,
+            eliminado: agente.eliminado,
+            deleted_at: agente.deleted_at,
+            activo: agente.activo
+          });
         }
 
-        // ✅ Solo incluir si tiene departamento, está ACTIVO Y NO está eliminado
+        // ✅ Solo bloquear eliminación si el agente está ACTIVO Y NO ELIMINADO
         return tieneDepto && estaActivo && noEstaEliminado;
       });
 
-      console.log('👥 Agentes ACTIVOS y NO ELIMINADOS encontrados:', agentesActivosConEsteDepartamento);
       const cantidadAgentesActivos = agentesActivosConEsteDepartamento.length;
 
-      // Si tiene agentes ACTIVOS y NO ELIMINADOS, mostrar modal de advertencia
+      console.log('📊 Resumen de validación:');
+      console.log(`  - Agentes activos NO eliminados: ${cantidadAgentesActivos}`);
+
+      // ⚠️ Si tiene agentes ACTIVOS y NO ELIMINADOS, mostrar modal de advertencia
       if (cantidadAgentesActivos > 0) {
+        console.log('⚠️ BLOQUEADO - Departamento tiene agentes activos');
+        console.log('📋 Agentes que bloquean:', agentesActivosConEsteDepartamento.map(a => a.nombre_agente));
         setAgentesAsignados(agentesActivosConEsteDepartamento);
         setShowWarningModal(true);
         return;
       }
 
-      console.log('✅ No tiene agentes activos, procediendo a abrir modal de confirmación');
-
-      // ✅ Si solo hay agentes inactivos o eliminados, guardar ID y abrir modal
+      // ✅ Si NO tiene agentes activos (o solo tiene eliminados/inactivos), permitir eliminación
+      console.log('✅ PERMITIDO - Se puede eliminar (sin agentes activos)');
       setDepartamentoToDelete(id);
       setShowDeleteModal(true);
 
