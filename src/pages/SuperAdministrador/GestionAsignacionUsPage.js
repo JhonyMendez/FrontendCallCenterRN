@@ -25,8 +25,6 @@ import {
   UsuarioDetalleModal
 } from '../../components/SuperAdministrador/GestionAsignacionUsCard';
 import { styles } from '../../styles/GestionAsignacionUsStyles';
- 
-
 
 export default function GestionAsignacionUsPage() {
   const router = useRouter();
