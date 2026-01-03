@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { agenteService } from '../../api/services/agenteService';
 import { departamentoService } from '../../api/services/departamentoService';
+import { usuarioService } from '../../api/services/usuarioService';
 import AdminSidebar from '../../components/Sidebar/sidebarAdmin';
 import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles';
 import GestionDepartamentosCard from '../../components/SuperAdministrador/GestionDepartamentosCard';
@@ -34,6 +35,7 @@ export default function GestionDepartamentosPage() {
   const [agentesGlobal, setAgentesGlobal] = useState([]);
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [agentesAsignados, setAgentesAsignados] = useState([]);
+  const [usuariosAsignados, setUsuariosAsignados] = useState([]);
 
   const [formData, setFormData] = useState({
     nombre: '',
@@ -238,59 +240,68 @@ export default function GestionDepartamentosPage() {
       console.log('🔍 Verificando departamento ID:', id);
       console.log('📊 Agentes disponibles:', agentesGlobal.length);
 
-      // ✅ Filtrar solo agentes ACTIVOS y NO ELIMINADOS con este departamento
+      // ✅ VALIDACIÓN 1: Verificar agentes asignados (ACTIVOS y NO ELIMINADOS)
       const agentesActivosConEsteDepartamento = agentesGlobal.filter(agente => {
         const tieneDepto = agente.id_departamento &&
           agente.id_departamento.toString() === id.toString();
-
-        // ⭐ Verificar que el agente esté ACTIVO
         const estaActivo = agente.activo === true || agente.activo === 1;
+        const noEstaEliminado = !agente.eliminado &&
+          agente.eliminado !== 1 &&
+          !agente.deleted_at;
 
-        // ⭐ NUEVA VALIDACIÓN: Verificar que NO esté eliminado lógicamente
-        const noEstaEliminado = !agente.eliminado &&      // Campo eliminado booleano
-          agente.eliminado !== 1 &&  // Campo eliminado numérico
-          !agente.deleted_at;        // Timestamp de soft delete
-
-        // 📊 Log detallado para debug
-        if (tieneDepto) {
-          console.log(`📌 Agente "${agente.nombre_agente}":`, {
-            tieneDepto,
-            estaActivo,
-            noEstaEliminado,
-            eliminado: agente.eliminado,
-            deleted_at: agente.deleted_at,
-            activo: agente.activo
-          });
-        }
-
-        // ✅ Solo bloquear eliminación si el agente está ACTIVO Y NO ELIMINADO
         return tieneDepto && estaActivo && noEstaEliminado;
       });
 
       const cantidadAgentesActivos = agentesActivosConEsteDepartamento.length;
 
-      console.log('📊 Resumen de validación:');
-      console.log(`  - Agentes activos NO eliminados: ${cantidadAgentesActivos}`);
+      console.log('📊 Agentes activos NO eliminados:', cantidadAgentesActivos);
 
-      // ⚠️ Si tiene agentes ACTIVOS y NO ELIMINADOS, mostrar modal de advertencia
+      // ✅ VALIDACIÓN 2: Verificar usuarios asignados (NUEVO)
+      let usuariosConEsteDepartamento = [];
+      try {
+        const responseUsuarios = await usuarioService.listarCompleto({
+          id_departamento: id,
+          estado: 'activo'
+        });
+
+        usuariosConEsteDepartamento = responseUsuarios?.usuarios || [];
+
+        console.log('📊 Usuarios asignados al departamento:', usuariosConEsteDepartamento.length);
+      } catch (error) {
+        console.error('❌ Error al verificar usuarios:', error);
+        Alert.alert(
+          'Error',
+          'No se pudo verificar los usuarios asignados. Por seguridad, no se permitirá la eliminación.'
+        );
+        return;
+      }
+
+      // ✅ Si tiene usuarios asignados, mostrar modal de advertencia ESPECÍFICO
+      if (usuariosConEsteDepartamento.length > 0) {
+        console.log('⚠️ No se puede eliminar - hay usuarios asignados');
+        setUsuariosAsignados(usuariosConEsteDepartamento);
+        setShowWarningModal(true);
+        return;
+      }
+
+      // ✅ Si tiene agentes ACTIVOS y NO ELIMINADOS, mostrar modal de advertencia
       if (cantidadAgentesActivos > 0) {
-        console.log('⚠️ BLOQUEADO - Departamento tiene agentes activos');
-        console.log('📋 Agentes que bloquean:', agentesActivosConEsteDepartamento.map(a => a.nombre_agente));
+        console.log('⚠️ No se puede eliminar - hay agentes activos asignados');
         setAgentesAsignados(agentesActivosConEsteDepartamento);
         setShowWarningModal(true);
         return;
       }
 
-      // ✅ Si NO tiene agentes activos (o solo tiene eliminados/inactivos), permitir eliminación
-      console.log('✅ PERMITIDO - Se puede eliminar (sin agentes activos)');
+      // ✅ Si NO tiene usuarios NI agentes activos, permitir eliminación
+      console.log('✅ Se puede eliminar - no hay usuarios ni agentes activos');
       setDepartamentoToDelete(id);
       setShowDeleteModal(true);
 
     } catch (err) {
-      console.error('❌ Error al verificar agentes:', err);
+      console.error('❌ Error al verificar dependencias:', err);
       Alert.alert(
         'Error',
-        'No se pudo verificar los agentes asignados. Por seguridad, no se permitirá la eliminación.'
+        'No se pudo verificar las dependencias del departamento. Por seguridad, no se permitirá la eliminación.'
       );
     }
   };
@@ -831,7 +842,7 @@ export default function GestionDepartamentosPage() {
             </View>
           </Modal>
 
-          {/* ============ MODAL DE ADVERTENCIA (Departamento con agentes) ============ */}
+          {/* ============ MODAL DE ADVERTENCIA (Departamento con usuarios/agentes) ============ */}
           <Modal visible={showWarningModal} animationType="fade" transparent>
             <View style={styles.modalOverlay}>
               <View style={[styles.modal, { maxWidth: 500, padding: 0 }]}>
@@ -869,7 +880,7 @@ export default function GestionDepartamentosPage() {
                         fontSize: 13,
                         color: 'rgba(255, 255, 255, 0.6)',
                       }}>
-                        Este departamento tiene agentes asignados
+                        Este departamento tiene dependencias activas
                       </Text>
                     </View>
                   </View>
@@ -877,140 +888,287 @@ export default function GestionDepartamentosPage() {
 
                 {/* Contenido del Modal */}
                 <ScrollView style={{ maxHeight: 400, padding: 24 }}>
-                  <Text style={{
-                    fontSize: 16,
-                    color: 'rgba(255, 255, 255, 0.9)',
-                    lineHeight: 24,
-                    marginBottom: 16,
-                  }}>
-                    Este departamento tiene <Text style={{ fontWeight: '700', color: '#fb923c' }}>
-                      {agentesAsignados.length} {agentesAsignados.length === 1 ? 'agente asignado' : 'agentes asignados'}
-                    </Text>. Debes revocar todas las asignaciones antes de eliminarlo.
-                  </Text>
 
-                  {/* Lista de agentes asignados */}
-                  <View style={{
-                    backgroundColor: 'rgba(71, 85, 105, 0.3)',
-                    borderRadius: 12,
-                    padding: 16,
-                    borderWidth: 1,
-                    borderColor: 'rgba(251, 146, 60, 0.3)',
-                    marginBottom: 16,
-                  }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                      <Ionicons name="people" size={20} color="#fb923c" />
+                  {/* ✅ MOSTRAR USUARIOS SI HAY */}
+                  {usuariosAsignados.length > 0 && (
+                    <>
                       <Text style={{
-                        fontSize: 15,
-                        fontWeight: '700',
-                        color: '#fb923c',
+                        fontSize: 16,
+                        color: 'rgba(255, 255, 255, 0.9)',
+                        lineHeight: 24,
+                        marginBottom: 16,
                       }}>
-                        {agentesAsignados.length === 1 ? 'Agente asignado:' : 'Agentes asignados:'}
+                        Este departamento tiene <Text style={{ fontWeight: '700', color: '#fb923c' }}>
+                          {usuariosAsignados.length} {usuariosAsignados.length === 1 ? 'usuario asignado' : 'usuarios asignados'}
+                        </Text>. Debes reasignar o remover a todos los usuarios antes de eliminarlo.
                       </Text>
-                    </View>
-                    {agentesAsignados.map((agente, index) => (
-                      <View
-                        key={agente.id_agente || index}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 12,
-                          paddingVertical: 12,
-                          paddingHorizontal: 12,
-                          backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                          borderRadius: 8,
-                          borderLeftWidth: 3,
-                          borderLeftColor: '#667eea',
-                          marginBottom: index < agentesAsignados.length - 1 ? 8 : 0,
-                        }}
-                      >
-                        <View style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 20,
-                          backgroundColor: 'rgba(102, 126, 234, 0.2)',
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                        }}>
-                          <Text style={{ fontSize: 20 }}>{agente.icono || '🤖'}</Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{
-                            color: 'rgba(255, 255, 255, 0.9)',
-                            fontSize: 15,
-                            fontWeight: '600',
-                            marginBottom: 2,
-                          }}>
-                            {agente.nombre_agente}
-                          </Text>
-                          <Text style={{
-                            color: 'rgba(255, 255, 255, 0.5)',
-                            fontSize: 12,
-                          }}>
-                            {agente.area_especialidad || agente.tipo_agente}
-                          </Text>
-                        </View>
-                        <Ionicons name="link" size={18} color="#667eea" />
-                      </View>
-                    ))}
-                  </View>
 
-                  {/* Instrucciones */}
-                  <View style={{
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    borderLeftWidth: 4,
-                    borderLeftColor: '#3b82f6',
-                    padding: 16,
-                    borderRadius: 8,
-                  }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-                      <Ionicons name="information-circle" size={20} color="#3b82f6" style={{ marginTop: 2 }} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={{
-                          fontSize: 14,
-                          fontWeight: '600',
-                          color: '#3b82f6',
-                          marginBottom: 8,
-                        }}>
-                          📋 Pasos para eliminar este departamento:
-                        </Text>
-                        <View style={{ gap: 8 }}>
-                          <View style={{ flexDirection: 'row', gap: 8 }}>
-                            <Text style={{ color: '#3b82f6', fontWeight: '700' }}>1.</Text>
-                            <Text style={{
-                              color: 'rgba(255, 255, 255, 0.8)',
-                              fontSize: 13,
-                              flex: 1,
-                              lineHeight: 20,
+                      {/* Lista de usuarios asignados */}
+                      <View style={{
+                        backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                        borderRadius: 12,
+                        padding: 16,
+                        borderWidth: 1,
+                        borderColor: 'rgba(251, 146, 60, 0.3)',
+                        marginBottom: 16,
+                      }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                          <Ionicons name="people" size={20} color="#fb923c" />
+                          <Text style={{
+                            fontSize: 15,
+                            fontWeight: '700',
+                            color: '#fb923c',
+                          }}>
+                            {usuariosAsignados.length === 1 ? 'Usuario asignado:' : 'Usuarios asignados:'}
+                          </Text>
+                        </View>
+                        {usuariosAsignados.slice(0, 5).map((usuario, index) => (
+                          <View
+                            key={usuario.id_usuario || index}
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 12,
+                              paddingVertical: 12,
+                              paddingHorizontal: 12,
+                              backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                              borderRadius: 8,
+                              borderLeftWidth: 3,
+                              borderLeftColor: '#667eea',
+                              marginBottom: index < Math.min(4, usuariosAsignados.length - 1) ? 8 : 0,
+                            }}
+                          >
+                            <View style={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: 20,
+                              backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                              justifyContent: 'center',
+                              alignItems: 'center',
                             }}>
-                              Ve a <Text style={{ fontWeight: '700' }}>Gestión de Agentes</Text>
-                            </Text>
+                              <Ionicons name="person" size={20} color="#667eea" />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{
+                                color: 'rgba(255, 255, 255, 0.9)',
+                                fontSize: 15,
+                                fontWeight: '600',
+                                marginBottom: 2,
+                              }}>
+                                {usuario.persona?.nombre} {usuario.persona?.apellido}
+                              </Text>
+                              <Text style={{
+                                color: 'rgba(255, 255, 255, 0.5)',
+                                fontSize: 12,
+                              }}>
+                                {usuario.username} • {usuario.email}
+                              </Text>
+                            </View>
+                            <Ionicons name="link" size={18} color="#667eea" />
                           </View>
-                          <View style={{ flexDirection: 'row', gap: 8 }}>
-                            <Text style={{ color: '#3b82f6', fontWeight: '700' }}>2.</Text>
+                        ))}
+                        {usuariosAsignados.length > 5 && (
+                          <Text style={{
+                            color: 'rgba(255, 255, 255, 0.6)',
+                            fontSize: 13,
+                            fontStyle: 'italic',
+                            marginTop: 8,
+                            textAlign: 'center',
+                          }}>
+                            ... y {usuariosAsignados.length - 5} usuario(s) más
+                          </Text>
+                        )}
+                      </View>
+
+                      {/* Instrucciones para usuarios */}
+                      <View style={{
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderLeftWidth: 4,
+                        borderLeftColor: '#3b82f6',
+                        padding: 16,
+                        borderRadius: 8,
+                        marginBottom: 16,
+                      }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                          <Ionicons name="information-circle" size={20} color="#3b82f6" style={{ marginTop: 2 }} />
+                          <View style={{ flex: 1 }}>
                             <Text style={{
-                              color: 'rgba(255, 255, 255, 0.8)',
-                              fontSize: 13,
-                              flex: 1,
-                              lineHeight: 20,
+                              fontSize: 14,
+                              fontWeight: '600',
+                              color: '#3b82f6',
+                              marginBottom: 8,
                             }}>
-                              Edita {agentesAsignados.length === 1 ? 'el agente' : 'cada agente'} y quita la asignación del departamento
+                              📋 Pasos para eliminar este departamento:
                             </Text>
-                          </View>
-                          <View style={{ flexDirection: 'row', gap: 8 }}>
-                            <Text style={{ color: '#3b82f6', fontWeight: '700' }}>3.</Text>
-                            <Text style={{
-                              color: 'rgba(255, 255, 255, 0.8)',
-                              fontSize: 13,
-                              flex: 1,
-                              lineHeight: 20,
-                            }}>
-                              Regresa aquí y podrás eliminar el departamento
-                            </Text>
+                            <View style={{ gap: 8 }}>
+                              <View style={{ flexDirection: 'row', gap: 8 }}>
+                                <Text style={{ color: '#3b82f6', fontWeight: '700' }}>1.</Text>
+                                <Text style={{
+                                  color: 'rgba(255, 255, 255, 0.8)',
+                                  fontSize: 13,
+                                  flex: 1,
+                                  lineHeight: 20,
+                                }}>
+                                  Contacta al SuperAdministrador para reasignar usuarios
+                                </Text>
+                              </View>
+                              <View style={{ flexDirection: 'row', gap: 8 }}>
+                                <Text style={{ color: '#3b82f6', fontWeight: '700' }}>2.</Text>
+                                <Text style={{
+                                  color: 'rgba(255, 255, 255, 0.8)',
+                                  fontSize: 13,
+                                  flex: 1,
+                                  lineHeight: 20,
+                                }}>
+                                  Una vez reasignados, podrás eliminar el departamento
+                                </Text>
+                              </View>
+                            </View>
                           </View>
                         </View>
                       </View>
-                    </View>
-                  </View>
+                    </>
+                  )}
+
+                  {/* ✅ MOSTRAR AGENTES SI HAY (y no hay usuarios) */}
+                  {usuariosAsignados.length === 0 && agentesAsignados.length > 0 && (
+                    <>
+                      <Text style={{
+                        fontSize: 16,
+                        color: 'rgba(255, 255, 255, 0.9)',
+                        lineHeight: 24,
+                        marginBottom: 16,
+                      }}>
+                        Este departamento tiene <Text style={{ fontWeight: '700', color: '#fb923c' }}>
+                          {agentesAsignados.length} {agentesAsignados.length === 1 ? 'agente asignado' : 'agentes asignados'}
+                        </Text>. Debes revocar todas las asignaciones antes de eliminarlo.
+                      </Text>
+
+                      {/* Lista de agentes asignados */}
+                      <View style={{
+                        backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                        borderRadius: 12,
+                        padding: 16,
+                        borderWidth: 1,
+                        borderColor: 'rgba(251, 146, 60, 0.3)',
+                        marginBottom: 16,
+                      }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                          <Ionicons name="chatbubbles" size={20} color="#fb923c" />
+                          <Text style={{
+                            fontSize: 15,
+                            fontWeight: '700',
+                            color: '#fb923c',
+                          }}>
+                            {agentesAsignados.length === 1 ? 'Agente asignado:' : 'Agentes asignados:'}
+                          </Text>
+                        </View>
+                        {agentesAsignados.map((agente, index) => (
+                          <View
+                            key={agente.id_agente || index}
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 12,
+                              paddingVertical: 12,
+                              paddingHorizontal: 12,
+                              backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                              borderRadius: 8,
+                              borderLeftWidth: 3,
+                              borderLeftColor: '#667eea',
+                              marginBottom: index < agentesAsignados.length - 1 ? 8 : 0,
+                            }}
+                          >
+                            <View style={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: 20,
+                              backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                            }}>
+                              <Text style={{ fontSize: 20 }}>{agente.icono || '🤖'}</Text>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{
+                                color: 'rgba(255, 255, 255, 0.9)',
+                                fontSize: 15,
+                                fontWeight: '600',
+                                marginBottom: 2,
+                              }}>
+                                {agente.nombre_agente}
+                              </Text>
+                              <Text style={{
+                                color: 'rgba(255, 255, 255, 0.5)',
+                                fontSize: 12,
+                              }}>
+                                {agente.area_especialidad || agente.tipo_agente}
+                              </Text>
+                            </View>
+                            <Ionicons name="link" size={18} color="#667eea" />
+                          </View>
+                        ))}
+                      </View>
+
+                      {/* Instrucciones para agentes */}
+                      <View style={{
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderLeftWidth: 4,
+                        borderLeftColor: '#3b82f6',
+                        padding: 16,
+                        borderRadius: 8,
+                      }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                          <Ionicons name="information-circle" size={20} color="#3b82f6" style={{ marginTop: 2 }} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{
+                              fontSize: 14,
+                              fontWeight: '600',
+                              color: '#3b82f6',
+                              marginBottom: 8,
+                            }}>
+                              📋 Pasos para eliminar este departamento:
+                            </Text>
+                            <View style={{ gap: 8 }}>
+                              <View style={{ flexDirection: 'row', gap: 8 }}>
+                                <Text style={{ color: '#3b82f6', fontWeight: '700' }}>1.</Text>
+                                <Text style={{
+                                  color: 'rgba(255, 255, 255, 0.8)',
+                                  fontSize: 13,
+                                  flex: 1,
+                                  lineHeight: 20,
+                                }}>
+                                  Ve a <Text style={{ fontWeight: '700' }}>Gestión de Agentes</Text>
+                                </Text>
+                              </View>
+                              <View style={{ flexDirection: 'row', gap: 8 }}>
+                                <Text style={{ color: '#3b82f6', fontWeight: '700' }}>2.</Text>
+                                <Text style={{
+                                  color: 'rgba(255, 255, 255, 0.8)',
+                                  fontSize: 13,
+                                  flex: 1,
+                                  lineHeight: 20,
+                                }}>
+                                  Edita {agentesAsignados.length === 1 ? 'el agente' : 'cada agente'} y quita la asignación del departamento
+                                </Text>
+                              </View>
+                              <View style={{ flexDirection: 'row', gap: 8 }}>
+                                <Text style={{ color: '#3b82f6', fontWeight: '700' }}>3.</Text>
+                                <Text style={{
+                                  color: 'rgba(255, 255, 255, 0.8)',
+                                  fontSize: 13,
+                                  flex: 1,
+                                  lineHeight: 20,
+                                }}>
+                                  Regresa aquí y podrás eliminar el departamento
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    </>
+                  )}
                 </ScrollView>
 
                 {/* Footer del Modal */}
@@ -1033,7 +1191,11 @@ export default function GestionDepartamentosPage() {
                       shadowOffset: { width: 0, height: 4 },
                       elevation: 6,
                     }}
-                    onPress={() => setShowWarningModal(false)}
+                    onPress={() => {
+                      setShowWarningModal(false);
+                      setUsuariosAsignados([]); // ✅ Limpiar usuarios
+                      setAgentesAsignados([]);  // ✅ Limpiar agentes
+                    }}
                     activeOpacity={0.8}
                   >
                     <Ionicons name="checkmark-circle" size={20} color="white" />
