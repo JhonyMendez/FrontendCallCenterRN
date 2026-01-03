@@ -537,7 +537,7 @@ export default function GestionCategoriaPage() {
             setShowSuccessMessage(true);
             setShowDeleteModal(false);
             setCategoriaToDelete(null);
-            cargarCategorias();
+            await cargarCategorias();
 
             setTimeout(() => {
                 setShowSuccessMessage(false);
