@@ -43,32 +43,39 @@ const GestionUsuarioPage = () => {
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null);
   const [totalUsuarios, setTotalUsuarios] = useState(0);
-  
+
   // ✅ NUEVOS ESTADOS PARA PAGINACIÓN
   const [skip, setSkip] = useState(0);
   const [limit, setLimit] = useState(50); // Por defecto 50 usuarios
-const [paginaActual, setPaginaActual] = useState(1);
+  const [paginaActual, setPaginaActual] = useState(1);
 
-// ==================== ESTADOS PARA MODALES ====================
-const [modalConfirm, setModalConfirm] = useState({
-  visible: false,
-  title: '',
-  message: '',
-  onConfirm: null,
-  type: 'danger'
-});
+  // ==================== ESTADOS PARA MODALES ====================
+  const [modalConfirm, setModalConfirm] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+    type: 'danger'
+  });
 
-const [modalNotification, setModalNotification] = useState({
-  visible: false,
-  message: '',
-  type: 'success'
-});
+  const [modalNotification, setModalNotification] = useState({
+    visible: false,
+    message: '',
+    type: 'success'
+  });
 
-// ==================== ANIMACIONES ====================
+  //Modal para usuario con departamento
+  const [modalDepartamentoAsignado, setModalDepartamentoAsignado] = useState({
+    visible: false,
+    usuario: null,
+    departamento: null
+  })
+
+  // ==================== ANIMACIONES ====================
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const rateLimiter = useRef(SecurityValidator.createRateLimiter()).current;
 
-  
+
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -96,9 +103,9 @@ const [modalNotification, setModalNotification] = useState({
     setTotalUsuarios(usuariosFiltrados.length);
   }, [usuariosFiltrados]);
 
-  
+
   const filtrarUsuarios = () => {
-    const limiteCheck = rateLimiter.check(30); 
+    const limiteCheck = rateLimiter.check(30);
     if (!limiteCheck.allowed) {
       Alert.alert('Límite excedido', limiteCheck.message);
       return;
@@ -113,7 +120,7 @@ const [modalNotification, setModalNotification] = useState({
     // Filtrar por búsqueda
     if (busqueda.trim()) {
       const busquedaLower = SecurityValidator.sanitizeText(busqueda).toLowerCase();
-      
+
       resultado = resultado.filter(u => {
         // Sanitizar cada campo antes de comparar
         const nombre = SecurityValidator.sanitizeText(u.persona?.nombre || '').toLowerCase();
@@ -121,12 +128,12 @@ const [modalNotification, setModalNotification] = useState({
         const username = SecurityValidator.sanitizeText(u.username || '').toLowerCase();
         const email = SecurityValidator.sanitizeText(u.email || '').toLowerCase();
         const cedula = SecurityValidator.sanitizeText(u.persona?.cedula || '');
-        
+
         return nombre.includes(busquedaLower) ||
-              apellido.includes(busquedaLower) ||
-              username.includes(busquedaLower) ||
-              email.includes(busquedaLower) ||
-              cedula.includes(busqueda); // Cédula sin toLowerCase
+          apellido.includes(busquedaLower) ||
+          username.includes(busquedaLower) ||
+          email.includes(busquedaLower) ||
+          cedula.includes(busqueda); // Cédula sin toLowerCase
       });
     }
 
@@ -134,7 +141,7 @@ const [modalNotification, setModalNotification] = useState({
     if (filtroRol !== 'todos') {
       const rolIdSeguro = parseInt(filtroRol);
       if (!isNaN(rolIdSeguro)) {
-        resultado = resultado.filter(u => 
+        resultado = resultado.filter(u =>
           Array.isArray(u.roles) &&
           u.roles.some(r => r.id_rol === rolIdSeguro)
         );
@@ -168,7 +175,7 @@ const [modalNotification, setModalNotification] = useState({
       // Validar skip y limit
       const skipSeguro = Math.max(0, parseInt(skip) || 0);
       const limitSeguro = Math.max(1, Math.min(200, parseInt(limit) || 50));
-      
+
       const response = await usuarioService.listarCompleto({
         skip: skipSeguro,
         limit: limitSeguro
@@ -192,7 +199,7 @@ const [modalNotification, setModalNotification] = useState({
         limit: 100,
         solo_activos: true
       });
-      
+
       let listaRoles = [];
       if (Array.isArray(response)) {
         listaRoles = response;
@@ -201,7 +208,7 @@ const [modalNotification, setModalNotification] = useState({
       }
 
       // Validar que cada rol tenga id_rol válido
-      const rolesValidos = listaRoles.filter(rol => 
+      const rolesValidos = listaRoles.filter(rol =>
         rol && typeof rol.id_rol === 'number' && rol.id_rol > 0
       );
 
@@ -233,16 +240,16 @@ const [modalNotification, setModalNotification] = useState({
     if (exito) {
       // ✅ PRIMERO CERRAR EL FORMULARIO
       cerrarFormulario();
-      
+
       // ✅ LUEGO RECARGAR USUARIOS
       setLoading(true);
       try {
         await cargarUsuarios();
-        
+
         Alert.alert(
           'Éxito',
-          usuarioSeleccionado 
-            ? 'Usuario actualizado correctamente' 
+          usuarioSeleccionado
+            ? 'Usuario actualizado correctamente'
             : 'Usuario creado correctamente'
         );
       } catch (error) {
@@ -255,10 +262,10 @@ const [modalNotification, setModalNotification] = useState({
       cerrarFormulario();
     }
   };
-const confirmarEliminar = async (usuario) => {
+  const confirmarEliminar = async (usuario) => {
     console.log('🔵 [confirmarEliminar] INICIADO');
     console.log('🔵 Usuario recibido:', usuario);
-    
+
     if (!usuario || !usuario.id_usuario) {
       console.log('❌ Usuario inválido, mostrando notificación');
       setModalNotification({
@@ -272,7 +279,7 @@ const confirmarEliminar = async (usuario) => {
     // ✅ VALIDAR QUE NO SE ELIMINE A SÍ MISMO
     try {
       const miIdUsuario = await getUserIdFromToken();
-      
+
       if (usuario.id_usuario === miIdUsuario) {
         console.log('❌ Intento de auto-eliminación bloqueado');
         setModalNotification({
@@ -286,11 +293,25 @@ const confirmarEliminar = async (usuario) => {
       console.error('Error obteniendo ID del usuario actual:', error);
     }
 
+    // ✅ NUEVA VALIDACIÓN: Verificar si tiene departamento asignado
+    if (usuario.departamento || usuario.id_departamento) {
+      const nombreDept = usuario.departamento?.nombre || 'un departamento';
+
+      console.log('❌ Usuario tiene departamento asignado:', nombreDept);
+
+      // ✅ Mostrar modal bonito en lugar de notificación simple
+      setModalDepartamentoAsignado({
+        visible: true,
+        usuario: usuario,
+        departamento: nombreDept
+      });
+      return;
+    }
+
     const usernameSeguro = SecurityValidator.sanitizeText(usuario.username || 'este usuario');
-    
+
     console.log('✅ Mostrando modal de confirmación');
-    console.log('✅ Modal state antes:', modalConfirm);
-    
+
     setModalConfirm({
       visible: true,
       title: 'Confirmar Eliminación',
@@ -302,18 +323,16 @@ const confirmarEliminar = async (usuario) => {
       },
       type: 'danger'
     });
-    
-    console.log('✅ setModalConfirm ejecutado');
   };
 
-const eliminarUsuario = async (id_usuario) => {
+  const eliminarUsuario = async (id_usuario) => {
     console.log('🔍 [eliminarUsuario] Iniciando eliminación...');
     console.log('🔍 [eliminarUsuario] ID recibido:', id_usuario);
-    
+
     // Validar ID
     const idSeguro = parseInt(id_usuario);
     console.log('🔍 [eliminarUsuario] ID parseado:', idSeguro);
-    
+
     if (isNaN(idSeguro) || idSeguro <= 0) {
       console.error('❌ ID inválido:', idSeguro);
       Alert.alert('Error', 'ID de usuario inválido');
@@ -322,21 +341,21 @@ const eliminarUsuario = async (id_usuario) => {
 
     console.log('✅ [eliminarUsuario] ID validado, llamando al servicio...');
     setLoading(true);
-    
+
     try {
       console.log('📤 [eliminarUsuario] Llamando a usuarioService.delete...');
       const response = await usuarioService.delete(idSeguro);
-      
+
       console.log('✅ [eliminarUsuario] Respuesta del servicio:', response);
-      
+
       // Actualizar el estado local para que aparezca como inactivo
       console.log('🔄 [eliminarUsuario] Actualizando estado local...');
       setUsuarios(prevUsuarios => {
         const nuevosUsuarios = prevUsuarios.map(u => {
           if (u.id_usuario === idSeguro) {
             console.log('🔄 Usuario encontrado, cambiando estado a inactivo:', u.username);
-            return { 
-              ...u, 
+            return {
+              ...u,
               estado: 'inactivo',
               persona: u.persona ? { ...u.persona, estado: 'inactivo' } : null
             };
@@ -346,23 +365,23 @@ const eliminarUsuario = async (id_usuario) => {
         console.log('✅ [eliminarUsuario] Estado local actualizado');
         return nuevosUsuarios;
       });
-      
+
       setModalNotification({
         visible: true,
         message: 'Usuario eliminado correctamente',
         type: 'success'
       });
       console.log('✅ [eliminarUsuario] Proceso completado');
-      
+
     } catch (error) {
       console.error('❌ [eliminarUsuario] ERROR COMPLETO:', error);
       console.error('❌ [eliminarUsuario] Error.message:', error.message);
       console.error('❌ [eliminarUsuario] Error.data:', error.data);
-      
+
       const mensajeError = SecurityValidator.sanitizeText(
         error.message || 'No se pudo eliminar el usuario'
       );
-     setModalNotification({
+      setModalNotification({
         visible: true,
         message: mensajeError,
         type: 'error'
@@ -374,7 +393,7 @@ const eliminarUsuario = async (id_usuario) => {
   };
 
 
-const confirmarReactivar = (usuario) => {
+  const confirmarReactivar = (usuario) => {
     if (!usuario || !usuario.id_usuario) {
       setModalNotification({
         visible: true,
@@ -385,7 +404,7 @@ const confirmarReactivar = (usuario) => {
     }
 
     const usernameSeguro = SecurityValidator.sanitizeText(usuario.username || 'este usuario');
-    
+
     setModalConfirm({
       visible: true,
       title: 'Confirmar Reactivación',
@@ -409,22 +428,22 @@ const confirmarReactivar = (usuario) => {
     setLoading(true);
     try {
       const response = await usuarioService.reactivar(idSeguro);
-      
+
       console.log('✅ Usuario reactivado:', response);
-      
+
       // Actualizar el estado local para que aparezca como activo
-      setUsuarios(prevUsuarios => 
-        prevUsuarios.map(u => 
-          u.id_usuario === idSeguro 
-            ? { 
-                ...u, 
-                estado: 'activo',
-                persona: u.persona ? { ...u.persona, estado: 'activo' } : null
-              }
+      setUsuarios(prevUsuarios =>
+        prevUsuarios.map(u =>
+          u.id_usuario === idSeguro
+            ? {
+              ...u,
+              estado: 'activo',
+              persona: u.persona ? { ...u.persona, estado: 'activo' } : null
+            }
             : u
         )
       );
-      
+
       setModalNotification({
         visible: true,
         message: 'Usuario reactivado correctamente',
@@ -445,24 +464,24 @@ const confirmarReactivar = (usuario) => {
     }
   };
 
-// ✅ CONTAR USUARIOS POR ROL (solo activos, sin aplicar filtros de búsqueda/rol)
-const contarPorRol = (idRol) => {
-  // ✅ Filtrar SOLO por estado activo, ignorando búsqueda y filtro de rol
-  const lista = Array.isArray(usuarios) 
-    ? usuarios.filter(u => u.estado?.toLowerCase() !== 'inactivo')
-    : [];
-  
-  if (idRol === 'todos') return lista.length;
+  // ✅ CONTAR USUARIOS POR ROL (solo activos, sin aplicar filtros de búsqueda/rol)
+  const contarPorRol = (idRol) => {
+    // ✅ Filtrar SOLO por estado activo, ignorando búsqueda y filtro de rol
+    const lista = Array.isArray(usuarios)
+      ? usuarios.filter(u => u.estado?.toLowerCase() !== 'inactivo')
+      : [];
 
-  // Validar que idRol sea un número válido
-  const rolIdSeguro = parseInt(idRol);
-  if (isNaN(rolIdSeguro)) return 0;
+    if (idRol === 'todos') return lista.length;
 
-  return lista.filter(u => 
-    Array.isArray(u.roles) &&
-    u.roles.some(r => r.id_rol === rolIdSeguro)
-  ).length;
-};
+    // Validar que idRol sea un número válido
+    const rolIdSeguro = parseInt(idRol);
+    if (isNaN(rolIdSeguro)) return 0;
+
+    return lista.filter(u =>
+      Array.isArray(u.roles) &&
+      u.roles.some(r => r.id_rol === rolIdSeguro)
+    ).length;
+  };
 
   // ✅ PAGINACIÓN
   const totalPaginas = Math.ceil(totalUsuarios / limit);
@@ -473,7 +492,7 @@ const contarPorRol = (idRol) => {
     if (isNaN(paginaSegura) || paginaSegura < 1 || paginaSegura > totalPaginas) {
       return;
     }
-    
+
     setPaginaActual(paginaSegura);
     setSkip((paginaSegura - 1) * limit);
   };
@@ -485,7 +504,7 @@ const contarPorRol = (idRol) => {
       Alert.alert('Error', 'El límite debe estar entre 10 y 200');
       return;
     }
-    
+
     setLimit(limitSeguro);
     setSkip(0);
     setPaginaActual(1);
@@ -495,7 +514,7 @@ const contarPorRol = (idRol) => {
   return (
     <View style={contentStyles.wrapper}>
       {/* Sidebar */}
-      <SuperAdminSidebar 
+      <SuperAdminSidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
       />
@@ -523,7 +542,7 @@ const contarPorRol = (idRol) => {
 
       {/* Contenido Principal */}
       <View style={[
-        contentStyles.mainContent, 
+        contentStyles.mainContent,
         sidebarOpen && contentStyles.mainContentWithSidebar
       ]}>
         {loading ? (
@@ -539,7 +558,7 @@ const contarPorRol = (idRol) => {
             onGuardado={handleGuardado}
           />
         ) : (
-          <ScrollView 
+          <ScrollView
             style={styles.container}
             showsVerticalScrollIndicator={false}
           >
@@ -556,12 +575,12 @@ const contarPorRol = (idRol) => {
                     <Users size={32} color="#FFFFFF" />
                     <View>
                       <Text style={styles.headerTitle}>Gestión de Usuarios</Text>
-                    <Text style={styles.headerSubtitle}>
-                      {usuariosFiltrados.length} usuarios activos
-                    </Text>
+                      <Text style={styles.headerSubtitle}>
+                        {usuariosFiltrados.length} usuarios activos
+                      </Text>
                     </View>
                   </View>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.btnAdd}
                     onPress={abrirFormularioNuevo}
                     activeOpacity={0.8}
@@ -598,8 +617,8 @@ const contarPorRol = (idRol) => {
                 </View>
 
                 {/* ✅ FILTROS DE ROL DINÁMICOS */}
-                <ScrollView 
-                  horizontal 
+                <ScrollView
+                  horizontal
                   showsHorizontalScrollIndicator={false}
                   style={styles.filtersContainer}
                 >
@@ -646,7 +665,7 @@ const contarPorRol = (idRol) => {
             </LinearGradient>
 
             {/* Lista de usuarios */}
-            <ScrollView 
+            <ScrollView
               style={styles.listaContainer}
               showsVerticalScrollIndicator={false}
             >
@@ -654,8 +673,8 @@ const contarPorRol = (idRol) => {
                 <View style={styles.emptyContainer}>
                   <Users size={60} color="#9CA3AF" />
                   <Text style={styles.emptyText}>
-                    {busqueda || filtroRol !== 'todos' 
-                      ? 'No se encontraron usuarios' 
+                    {busqueda || filtroRol !== 'todos'
+                      ? 'No se encontraron usuarios'
                       : 'No hay usuarios registrados'}
                   </Text>
                 </View>
@@ -698,7 +717,7 @@ const contarPorRol = (idRol) => {
               )}
             </ScrollView>
           </ScrollView>
-)}
+        )}
       </View>
 
       {/* Modales */}
@@ -721,6 +740,14 @@ const contarPorRol = (idRol) => {
         type={modalNotification.type}
         onClose={() => setModalNotification({ ...modalNotification, visible: false })}
       />
+
+      {/* Modal para departamento asignado */}
+      <DepartamentoAsignadoModal
+        visible={modalDepartamentoAsignado.visible}
+        usuario={modalDepartamentoAsignado.usuario}
+        departamento={modalDepartamentoAsignado.departamento}
+        onClose={() => setModalDepartamentoAsignado({ visible: false, usuario: null, departamento: null })}
+      />
     </View>
   );
 };
@@ -729,7 +756,7 @@ const contarPorRol = (idRol) => {
 const ConfirmModal = ({ visible, title, message, onConfirm, onCancel, confirmText = 'Confirmar', cancelText = 'Cancelar', type = 'danger' }) => {
   console.log('🟢 [ConfirmModal] Renderizado - visible:', visible);
   console.log('🟢 [ConfirmModal] Props:', { title, message, type });
-  
+
   const scaleAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -856,6 +883,164 @@ const NotificationModal = ({ visible, message, type = 'success', onClose }) => {
         </TouchableOpacity>
       </Animated.View>
     </View>
+  );
+};
+
+const DepartamentoAsignadoModal = ({ visible, usuario, departamento, onClose }) => {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      scaleAnim.setValue(0);
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={modalStyles.overlay}>
+        <Animated.View style={[modalStyles.modalContainer, { transform: [{ scale: scaleAnim }] }]}>
+
+          {/* Icono de advertencia */}
+          <View style={[modalStyles.iconContainer, { backgroundColor: 'rgba(251, 146, 60, 0.2)' }]}>
+            <Ionicons name="business" size={48} color="#fb923c" />
+          </View>
+
+          {/* Título */}
+          <Text style={modalStyles.title}>No se puede eliminar</Text>
+
+          {/* Mensaje principal */}
+          <Text style={[modalStyles.message, { marginBottom: 16 }]}>
+            El usuario <Text style={{ fontWeight: '700', color: '#1f2937' }}>
+              {usuario?.persona?.nombre} {usuario?.persona?.apellido}
+            </Text> está asignado al departamento:
+          </Text>
+
+          {/* Card del departamento */}
+          <View style={{
+            width: '100%',
+            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+            borderRadius: 12,
+            padding: 16,
+            borderLeftWidth: 4,
+            borderLeftColor: '#667eea',
+            marginBottom: 20,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+          }}>
+            <View style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: 'rgba(102, 126, 234, 0.2)',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}>
+              <Ionicons name="business" size={24} color="#667eea" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{
+                fontSize: 16,
+                fontWeight: '700',
+                color: '#1f2937',
+                marginBottom: 4,
+              }}>
+                {departamento}
+              </Text>
+              <Text style={{
+                fontSize: 13,
+                color: '#6b7280',
+              }}>
+                Departamento asignado
+              </Text>
+            </View>
+          </View>
+
+          {/* Instrucciones */}
+          <View style={{
+            width: '100%',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderRadius: 12,
+            padding: 16,
+            borderLeftWidth: 4,
+            borderLeftColor: '#3b82f6',
+            marginBottom: 20,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+              <Ionicons name="information-circle" size={20} color="#3b82f6" style={{ marginTop: 2 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: '#3b82f6',
+                  marginBottom: 8,
+                }}>
+                  📋 Pasos para eliminar este usuario:
+                </Text>
+                <View style={{ gap: 8 }}>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Text style={{ color: '#3b82f6', fontWeight: '700', fontSize: 13 }}>1.</Text>
+                    <Text style={{
+                      color: '#1f2937',
+                      fontSize: 13,
+                      flex: 1,
+                      lineHeight: 18,
+                    }}>
+                      Ve a <Text style={{ fontWeight: '700' }}>Gestión de Asignaciones</Text>
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Text style={{ color: '#3b82f6', fontWeight: '700', fontSize: 13 }}>2.</Text>
+                    <Text style={{
+                      color: '#1f2937',
+                      fontSize: 13,
+                      flex: 1,
+                      lineHeight: 18,
+                    }}>
+                      Remueve al usuario del departamento o reasígnalo a otro
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Text style={{ color: '#3b82f6', fontWeight: '700', fontSize: 13 }}>3.</Text>
+                    <Text style={{
+                      color: '#1f2937',
+                      fontSize: 13,
+                      flex: 1,
+                      lineHeight: 18,
+                    }}>
+                      Regresa aquí y podrás eliminar el usuario
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Botón de cerrar */}
+          <TouchableOpacity
+            style={[modalStyles.btnConfirm, {
+              backgroundColor: '#667eea',
+              width: '100%',
+              paddingVertical: 14,
+            }]}
+            onPress={onClose}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="checkmark-circle" size={20} color="#ffffff" style={{ marginRight: 8 }} />
+            <Text style={modalStyles.btnConfirmText}>Entendido</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    </Modal>
   );
 };
 

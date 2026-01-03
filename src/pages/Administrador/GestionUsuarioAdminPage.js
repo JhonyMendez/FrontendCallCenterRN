@@ -66,6 +66,12 @@ const GestionUsuarioPage = () => {
     type: 'success'
   });
 
+  const [modalDepartamentoAsignado, setModalDepartamentoAsignado] = useState({
+    visible: false,
+    usuario: null,
+    departamento: null
+  });
+
   // ==================== ANIMACIONES ====================
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const rateLimiter = useRef(SecurityValidator.createRateLimiter()).current;
@@ -313,6 +319,21 @@ const GestionUsuarioPage = () => {
       }
     } catch (error) {
       console.error('Error obteniendo ID del usuario actual:', error);
+    }
+
+    // ✅ NUEVA VALIDACIÓN: Verificar si tiene departamento asignado
+    if (usuario.departamento || usuario.id_departamento) {
+      const nombreDept = usuario.departamento?.nombre || 'un departamento';
+
+      console.log('❌ Usuario tiene departamento asignado:', nombreDept);
+
+      // ✅ Mostrar modal bonito en lugar de notificación simple
+      setModalDepartamentoAsignado({
+        visible: true,
+        usuario: usuario,
+        departamento: nombreDept
+      });
+      return;
     }
 
     const usernameSeguro = SecurityValidator.sanitizeText(usuario.username || 'este usuario');
@@ -742,6 +763,14 @@ const GestionUsuarioPage = () => {
         type={modalNotification.type}
         onClose={() => setModalNotification({ ...modalNotification, visible: false })}
       />
+
+      {/*Modal para departamento asignado */}
+      <DepartamentoAsignadoModal
+        visible={modalDepartamentoAsignado.visible}
+        usuario={modalDepartamentoAsignado.usuario}
+        departamento={modalDepartamentoAsignado.departamento}
+        onClose={() => setModalDepartamentoAsignado({ visible: false, usuario: null, departamento: null })}
+      />
     </View>
   );
 };
@@ -874,6 +903,167 @@ const NotificationModal = ({ visible, message, type = 'success', onClose }) => {
         </TouchableOpacity>
       </Animated.View>
     </View>
+  );
+};
+
+const DepartamentoAsignadoModal = ({ visible, usuario, departamento, onClose }) => {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      scaleAnim.setValue(0);
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={modalStyles.overlay}>
+        <Animated.View style={[modalStyles.modalContainer, { transform: [{ scale: scaleAnim }] }]}>
+
+          {/* Icono de advertencia */}
+          <View style={[modalStyles.iconContainer, { backgroundColor: 'rgba(251, 146, 60, 0.2)' }]}>
+            <Ionicons name="business" size={48} color="#fb923c" />
+          </View>
+
+          {/* Título */}
+          <Text style={modalStyles.title}>No se puede eliminar</Text>
+
+          {/* Mensaje principal */}
+          <Text style={[modalStyles.message, { marginBottom: 16 }]}>
+            El usuario <Text style={{ fontWeight: '700', color: '#1f2937' }}>
+              {usuario?.persona?.nombre} {usuario?.persona?.apellido}
+            </Text> está asignado al departamento:
+          </Text>
+
+          {/* Card del departamento */}
+          <View style={{
+            width: '100%',
+            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+            borderRadius: 12,
+            padding: 16,
+            borderLeftWidth: 4,
+            borderLeftColor: '#667eea',
+            marginBottom: 20,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+          }}>
+            <View style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: 'rgba(102, 126, 234, 0.2)',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}>
+              <Ionicons name="business" size={24} color="#667eea" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{
+                fontSize: 16,
+                fontWeight: '700',
+                color: '#1f2937',
+                marginBottom: 4,
+              }}>
+                {departamento}
+              </Text>
+              <Text style={{
+                fontSize: 13,
+                color: '#6b7280',
+              }}>
+                Departamento asignado
+              </Text>
+            </View>
+          </View>
+
+          {/* Instrucciones */}
+          <View style={{
+            width: '100%',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderRadius: 12,
+            padding: 16,
+            borderLeftWidth: 4,
+            borderLeftColor: '#3b82f6',
+            marginBottom: 20,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+              <Ionicons name="information-circle" size={20} color="#3b82f6" style={{ marginTop: 2 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: '#3b82f6',
+                  marginBottom: 8,
+                }}>
+                  📋 Pasos para eliminar este usuario:
+                </Text>
+                <View style={{ gap: 8 }}>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Text style={{ color: '#3b82f6', fontWeight: '700', fontSize: 13 }}>1.</Text>
+                    <Text style={{
+                      color: '#1f2937',
+                      fontSize: 13,
+                      flex: 1,
+                      lineHeight: 18,
+                    }}>
+                      Ve a <Text style={{ fontWeight: '700' }}>Gestión de Asignaciones</Text>
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Text style={{ color: '#3b82f6', fontWeight: '700', fontSize: 13 }}>2.</Text>
+                    <Text style={{
+                      color: '#1f2937',
+                      fontSize: 13,
+                      flex: 1,
+                      lineHeight: 18,
+                    }}>
+                      Remueve al usuario del departamento o reasígnalo a otro
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Text style={{ color: '#3b82f6', fontWeight: '700', fontSize: 13 }}>3.</Text>
+                    <Text style={{
+                      color: '#1f2937',
+                      fontSize: 13,
+                      flex: 1,
+                      lineHeight: 18,
+                    }}>
+                      Regresa aquí y podrás eliminar el usuario
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Botón de cerrar */}
+          <TouchableOpacity
+            style={[modalStyles.btnConfirm, {
+              backgroundColor: '#667eea',
+              width: '100%',
+              paddingVertical: 14,
+              flexDirection: 'row',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }]}
+            onPress={onClose}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="checkmark-circle" size={20} color="#ffffff" style={{ marginRight: 8 }} />
+            <Text style={modalStyles.btnConfirmText}>Entendido</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    </Modal>
   );
 };
 
