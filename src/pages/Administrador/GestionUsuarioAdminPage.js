@@ -44,7 +44,7 @@ const GestionUsuarioPage = () => {
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null);
   const [totalUsuarios, setTotalUsuarios] = useState(0);
-  
+
   // ✅ NUEVOS ESTADOS PARA PAGINACIÓN
   const [skip, setSkip] = useState(0);
   const [limit, setLimit] = useState(50); // Por defecto 50 usuarios
@@ -70,7 +70,7 @@ const GestionUsuarioPage = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const rateLimiter = useRef(SecurityValidator.createRateLimiter()).current;
 
-  
+
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -89,7 +89,7 @@ const GestionUsuarioPage = () => {
     }
   }, [skip, limit]);
 
-// ==================== FILTRADO ====================
+  // ==================== FILTRADO ====================
   useEffect(() => {
     filtrarUsuarios();
   }, [usuarios, busqueda, filtroRol]);
@@ -100,7 +100,7 @@ const GestionUsuarioPage = () => {
 
 
 
-const filtrarUsuarios = () => {
+  const filtrarUsuarios = () => {
     const limiteCheck = rateLimiter.check(30);
     if (!limiteCheck.allowed) {
       Alert.alert('Límite excedido', limiteCheck.message);
@@ -116,7 +116,7 @@ const filtrarUsuarios = () => {
     // Filtrar por búsqueda
     if (busqueda.trim()) {
       const busquedaLower = SecurityValidator.sanitizeText(busqueda).toLowerCase();
-      
+
       resultado = resultado.filter(u => {
         // Sanitizar cada campo antes de comparar
         const nombre = SecurityValidator.sanitizeText(u.persona?.nombre || '').toLowerCase();
@@ -124,12 +124,12 @@ const filtrarUsuarios = () => {
         const username = SecurityValidator.sanitizeText(u.username || '').toLowerCase();
         const email = SecurityValidator.sanitizeText(u.email || '').toLowerCase();
         const cedula = SecurityValidator.sanitizeText(u.persona?.cedula || '');
-        
+
         return nombre.includes(busquedaLower) ||
-              apellido.includes(busquedaLower) ||
-              username.includes(busquedaLower) ||
-              email.includes(busquedaLower) ||
-              cedula.includes(busqueda); // Cédula sin toLowerCase
+          apellido.includes(busquedaLower) ||
+          username.includes(busquedaLower) ||
+          email.includes(busquedaLower) ||
+          cedula.includes(busqueda); // Cédula sin toLowerCase
       });
     }
 
@@ -137,7 +137,7 @@ const filtrarUsuarios = () => {
     if (filtroRol !== 'todos') {
       const rolIdSeguro = parseInt(filtroRol);
       if (!isNaN(rolIdSeguro)) {
-        resultado = resultado.filter(u => 
+        resultado = resultado.filter(u =>
           Array.isArray(u.roles) &&
           u.roles.some(r => r.id_rol === rolIdSeguro)
         );
@@ -164,81 +164,81 @@ const filtrarUsuarios = () => {
   };
 
   const cargarUsuarios = async () => {
-  try {
-    const skipSeguro = Math.max(0, parseInt(skip) || 0);
-    const limitSeguro = Math.max(1, Math.min(200, parseInt(limit) || 50));
-    
-    const response = await usuarioService.listarCompleto({
-      skip: skipSeguro,
-      limit: limitSeguro
-    });
+    try {
+      const skipSeguro = Math.max(0, parseInt(skip) || 0);
+      const limitSeguro = Math.max(1, Math.min(200, parseInt(limit) || 50));
 
-    const listaUsuarios = Array.isArray(response.usuarios) ? response.usuarios : [];
-    
-    // ✅ FILTRAR: Solo mostrar usuarios que SOLO tienen roles de Funcionario
-    const usuariosFiltrados = listaUsuarios.filter(usuario => {
-      const rolesUsuario = usuario.roles || [];
-      
-      // Si no tiene roles, no mostrarlo
-      if (rolesUsuario.length === 0) return false;
-      
-      // Verificar que NINGUNO de sus roles sea de admin/superadmin
-      const tieneRolProhibido = rolesUsuario.some(rol => {
-        const nombreRolLower = (rol.nombre_rol || '').toLowerCase();
-        const nivel = rol.nivel_jerarquia || rol.nivel_acceso || 999;
-        
-        return nivel < 3 || 
-               nombreRolLower.includes('super') || 
-               nombreRolLower.includes('administrador') ||
-               nombreRolLower.includes('admin');
+      const response = await usuarioService.listarCompleto({
+        skip: skipSeguro,
+        limit: limitSeguro
       });
-      
-      return !tieneRolProhibido;
-    });
 
-    setUsuarios(usuariosFiltrados);
-    setTotalUsuarios(usuariosFiltrados.length); // ✅ Actualizar total con usuarios filtrados
-  } catch (error) {
-    console.error('❌ Error cargando usuarios:', error);
-    throw error;
-  }
-};
+      const listaUsuarios = Array.isArray(response.usuarios) ? response.usuarios : [];
+
+      // ✅ FILTRAR: Solo mostrar usuarios que SOLO tienen roles de Funcionario
+      const usuariosFiltrados = listaUsuarios.filter(usuario => {
+        const rolesUsuario = usuario.roles || [];
+
+        // Si no tiene roles, no mostrarlo
+        if (rolesUsuario.length === 0) return false;
+
+        // Verificar que NINGUNO de sus roles sea de admin/superadmin
+        const tieneRolProhibido = rolesUsuario.some(rol => {
+          const nombreRolLower = (rol.nombre_rol || '').toLowerCase();
+          const nivel = rol.nivel_jerarquia || rol.nivel_acceso || 999;
+
+          return nivel < 3 ||
+            nombreRolLower.includes('super') ||
+            nombreRolLower.includes('administrador') ||
+            nombreRolLower.includes('admin');
+        });
+
+        return !tieneRolProhibido;
+      });
+
+      setUsuarios(usuariosFiltrados);
+      setTotalUsuarios(usuariosFiltrados.length); // ✅ Actualizar total con usuarios filtrados
+    } catch (error) {
+      console.error('❌ Error cargando usuarios:', error);
+      throw error;
+    }
+  };
 
   const cargarRoles = async () => {
-  try {
-    const response = await rolService.listarRoles({
-      skip: 0,
-      limit: 100,
-      solo_activos: true
-    });
-    
-    let listaRoles = [];
-    if (Array.isArray(response)) {
-      listaRoles = response;
-    } else if (response && Array.isArray(response.data)) {
-      listaRoles = response.data;
+    try {
+      const response = await rolService.listarRoles({
+        skip: 0,
+        limit: 100,
+        solo_activos: true
+      });
+
+      let listaRoles = [];
+      if (Array.isArray(response)) {
+        listaRoles = response;
+      } else if (response && Array.isArray(response.data)) {
+        listaRoles = response.data;
+      }
+
+      // ✅ FILTRAR: Solo mostrar roles de Funcionario (nivel >= 3)
+      const rolesValidos = listaRoles.filter(rol => {
+        if (!rol || typeof rol.id_rol !== 'number' || rol.id_rol <= 0) return false;
+
+        const nombreRolLower = (rol.nombre_rol || '').toLowerCase();
+        const nivel = rol.nivel_jerarquia || rol.nivel_acceso || 999;
+
+        // ✅ Solo permitir roles con nivel >= 3 Y que NO sean admin/superadmin
+        return nivel >= 3 &&
+          !nombreRolLower.includes('super') &&
+          !nombreRolLower.includes('administrador') &&
+          !nombreRolLower.includes('admin');
+      });
+
+      setRoles(rolesValidos);
+    } catch (error) {
+      console.error('Error cargando roles:', error);
+      throw error;
     }
-
-    // ✅ FILTRAR: Solo mostrar roles de Funcionario (nivel >= 3)
-    const rolesValidos = listaRoles.filter(rol => {
-      if (!rol || typeof rol.id_rol !== 'number' || rol.id_rol <= 0) return false;
-      
-      const nombreRolLower = (rol.nombre_rol || '').toLowerCase();
-      const nivel = rol.nivel_jerarquia || rol.nivel_acceso || 999;
-      
-      // ✅ Solo permitir roles con nivel >= 3 Y que NO sean admin/superadmin
-      return nivel >= 3 && 
-             !nombreRolLower.includes('super') && 
-             !nombreRolLower.includes('administrador') &&
-             !nombreRolLower.includes('admin');
-    });
-
-    setRoles(rolesValidos);
-  } catch (error) {
-    console.error('Error cargando roles:', error);
-    throw error;
-  }
-};
+  };
 
   // ==================== FUNCIONES DE NAVEGACIÓN ====================
   const abrirFormularioNuevo = () => {
@@ -261,16 +261,16 @@ const filtrarUsuarios = () => {
     if (exito) {
       // ✅ PRIMERO CERRAR EL FORMULARIO
       cerrarFormulario();
-      
+
       // ✅ LUEGO RECARGAR USUARIOS
       setLoading(true);
       try {
         await cargarUsuarios();
-        
+
         Alert.alert(
           'Éxito',
-          usuarioSeleccionado 
-            ? 'Usuario actualizado correctamente' 
+          usuarioSeleccionado
+            ? 'Usuario actualizado correctamente'
             : 'Usuario creado correctamente'
         );
       } catch (error) {
@@ -284,10 +284,10 @@ const filtrarUsuarios = () => {
     }
   };
 
-const confirmarEliminar = async (usuario) => {
+  const confirmarEliminar = async (usuario) => {
     console.log('🔵 [confirmarEliminar] INICIADO');
     console.log('🔵 Usuario recibido:', usuario);
-    
+
     if (!usuario || !usuario.id_usuario) {
       console.log('❌ Usuario inválido, mostrando notificación');
       setModalNotification({
@@ -301,7 +301,7 @@ const confirmarEliminar = async (usuario) => {
     // ✅ VALIDAR QUE NO SE ELIMINE A SÍ MISMO
     try {
       const miIdUsuario = await getUserIdFromToken();
-      
+
       if (usuario.id_usuario === miIdUsuario) {
         console.log('❌ Intento de auto-eliminación bloqueado');
         setModalNotification({
@@ -316,9 +316,9 @@ const confirmarEliminar = async (usuario) => {
     }
 
     const usernameSeguro = SecurityValidator.sanitizeText(usuario.username || 'este usuario');
-    
+
     console.log('✅ Mostrando modal de confirmación');
-    
+
     setModalConfirm({
       visible: true,
       title: 'Confirmar Eliminación',
@@ -332,13 +332,13 @@ const confirmarEliminar = async (usuario) => {
     });
   };
 
-const eliminarUsuario = async (id_usuario) => {
+  const eliminarUsuario = async (id_usuario) => {
     console.log('🔍 [eliminarUsuario] Iniciando eliminación...');
     console.log('🔍 [eliminarUsuario] ID recibido:', id_usuario);
-    
+
     const idSeguro = parseInt(id_usuario);
     console.log('🔍 [eliminarUsuario] ID parseado:', idSeguro);
-    
+
     if (isNaN(idSeguro) || idSeguro <= 0) {
       console.error('❌ ID inválido:', idSeguro);
       Alert.alert('Error', 'ID de usuario inválido');
@@ -347,21 +347,21 @@ const eliminarUsuario = async (id_usuario) => {
 
     console.log('✅ [eliminarUsuario] ID validado, llamando al servicio...');
     setLoading(true);
-    
+
     try {
       console.log('📤 [eliminarUsuario] Llamando a usuarioService.delete...');
       const response = await usuarioService.delete(idSeguro);
-      
+
       console.log('✅ [eliminarUsuario] Respuesta del servicio:', response);
-      
+
       // Actualizar el estado local para que aparezca como inactivo
       console.log('🔄 [eliminarUsuario] Actualizando estado local...');
       setUsuarios(prevUsuarios => {
         const nuevosUsuarios = prevUsuarios.map(u => {
           if (u.id_usuario === idSeguro) {
             console.log('🔄 Usuario encontrado, cambiando estado a inactivo:', u.username);
-            return { 
-              ...u, 
+            return {
+              ...u,
               estado: 'inactivo',
               persona: u.persona ? { ...u.persona, estado: 'inactivo' } : null
             };
@@ -371,19 +371,19 @@ const eliminarUsuario = async (id_usuario) => {
         console.log('✅ [eliminarUsuario] Estado local actualizado');
         return nuevosUsuarios;
       });
-      
+
       setModalNotification({
         visible: true,
         message: 'Usuario eliminado correctamente',
         type: 'success'
       });
       console.log('✅ [eliminarUsuario] Proceso completado');
-      
+
     } catch (error) {
       console.error('❌ [eliminarUsuario] ERROR COMPLETO:', error);
       console.error('❌ [eliminarUsuario] Error.message:', error.message);
       console.error('❌ [eliminarUsuario] Error.data:', error.data);
-      
+
       const mensajeError = SecurityValidator.sanitizeText(
         error.message || 'No se pudo eliminar el usuario'
       );
@@ -398,7 +398,7 @@ const eliminarUsuario = async (id_usuario) => {
     }
   };
 
-const confirmarReactivar = (usuario) => {
+  const confirmarReactivar = (usuario) => {
     if (!usuario || !usuario.id_usuario) {
       setModalNotification({
         visible: true,
@@ -409,7 +409,7 @@ const confirmarReactivar = (usuario) => {
     }
 
     const usernameSeguro = SecurityValidator.sanitizeText(usuario.username || 'este usuario');
-    
+
     setModalConfirm({
       visible: true,
       title: 'Confirmar Reactivación',
@@ -432,22 +432,22 @@ const confirmarReactivar = (usuario) => {
     setLoading(true);
     try {
       const response = await usuarioService.reactivar(idSeguro);
-      
+
       console.log('✅ Usuario reactivado:', response);
-      
+
       // Actualizar el estado local para que aparezca como activo
-      setUsuarios(prevUsuarios => 
-        prevUsuarios.map(u => 
-          u.id_usuario === idSeguro 
-            ? { 
-                ...u, 
-                estado: 'activo',
-                persona: u.persona ? { ...u.persona, estado: 'activo' } : null
-              }
+      setUsuarios(prevUsuarios =>
+        prevUsuarios.map(u =>
+          u.id_usuario === idSeguro
+            ? {
+              ...u,
+              estado: 'activo',
+              persona: u.persona ? { ...u.persona, estado: 'activo' } : null
+            }
             : u
         )
       );
-      
+
       setModalNotification({
         visible: true,
         message: 'Usuario reactivado correctamente',
@@ -469,23 +469,23 @@ const confirmarReactivar = (usuario) => {
   };
 
 
-// ✅ CONTAR USUARIOS POR ROL (solo activos, sin aplicar filtros de búsqueda/rol)
-const contarPorRol = (idRol) => {
-  const lista = Array.isArray(usuarios) 
-    ? usuarios.filter(u => u.estado?.toLowerCase() !== 'inactivo')
-    : [];
-  
-  if (idRol === 'todos') return lista.length;
+  // ✅ CONTAR USUARIOS POR ROL (solo activos, sin aplicar filtros de búsqueda/rol)
+  const contarPorRol = (idRol) => {
+    const lista = Array.isArray(usuarios)
+      ? usuarios.filter(u => u.estado?.toLowerCase() !== 'inactivo')
+      : [];
 
-  // Validar que idRol sea un número válido
-  const rolIdSeguro = parseInt(idRol);
-  if (isNaN(rolIdSeguro)) return 0;
+    if (idRol === 'todos') return lista.length;
 
-  return lista.filter(u => 
-    Array.isArray(u.roles) &&
-    u.roles.some(r => r.id_rol === rolIdSeguro)
-  ).length;
-};
+    // Validar que idRol sea un número válido
+    const rolIdSeguro = parseInt(idRol);
+    if (isNaN(rolIdSeguro)) return 0;
+
+    return lista.filter(u =>
+      Array.isArray(u.roles) &&
+      u.roles.some(r => r.id_rol === rolIdSeguro)
+    ).length;
+  };
 
   // ✅ PAGINACIÓN
   const totalPaginas = Math.ceil(totalUsuarios / limit);
@@ -496,7 +496,7 @@ const contarPorRol = (idRol) => {
     if (isNaN(paginaSegura) || paginaSegura < 1 || paginaSegura > totalPaginas) {
       return;
     }
-    
+
     setPaginaActual(paginaSegura);
     setSkip((paginaSegura - 1) * limit);
   };
@@ -508,7 +508,7 @@ const contarPorRol = (idRol) => {
       Alert.alert('Error', 'El límite debe estar entre 10 y 200');
       return;
     }
-    
+
     setLimit(limitSeguro);
     setSkip(0);
     setPaginaActual(1);
@@ -518,7 +518,7 @@ const contarPorRol = (idRol) => {
   return (
     <View style={contentStyles.wrapper}>
       {/* Sidebar */}
-      <AdminSidebar 
+      <AdminSidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
       />
@@ -546,7 +546,7 @@ const contarPorRol = (idRol) => {
 
       {/* Contenido Principal */}
       <View style={[
-        contentStyles.mainContent, 
+        contentStyles.mainContent,
         sidebarOpen && contentStyles.mainContentWithSidebar
       ]}>
         {loading ? (
@@ -562,7 +562,7 @@ const contarPorRol = (idRol) => {
             onGuardado={handleGuardado}
           />
         ) : (
-          <ScrollView 
+          <ScrollView
             style={styles.container}
             showsVerticalScrollIndicator={false}
           >
@@ -584,7 +584,7 @@ const contarPorRol = (idRol) => {
                       </Text>
                     </View>
                   </View>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.btnAdd}
                     onPress={abrirFormularioNuevo}
                     activeOpacity={0.8}
@@ -621,8 +621,8 @@ const contarPorRol = (idRol) => {
                 </View>
 
                 {/* ✅ FILTROS DE ROL DINÁMICOS */}
-                <ScrollView 
-                  horizontal 
+                <ScrollView
+                  horizontal
                   showsHorizontalScrollIndicator={false}
                   style={styles.filtersContainer}
                 >
@@ -669,7 +669,7 @@ const contarPorRol = (idRol) => {
             </LinearGradient>
 
             {/* Lista de usuarios */}
-            <ScrollView 
+            <ScrollView
               style={styles.listaContainer}
               showsVerticalScrollIndicator={false}
             >
@@ -677,21 +677,21 @@ const contarPorRol = (idRol) => {
                 <View style={styles.emptyContainer}>
                   <Users size={60} color="#9CA3AF" />
                   <Text style={styles.emptyText}>
-                    {busqueda || filtroRol !== 'todos' 
-                      ? 'No se encontraron usuarios' 
+                    {busqueda || filtroRol !== 'todos'
+                      ? 'No se encontraron usuarios'
                       : 'No hay usuarios registrados'}
                   </Text>
                 </View>
               ) : (
                 usuariosFiltrados.map((usuario, index) => (
-              <UsuarioCard
-                key={usuario.id_usuario}
-                usuario={usuario}
-                onEditar={() => abrirFormularioEditar(usuario)}
-                onEliminar={() => confirmarEliminar(usuario)}
-                onReactivar={() => confirmarReactivar(usuario)}
-                index={index}
-              />
+                  <UsuarioCard
+                    key={usuario.id_usuario}
+                    usuario={usuario}
+                    onEditar={() => abrirFormularioEditar(usuario)}
+                    onEliminar={() => confirmarEliminar(usuario)}
+                    onReactivar={() => confirmarReactivar(usuario)}
+                    index={index}
+                  />
                 ))
               )}
 
@@ -721,7 +721,7 @@ const contarPorRol = (idRol) => {
               )}
             </ScrollView>
           </ScrollView>
-)}
+        )}
       </View>
 
       {/* Modales */}
