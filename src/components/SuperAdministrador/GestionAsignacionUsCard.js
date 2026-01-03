@@ -12,11 +12,11 @@ import { styles } from '../../styles/GestionAsignacionUsStyles';
 // ============================================
 // DEPARTAMENTO CARD
 // ============================================
-export const DepartamentoCard = ({ 
-  departamento, 
-  onPress, 
+export const DepartamentoCard = ({
+  departamento,
+  onPress,
   isSelected = false,
-  showRadio = false 
+  showRadio = false
 }) => {
   return (
     <TouchableOpacity
@@ -28,9 +28,9 @@ export const DepartamentoCard = ({
     >
       <View style={styles.deptCardHeader}>
         {showRadio ? (
-          <Ionicons 
-            name={isSelected ? "radio-button-on" : "radio-button-off"} 
-            size={24} 
+          <Ionicons
+            name={isSelected ? "radio-button-on" : "radio-button-off"}
+            size={24}
             color={isSelected ? "#3b82f6" : "#94a3b8"}
           />
         ) : (
@@ -40,16 +40,16 @@ export const DepartamentoCard = ({
         )}
         <Text style={styles.deptCardCode}>{departamento.codigo}</Text>
       </View>
-      
+
       <Text style={styles.deptCardName}>{departamento.nombre}</Text>
-      
+
       {departamento.facultad && (
         <View style={styles.deptFacultadBadge}>
           <Ionicons name="school" size={12} color="#8b5cf6" />
           <Text style={styles.deptFacultadText}>{departamento.facultad}</Text>
         </View>
       )}
-      
+
       {!showRadio && (
         <View style={styles.deptCardFooter}>
           <Ionicons name="chevron-forward" size={20} color="#3b82f6" />
@@ -62,9 +62,9 @@ export const DepartamentoCard = ({
 // ============================================
 // USUARIO CARD
 // ============================================
-export const UsuarioCard = ({ 
-  usuario, 
-  isSelected = false, 
+export const UsuarioCard = ({
+  usuario,
+  isSelected = false,
   onPress,
   showCheckbox = false,
   showChevron = false,
@@ -72,10 +72,12 @@ export const UsuarioCard = ({
   checkboxColor = "#3b82f6",
   selectedStyle = "blue",
   onPressEditPermisos = null,
-  showEditPermisosButton = false
+  showEditPermisosButton = false,
+  showRevokeButton = false,
+  onPressRevoke = null
 }) => {
-  const selectedStyleClass = selectedStyle === "green" 
-    ? styles.usuarioCardSelectedGreen 
+  const selectedStyleClass = selectedStyle === "green"
+    ? styles.usuarioCardSelectedGreen
     : styles.usuarioCardSelected;
 
   return (
@@ -88,19 +90,19 @@ export const UsuarioCard = ({
       activeOpacity={0.7}
     >
       {showCheckbox && (
-        <Ionicons 
-          name={isSelected ? "checkbox" : "square-outline"} 
-          size={24} 
+        <Ionicons
+          name={isSelected ? "checkbox" : "square-outline"}
+          size={24}
           color={isSelected ? checkboxColor : "#94a3b8"}
         />
       )}
-      
+
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>
           {usuario.persona?.nombre?.charAt(0)}{usuario.persona?.apellido?.charAt(0)}
         </Text>
       </View>
-      
+
       <View style={styles.usuarioInfo}>
         <Text style={styles.usuarioNombre}>
           {usuario.persona?.nombre} {usuario.persona?.apellido}
@@ -120,7 +122,7 @@ export const UsuarioCard = ({
           <Text style={styles.usuarioCargo}>{usuario.persona.cargo}</Text>
         )}
       </View>
-      
+
       {showNoDeptBadge && (
         <View style={styles.noDeptBadge}>
           <Text style={styles.noDeptBadgeText}>Sin Depto</Text>
@@ -128,11 +130,64 @@ export const UsuarioCard = ({
       )}
 
       {showChevron && (
-        <Ionicons 
-          name="chevron-forward" 
-          size={20} 
-          color="#cbd5e1" 
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color="#cbd5e1"
         />
+      )}
+
+      {/* Botones de Acción */}
+      {(showEditPermisosButton || showRevokeButton) && (
+        <View style={{ flexDirection: 'row', gap: 8, marginLeft: 8 }}>
+          {showEditPermisosButton && onPressEditPermisos && (
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#667eea',
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 6,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+              }}
+              onPress={(e) => {
+                e.stopPropagation();
+                onPressEditPermisos(usuario);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="settings-outline" size={14} color="#ffffff" />
+              <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '600' }}>
+                Editar
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {showRevokeButton && onPressRevoke && (
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#ef4444',
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 6,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+              }}
+              onPress={(e) => {
+                e.stopPropagation();
+                onPressRevoke(usuario);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close-circle-outline" size={14} color="#ffffff" />
+              <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '600' }}>
+                Revocar
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       )}
     </TouchableOpacity>
   );
@@ -152,7 +207,7 @@ export const InfoCard = ({ icon, color, text }) => {
 // ============================================
 // RESUMEN CARD
 // ============================================
-export const ResumenCard = ({ 
+export const ResumenCard = ({
   selectedCount,
   departamentoOrigen,
   departamentoDestino,
@@ -165,24 +220,24 @@ export const ResumenCard = ({
   return (
     <View style={styles.resumenCard}>
       <View style={styles.resumenHeader}>
-        <Ionicons 
-          name="information-circle" 
-          size={24} 
-          color={isAsignacion ? "#10b981" : "#3b82f6"} 
+        <Ionicons
+          name="information-circle"
+          size={24}
+          color={isAsignacion ? "#10b981" : "#3b82f6"}
         />
         <Text style={styles.resumenTitle}>
           {isAsignacion ? "Resumen de Asignación" : "Resumen del Cambio"}
         </Text>
       </View>
-      
+
       <View style={styles.resumenContent}>
         <View style={styles.resumenRow}>
           <Text style={styles.resumenLabel}>Usuarios seleccionados:</Text>
           <Text style={styles.resumenValue}>{selectedCount}</Text>
         </View>
-        
+
         <View style={styles.resumenDivider} />
-        
+
         {!isAsignacion && departamentoOrigen && (
           <>
             <View style={styles.resumenRow}>
@@ -195,19 +250,19 @@ export const ResumenCard = ({
                 </View>
               </View>
             </View>
-            
+
             <View style={styles.resumenArrow}>
               <Ionicons name="arrow-down" size={24} color="#3b82f6" />
             </View>
           </>
         )}
-        
+
         <View style={styles.resumenRow}>
           <View style={styles.resumenDept}>
-            <Ionicons 
-              name="business" 
-              size={16} 
-              color={isAsignacion ? "#10b981" : "#3b82f6"} 
+            <Ionicons
+              name="business"
+              size={16}
+              color={isAsignacion ? "#10b981" : "#3b82f6"}
             />
             <View>
               <Text style={styles.resumenDeptLabel}>
@@ -218,7 +273,7 @@ export const ResumenCard = ({
             </View>
           </View>
         </View>
-        
+
         <View style={styles.resumenDivider} />
       </View>
 
@@ -250,12 +305,13 @@ export const ResumenCard = ({
 // ============================================
 // USUARIO DETALLE MODAL
 // ============================================
-export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos }) => {  return (
+export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos, onRevocarAsignacion }) => {
+  return (
     <View style={styles.modalOverlay}>
       <View style={styles.modalContent}>
         <ScrollView style={styles.modalScroll}>
-          
-{/* Header del Modal */}
+
+          {/* Header del Modal */}
           <View style={styles.modalHeader}>
             <View style={styles.modalHeaderLeft}>
               <View style={styles.avatarLarge}>
@@ -273,7 +329,7 @@ export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos }) => {
                 </Text>
               </View>
             </View>
-            
+
             {/* Botones de Acción */}
             <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
               {/* Botón Editar Permisos */}
@@ -282,7 +338,7 @@ export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos }) => {
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
-                    backgroundColor: '#f59e0b',
+                    backgroundColor: '#667eea',
                     paddingVertical: 10,
                     paddingHorizontal: 16,
                     borderRadius: 8,
@@ -296,7 +352,31 @@ export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos }) => {
                   </Text>
                 </TouchableOpacity>
               )}
-              
+
+              {/* Botón Revocar Asignación */}
+              {onRevocarAsignacion && usuario.departamento && (
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: '#ef4444',
+                    paddingVertical: 10,
+                    paddingHorizontal: 16,
+                    borderRadius: 8,
+                    gap: 6
+                  }}
+                  onPress={() => {
+                    onClose();
+                    onRevocarAsignacion(usuario);
+                  }}
+                >
+                  <Ionicons name="trash-outline" size={18} color="white" />
+                  <Text style={{ color: 'white', fontSize: 14, fontWeight: '600' }}>
+                    Revocar Asignación
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               {/* Botón Cerrar */}
               <TouchableOpacity
                 style={styles.closeButton}
@@ -313,7 +393,7 @@ export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos }) => {
               <Ionicons name="person" size={20} color="#3b82f6" />
               <Text style={styles.modalSectionTitle}>Información Personal</Text>
             </View>
-            
+
             <View style={styles.infoGrid}>
               <View style={styles.infoItem}>
                 <Text style={styles.infoLabel}>Cédula</Text>
@@ -321,19 +401,19 @@ export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos }) => {
                   {usuario.persona?.cedula || 'N/A'}
                 </Text>
               </View>
-              
+
               <View style={styles.infoItem}>
                 <Text style={styles.infoLabel}>Email</Text>
                 <Text style={styles.infoValue}>{usuario.email}</Text>
               </View>
-              
+
               <View style={styles.infoItem}>
                 <Text style={styles.infoLabel}>Teléfono</Text>
                 <Text style={styles.infoValue}>
                   {usuario.persona?.telefono || 'N/A'}
                 </Text>
               </View>
-              
+
               <View style={styles.infoItem}>
                 <Text style={styles.infoLabel}>Cargo</Text>
                 <Text style={styles.infoValue}>
@@ -349,7 +429,7 @@ export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos }) => {
               <Ionicons name="briefcase" size={20} color="#8b5cf6" />
               <Text style={styles.modalSectionTitle}>Información de Usuario</Text>
             </View>
-            
+
             <View style={styles.infoGrid}>
               <View style={styles.infoItem}>
                 <Text style={styles.infoLabel}>Departamento</Text>
@@ -357,7 +437,7 @@ export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos }) => {
                   {usuario.departamento?.nombre || 'Sin departamento'}
                 </Text>
               </View>
-              
+
               <View style={styles.infoItem}>
                 <Text style={styles.infoLabel}>Estado</Text>
                 <View style={[
@@ -370,7 +450,7 @@ export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos }) => {
                   </Text>
                 </View>
               </View>
-              
+
               <View style={styles.infoItem}>
                 <Text style={styles.infoLabel}>Roles</Text>
                 <View style={styles.rolesContainer}>
@@ -395,73 +475,73 @@ export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos }) => {
               <Ionicons name="lock-closed" size={20} color="#ef4444" />
               <Text style={styles.modalSectionTitle}>Permisos del Usuario</Text>
             </View>
-            
+
             <View style={styles.permisosGrid}>
-              <PermisoItem 
-                icon="eye" 
-                color="#3b82f6" 
-                label="Ver Contenido" 
-                value={true} 
+              <PermisoItem
+                icon="eye"
+                color="#3b82f6"
+                label="Ver Contenido"
+                value={true}
               />
-              <PermisoItem 
-                icon="add-circle" 
-                color="#10b981" 
-                label="Crear Contenido" 
-                value={false} 
+              <PermisoItem
+                icon="add-circle"
+                color="#10b981"
+                label="Crear Contenido"
+                value={false}
               />
-              <PermisoItem 
-                icon="create" 
-                color="#f59e0b" 
-                label="Editar Contenido" 
-                value={true} 
+              <PermisoItem
+                icon="create"
+                color="#f59e0b"
+                label="Editar Contenido"
+                value={true}
               />
-              <PermisoItem 
-                icon="trash" 
-                color="#ef4444" 
-                label="Eliminar Contenido" 
-                value={false} 
+              <PermisoItem
+                icon="trash"
+                color="#ef4444"
+                label="Eliminar Contenido"
+                value={false}
               />
-              <PermisoItem 
-                icon="paper-plane" 
-                color="#8b5cf6" 
-                label="Publicar Contenido" 
-                value={true} 
+              <PermisoItem
+                icon="paper-plane"
+                color="#8b5cf6"
+                label="Publicar Contenido"
+                value={true}
               />
-              <PermisoItem 
-                icon="stats-chart" 
-                color="#06b6d4" 
-                label="Ver Métricas" 
-                value={false} 
+              <PermisoItem
+                icon="stats-chart"
+                color="#06b6d4"
+                label="Ver Métricas"
+                value={false}
               />
-              <PermisoItem 
-                icon="download" 
-                color="#14b8a6" 
-                label="Exportar Datos" 
-                value={true} 
+              <PermisoItem
+                icon="download"
+                color="#14b8a6"
+                label="Exportar Datos"
+                value={true}
               />
-              <PermisoItem 
-                icon="settings" 
-                color="#6366f1" 
-                label="Configurar Agente" 
-                value={false} 
+              <PermisoItem
+                icon="settings"
+                color="#6366f1"
+                label="Configurar Agente"
+                value={false}
               />
-              <PermisoItem 
-                icon="key" 
-                color="#dc2626" 
-                label="Gestionar Permisos" 
-                value={false} 
+              <PermisoItem
+                icon="key"
+                color="#dc2626"
+                label="Gestionar Permisos"
+                value={false}
               />
-              <PermisoItem 
-                icon="list" 
-                color="#f59e0b" 
-                label="Gestionar Categorías" 
-                value={true} 
+              <PermisoItem
+                icon="list"
+                color="#f59e0b"
+                label="Gestionar Categorías"
+                value={true}
               />
-              <PermisoItem 
-                icon="grid" 
-                color="#8b5cf6" 
-                label="Gestionar Widgets" 
-                value={false} 
+              <PermisoItem
+                icon="grid"
+                color="#8b5cf6"
+                label="Gestionar Widgets"
+                value={false}
               />
             </View>
 
@@ -497,13 +577,13 @@ const PermisoItem = ({ icon, color, label, value }) => {
         <Text style={styles.permisoLabel}>{label}</Text>
       </View>
       <View style={[
-        styles.permisoToggle, 
+        styles.permisoToggle,
         value ? styles.permisoTrue : styles.permisoFalse
       ]}>
-        <Ionicons 
-          name={value ? "checkmark-circle" : "close-circle"} 
-          size={16} 
-          color={value ? "#10b981" : "#ef4444"} 
+        <Ionicons
+          name={value ? "checkmark-circle" : "close-circle"}
+          size={16}
+          color={value ? "#10b981" : "#ef4444"}
         />
         <Text style={value ? styles.permisoValueTrue : styles.permisoValueFalse}>
           {value ? "TRUE" : "FALSE"}

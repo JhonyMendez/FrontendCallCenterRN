@@ -25,7 +25,7 @@ export const usuarioAgenteService = {
     return await apiClient.get(endpoint);
   },
 
-  // ✅ NUEVO: Obtener permisos de un usuario para un agente específico
+  // Obtener permisos de un usuario para un agente específico
   obtenerPorUsuarioYAgente: async (idUsuario, idAgente) => {
     try {
       const response = await apiClient.get(
@@ -38,12 +38,12 @@ export const usuarioAgenteService = {
     }
   },
 
-  // ✅ NUEVO: Alias para obtener por usuario (útil para la alternativa)
+  // Alias para obtener por usuario
   obtenerPorUsuario: async (idUsuario) => {
     return await apiClient.get(ENDPOINTS.USUARIO_AGENTE.BY_USUARIO(idUsuario));
   },
 
-  // ✅ CORREGIDO: Actualizar permisos (nombre correcto del método)
+  // Actualizar permisos
   actualizar: async (idUsuario, idAgente, data) => {
     return await apiClient.put(
       `${ENDPOINTS.USUARIO_AGENTE.BASE}/usuario/${idUsuario}/agente/${idAgente}`,
@@ -56,7 +56,21 @@ export const usuarioAgenteService = {
     return await apiClient.put(ENDPOINTS.USUARIO_AGENTE.BY_ID(id), data);
   },
 
-  // Revocar acceso
+  // ✅ NUEVO: Eliminar completamente el registro usuario-agente
+  eliminar: async (idUsuario, idAgente) => {
+    try {
+      const response = await apiClient.delete(
+        `${ENDPOINTS.USUARIO_AGENTE.BASE}/usuario/${idUsuario}/agente/${idAgente}`
+      );
+      console.log(`✅ Registro eliminado: Usuario ${idUsuario} - Agente ${idAgente}`);
+      return response;
+    } catch (error) {
+      console.error(`❌ Error eliminando registro usuario ${idUsuario} - agente ${idAgente}:`, error);
+      throw error;
+    }
+  },
+
+  // Revocar acceso (método original - podría usar el nuevo eliminar internamente)
   revocarAcceso: async (id) => {
     return await apiClient.delete(ENDPOINTS.USUARIO_AGENTE.BY_ID(id));
   },
