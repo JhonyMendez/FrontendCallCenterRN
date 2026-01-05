@@ -33,8 +33,16 @@ export const contenidoService = {
     return await apiClient.post(ENDPOINTS.CONTENIDOS.PUBLICAR(id));
   },
 
+  
+
   // 🔥 Eliminar contenido (soft delete permanente)
   softDelete: async (id) => {
     return await apiClient.delete(`${ENDPOINTS.CONTENIDOS.BY_ID(id)}?hard_delete=false`);
+  },
+
+  // 🔥 AGREGAR ESTE MÉTODO AL FINAL
+  actualizarVigencias: async () => {
+    return await apiClient.post('/contenidos/vigencia/actualizar-todos', {});
   }
 };
+

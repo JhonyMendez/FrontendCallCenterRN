@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   Text,
@@ -55,6 +57,8 @@ const GestionContenidoPage = () => {
   const [contenidoView, setContenidoView] = useState(null);
   const [modalEliminarVisible, setModalEliminarVisible] = useState(false);
   const [contenidoAEliminar, setContenidoAEliminar] = useState(null);
+  const [showPickerInicio, setShowPickerInicio] = useState(false);
+  const [showPickerFin, setShowPickerFin] = useState(false);
 
   const [formData, setFormData] = useState({
     id_contenido: null,
@@ -67,7 +71,9 @@ const GestionContenidoPage = () => {
     palabras_clave: '',
     etiquetas: '',
     prioridad: 5,
-    estado: 'borrador'
+    estado: 'borrador',
+    fecha_vigencia_inicio: null,
+    fecha_vigencia_fin: null
   });
 
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
@@ -83,7 +89,9 @@ const GestionContenidoPage = () => {
     palabras_clave: '',
     etiquetas: '',
     prioridad: '',
-    estado: ''
+    estado: '',
+    fecha_vigencia_inicio: '',
+    fecha_vigencia_fin: ''
   });
 
   const cerrarModalView = () => {
@@ -91,7 +99,7 @@ const GestionContenidoPage = () => {
     setContenidoView(null);
   };
 
-  const mostrarNotificacionExito = (mensaje) => {
+  const mostrarNotificacionExito = (mensaje, tipo = 'success') => {
     setSuccessMessage(mensaje);
     setShowSuccessNotification(true);
 
@@ -236,7 +244,9 @@ const GestionContenidoPage = () => {
           palabras_clave: contenido.palabras_clave || '',
           etiquetas: contenido.etiquetas || '',
           prioridad: contenido.prioridad,
-          estado: contenido.estado
+          estado: contenido.estado,
+          fecha_vigencia_inicio: contenido.fecha_vigencia_inicio || null,
+          fecha_vigencia_fin: contenido.fecha_vigencia_fin || null
         });
 
         // 🔥 TERCERO: Abrir el modal DESPUÉS de cargar todo
@@ -251,7 +261,7 @@ const GestionContenidoPage = () => {
       setEditando(false);
       setFormData({
         id_contenido: null,
-        id_agente: selectedAgente || '',
+        id_agente: '',
         id_categoria: '',
         id_departamento: '',
         titulo: '',
@@ -260,7 +270,9 @@ const GestionContenidoPage = () => {
         palabras_clave: '',
         etiquetas: '',
         prioridad: 5,
-        estado: 'borrador'
+        estado: 'borrador',
+        fecha_vigencia_inicio: null,
+        fecha_vigencia_fin: null
       });
       setModalVisible(true);
     }
@@ -273,7 +285,6 @@ const GestionContenidoPage = () => {
     setSearchEstado('');
     setSearchCategoria(''); // 🔥 Limpiar búsqueda de categorías
 
-    // 🔥 NUEVO: Limpiar completamente el formulario
     setFormData({
       id_contenido: null,
       id_agente: '',
@@ -285,7 +296,10 @@ const GestionContenidoPage = () => {
       palabras_clave: '',
       etiquetas: '',
       prioridad: 5,
-      estado: 'borrador'
+      estado: 'borrador',
+      // 🔥 NUEVOS CAMPOS
+      fecha_vigencia_inicio: null,
+      fecha_vigencia_fin: null
     });
 
     setErrores({
@@ -296,7 +310,10 @@ const GestionContenidoPage = () => {
       palabras_clave: '',
       etiquetas: '',
       prioridad: '',
-      estado: ''
+      estado: '',
+      // 🔥 NUEVOS CAMPOS
+      fecha_vigencia_inicio: '',
+      fecha_vigencia_fin: ''
     });
   };
 
@@ -365,6 +382,26 @@ const GestionContenidoPage = () => {
       if (!formData.estado) {
         nuevosErrores.estado = '⚠️ Debes seleccionar un estado';
         hayErrores = true;
+      }
+
+      if (formData.fecha_vigencia_inicio && !formData.fecha_vigencia_fin) {
+        nuevosErrores.fecha_vigencia_fin = '⚠️ Si defines fecha de inicio, debes definir fecha de fin';
+        hayErrores = true;
+      }
+
+      if (!formData.fecha_vigencia_inicio && formData.fecha_vigencia_fin) {
+        nuevosErrores.fecha_vigencia_inicio = '⚠️ Si defines fecha de fin, debes definir fecha de inicio';
+        hayErrores = true;
+      }
+
+      if (formData.fecha_vigencia_inicio && formData.fecha_vigencia_fin) {
+        const inicio = new Date(formData.fecha_vigencia_inicio);
+        const fin = new Date(formData.fecha_vigencia_fin);
+
+        if (fin < inicio) {
+          nuevosErrores.fecha_vigencia_fin = '⚠️ La fecha de fin no puede ser anterior a la fecha de inicio';
+          hayErrores = true;
+        }
       }
 
       setErrores(nuevosErrores);
@@ -445,7 +482,10 @@ const GestionContenidoPage = () => {
           palabras_clave: formData.palabras_clave,
           etiquetas: formData.etiquetas,
           prioridad: parseInt(formData.prioridad),
-          estado: formData.estado
+          estado: formData.estado,
+          // 🔥 NUEVOS CAMPOS
+          fecha_vigencia_inicio: formData.fecha_vigencia_inicio || null,
+          fecha_vigencia_fin: formData.fecha_vigencia_fin || null
         };
 
         console.log('📤 Datos a enviar:', JSON.stringify(dataToSend, null, 2));
@@ -764,7 +804,6 @@ const GestionContenidoPage = () => {
                     )}
                   </ScrollView>
 
-
                   {/* Botón Nuevo */}
                   <TouchableOpacity
                     onPress={() => abrirModal()}
@@ -773,8 +812,48 @@ const GestionContenidoPage = () => {
                     <Ionicons name="add-circle" size={22} color="white" />
                     <Text style={styles.btnNuevoText}>Nuevo Contenido</Text>
                   </TouchableOpacity>
+
+                  {/* 🔥 NUEVO: Botón Actualizar Vigencias */}
+                  <TouchableOpacity
+                    onPress={async () => {
+                      try {
+                        setLoading(true);
+
+                        const result = await contenidoService.actualizarVigencias();
+
+                        mostrarNotificacionExito(
+                          `✅ Vigencias actualizadas: ${result.actualizados} de ${result.total_revisados} contenidos`
+                        );
+                        await cargarContenidos();
+
+                      } catch (error) {
+                        console.error('❌ Error actualizando vigencias:', error);
+                        mostrarNotificacionExito('❌ Error al actualizar vigencias');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: 'rgba(52, 152, 219, 0.4)',
+                      marginTop: 8,
+                    }}
+                  >
+                    <Ionicons name="sync" size={18} color="#3498db" />
+                    <Text style={{ color: '#3498db', fontWeight: '600', fontSize: 14 }}>
+                      🔄 Actualizar Vigencias
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-              </View>  {/* 🔥 AGREGAR ESTA LÍNEA - Cierra filtrosContainer */}
+              </View>
 
 
               {/* Lista de contenidos */}
@@ -1660,6 +1739,424 @@ const GestionContenidoPage = () => {
                 </View>
               )}
 
+              {/* ============ VIGENCIA TEMPORAL ============ */}
+              <View style={{ marginBottom: 20, marginTop: 10 }}>
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginBottom: 16,
+                  paddingBottom: 12,
+                  borderBottomWidth: 1,
+                  borderBottomColor: 'rgba(255, 255, 255, 0.1)'
+                }}>
+                  <Text style={{ fontSize: 20 }}>📅</Text>
+                  <Text style={{
+                    color: 'white',
+                    fontSize: 16,
+                    fontWeight: '700',
+                    letterSpacing: 0.5
+                  }}>
+                    Vigencia Temporal
+                  </Text>
+                </View>
+
+                {/* Info de vigencia automática */}
+                <View style={{
+                  padding: 14,
+                  marginBottom: 16,
+                  backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                  borderRadius: 10,
+                  borderLeftWidth: 3,
+                  borderLeftColor: '#3498db',
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <Text style={{ fontSize: 16 }}>ℹ️</Text>
+                    <Text style={{ color: '#3498db', fontWeight: '700', fontSize: 13 }}>
+                      Estado automático por vigencia
+                    </Text>
+                  </View>
+                  <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12, lineHeight: 18 }}>
+                    • Antes de la fecha de inicio → <Text style={{ color: '#ef4444', fontWeight: '600' }}>inactivo</Text>{'\n'}
+                    • Durante el rango de fechas → <Text style={{ color: '#10b981', fontWeight: '600' }}>activo</Text>{'\n'}
+                    • Después de la fecha de fin → <Text style={{ color: '#ef4444', fontWeight: '600' }}>inactivo</Text>
+                  </Text>
+                </View>
+
+                {/* Fecha de inicio */}
+                <View style={{ marginBottom: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <Text style={{ fontSize: 16 }}>📆</Text>
+                    <Text style={styles.formLabel}>Fecha de inicio de vigencia</Text>
+                  </View>
+
+                  {Platform.OS === 'web' ? (
+                    // 🌐 VERSIÓN WEB - Input nativo HTML
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: 16,
+                      borderRadius: 12,
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                      borderWidth: 1,
+                      borderColor: formData.fecha_vigencia_inicio
+                        ? '#3498db'
+                        : 'rgba(255, 255, 255, 0.15)',
+                    }}>
+                      <Ionicons name="calendar" size={20} color={formData.fecha_vigencia_inicio ? '#3498db' : 'rgba(255, 255, 255, 0.4)'} />
+
+                      <input
+                        type="date"
+                        value={formData.fecha_vigencia_inicio || ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setFormData({ ...formData, fecha_vigencia_inicio: value || null });
+                          if (value) setErrores({ ...errores, fecha_vigencia_inicio: '' });
+                        }}
+                        style={{
+                          flex: 1,
+                          color: 'white',
+                          fontSize: 15,
+                          backgroundColor: 'transparent',
+                          border: 'none',
+                          outline: 'none',
+                          fontWeight: formData.fecha_vigencia_inicio ? '600' : '400',
+                          colorScheme: 'dark',
+                        }}
+                      />
+
+                      {formData.fecha_vigencia_inicio && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            setFormData({ ...formData, fecha_vigencia_inicio: null });
+                            setErrores({ ...errores, fecha_vigencia_inicio: '' });
+                          }}
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 8,
+                            backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <Ionicons name="close" size={18} color="#ef4444" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ) : (
+                    // 📱 VERSIÓN MÓVIL - TouchableOpacity + DateTimePicker
+                    <>
+                      <TouchableOpacity
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: 16,
+                          borderRadius: 12,
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          borderWidth: 1,
+                          borderColor: formData.fecha_vigencia_inicio
+                            ? '#3498db'
+                            : 'rgba(255, 255, 255, 0.15)',
+                        }}
+                        onPress={() => setShowPickerInicio(true)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={{
+                            color: formData.fecha_vigencia_inicio
+                              ? 'white'
+                              : 'rgba(255, 255, 255, 0.4)',
+                            fontSize: 15,
+                            fontWeight: formData.fecha_vigencia_inicio ? '600' : '400'
+                          }}>
+                            {formData.fecha_vigencia_inicio
+                              ? new Date(formData.fecha_vigencia_inicio).toLocaleDateString('es-ES', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                              })
+                              : 'Seleccionar fecha de inicio'}
+                          </Text>
+                        </View>
+
+                        {formData.fecha_vigencia_inicio ? (
+                          <TouchableOpacity
+                            onPress={() => {
+                              setFormData({ ...formData, fecha_vigencia_inicio: null });
+                              setErrores({ ...errores, fecha_vigencia_inicio: '' });
+                            }}
+                            style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: 8,
+                              backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                              marginLeft: 8
+                            }}
+                          >
+                            <Ionicons name="close" size={18} color="#ef4444" />
+                          </TouchableOpacity>
+                        ) : (
+                          <Ionicons name="calendar" size={20} color="rgba(255, 255, 255, 0.4)" />
+                        )}
+                      </TouchableOpacity>
+
+                      {showPickerInicio && (
+                        <DateTimePicker
+                          value={formData.fecha_vigencia_inicio
+                            ? new Date(formData.fecha_vigencia_inicio)
+                            : new Date()}
+                          mode="date"
+                          display="default"
+                          onChange={(event, selectedDate) => {
+                            setShowPickerInicio(false);
+                            if (selectedDate) {
+                              const dateStr = selectedDate.toISOString().split('T')[0];
+                              setFormData({ ...formData, fecha_vigencia_inicio: dateStr });
+                              setErrores({ ...errores, fecha_vigencia_inicio: '' });
+                            }
+                          }}
+                        />
+                      )}
+                    </>
+                  )}
+
+                  {errores.fecha_vigencia_inicio && (
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: 10,
+                      marginTop: 8,
+                      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                      borderRadius: 8,
+                      borderLeftWidth: 3,
+                      borderLeftColor: '#ef4444',
+                    }}>
+                      <Ionicons name="alert-circle" size={16} color="#ef4444" />
+                      <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>
+                        {errores.fecha_vigencia_inicio}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Fecha de fin */}
+                <View style={{ marginBottom: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <Text style={{ fontSize: 16 }}>📆</Text>
+                    <Text style={styles.formLabel}>Fecha de fin de vigencia</Text>
+                  </View>
+
+                  {Platform.OS === 'web' ? (
+                    // 🌐 VERSIÓN WEB - Input nativo HTML
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: 16,
+                      borderRadius: 12,
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                      borderWidth: 1,
+                      borderColor: formData.fecha_vigencia_fin
+                        ? '#3498db'
+                        : 'rgba(255, 255, 255, 0.15)',
+                    }}>
+                      <Ionicons name="calendar" size={20} color={formData.fecha_vigencia_fin ? '#3498db' : 'rgba(255, 255, 255, 0.4)'} />
+
+                      <input
+                        type="date"
+                        value={formData.fecha_vigencia_fin || ''}
+                        min={formData.fecha_vigencia_inicio || undefined}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setFormData({ ...formData, fecha_vigencia_fin: value || null });
+                          if (value) setErrores({ ...errores, fecha_vigencia_fin: '' });
+                        }}
+                        style={{
+                          flex: 1,
+                          color: 'white',
+                          fontSize: 15,
+                          backgroundColor: 'transparent',
+                          border: 'none',
+                          outline: 'none',
+                          fontWeight: formData.fecha_vigencia_fin ? '600' : '400',
+                          colorScheme: 'dark',
+                        }}
+                      />
+
+                      {formData.fecha_vigencia_fin && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            setFormData({ ...formData, fecha_vigencia_fin: null });
+                            setErrores({ ...errores, fecha_vigencia_fin: '' });
+                          }}
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 8,
+                            backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <Ionicons name="close" size={18} color="#ef4444" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ) : (
+                    // 📱 VERSIÓN MÓVIL - TouchableOpacity + DateTimePicker
+                    <>
+                      <TouchableOpacity
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: 16,
+                          borderRadius: 12,
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          borderWidth: 1,
+                          borderColor: formData.fecha_vigencia_fin
+                            ? '#3498db'
+                            : 'rgba(255, 255, 255, 0.15)',
+                        }}
+                        onPress={() => setShowPickerFin(true)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={{
+                            color: formData.fecha_vigencia_fin
+                              ? 'white'
+                              : 'rgba(255, 255, 255, 0.4)',
+                            fontSize: 15,
+                            fontWeight: formData.fecha_vigencia_fin ? '600' : '400'
+                          }}>
+                            {formData.fecha_vigencia_fin
+                              ? new Date(formData.fecha_vigencia_fin).toLocaleDateString('es-ES', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                              })
+                              : 'Seleccionar fecha de fin'}
+                          </Text>
+                        </View>
+
+                        {formData.fecha_vigencia_fin ? (
+                          <TouchableOpacity
+                            onPress={() => {
+                              setFormData({ ...formData, fecha_vigencia_fin: null });
+                              setErrores({ ...errores, fecha_vigencia_fin: '' });
+                            }}
+                            style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: 8,
+                              backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                              marginLeft: 8
+                            }}
+                          >
+                            <Ionicons name="close" size={18} color="#ef4444" />
+                          </TouchableOpacity>
+                        ) : (
+                          <Ionicons name="calendar" size={20} color="rgba(255, 255, 255, 0.4)" />
+                        )}
+                      </TouchableOpacity>
+
+                      {showPickerFin && (
+                        <DateTimePicker
+                          value={formData.fecha_vigencia_fin
+                            ? new Date(formData.fecha_vigencia_fin)
+                            : new Date()}
+                          mode="date"
+                          display="default"
+                          minimumDate={formData.fecha_vigencia_inicio
+                            ? new Date(formData.fecha_vigencia_inicio)
+                            : new Date()}
+                          onChange={(event, selectedDate) => {
+                            setShowPickerFin(false);
+                            if (selectedDate) {
+                              const dateStr = selectedDate.toISOString().split('T')[0];
+                              setFormData({ ...formData, fecha_vigencia_fin: dateStr });
+                              setErrores({ ...errores, fecha_vigencia_fin: '' });
+                            }
+                          }}
+                        />
+                      )}
+                    </>
+                  )}
+
+                  {errores.fecha_vigencia_fin && (
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: 10,
+                      marginTop: 8,
+                      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                      borderRadius: 8,
+                      borderLeftWidth: 3,
+                      borderLeftColor: '#ef4444',
+                    }}>
+                      <Ionicons name="alert-circle" size={16} color="#ef4444" />
+                      <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>
+                        {errores.fecha_vigencia_fin}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Vista previa del rango */}
+                {formData.fecha_vigencia_inicio && formData.fecha_vigencia_fin && (
+                  <View style={{
+                    padding: 14,
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: 'rgba(16, 185, 129, 0.3)',
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <Text style={{ fontSize: 16 }}>✅</Text>
+                      <Text style={{ color: '#10b981', fontWeight: '700', fontSize: 13 }}>
+                        Rango de vigencia configurado
+                      </Text>
+                    </View>
+                    <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12 }}>
+                      {/* 🔥 FIX: Agregar 'T00:00:00' para evitar desfase de zona horaria */}
+                      {new Date(formData.fecha_vigencia_inicio + 'T00:00:00').toLocaleDateString('es-ES', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric'
+                      })}
+                      {' → '}
+                      {new Date(formData.fecha_vigencia_fin + 'T00:00:00').toLocaleDateString('es-ES', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric'
+                      })}
+                    </Text>
+                    <Text style={{
+                      color: 'rgba(255, 255, 255, 0.5)',
+                      fontSize: 11,
+                      marginTop: 4
+                    }}>
+                      {(() => {
+                        // 🔥 FIX: Calcular días correctamente
+                        const inicio = new Date(formData.fecha_vigencia_inicio + 'T00:00:00');
+                        const fin = new Date(formData.fecha_vigencia_fin + 'T00:00:00');
+                        const dias = Math.ceil((fin - inicio) / (1000 * 60 * 60 * 24));
+                        return `Duración: ${dias} día${dias !== 1 ? 's' : ''}`;
+                      })()}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
               {/* ============ FOOTER DEL MODAL ============ */}
               <View style={{
                 flexDirection: 'row',
@@ -2008,6 +2505,7 @@ const GestionContenidoPage = () => {
 
               </ScrollView>
             )}
+
 
             {/* ============ FOOTER DEL MODAL ============ */}
             {contenidoView && (
@@ -2390,26 +2888,27 @@ const GestionContenidoPage = () => {
         </View>
       </Modal>
 
-      {/* 🔥 NUEVO: Notificación de éxito flotante */}
+      {/* 🔥 Notificación flotante mejorada */}
       {showSuccessNotification && (
         <View style={{
           position: 'absolute',
           top: 80,
           right: 20,
-          backgroundColor: '#10b981',
+          backgroundColor: successMessage.includes('❌') ? '#ef4444' : '#10b981',
           paddingHorizontal: 24,
           paddingVertical: 16,
           borderRadius: 16,
           flexDirection: 'row',
           alignItems: 'center',
           gap: 12,
-          shadowColor: '#10b981',
+          shadowColor: successMessage.includes('❌') ? '#ef4444' : '#10b981',
           shadowOffset: { width: 0, height: 8 },
           shadowOpacity: 0.6,
           shadowRadius: 16,
           elevation: 12,
           zIndex: 9999,
           minWidth: 300,
+          maxWidth: 400,
         }}>
           <View style={{
             width: 40,
@@ -2419,7 +2918,9 @@ const GestionContenidoPage = () => {
             justifyContent: 'center',
             alignItems: 'center',
           }}>
-            <Text style={{ fontSize: 24 }}>✅</Text>
+            <Text style={{ fontSize: 24 }}>
+              {successMessage.includes('❌') ? '❌' : '✅'}
+            </Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{
@@ -2429,13 +2930,6 @@ const GestionContenidoPage = () => {
               letterSpacing: 0.3,
             }}>
               {successMessage}
-            </Text>
-            <Text style={{
-              color: 'rgba(255, 255, 255, 0.8)',
-              fontSize: 11,
-              marginTop: 2,
-            }}>
-              Se cerró automáticamente
             </Text>
           </View>
         </View>
