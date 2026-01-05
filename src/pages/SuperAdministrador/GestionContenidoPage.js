@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -59,6 +59,10 @@ const GestionContenidoPage = () => {
   const [contenidoAEliminar, setContenidoAEliminar] = useState(null);
   const [showPickerInicio, setShowPickerInicio] = useState(false);
   const [showPickerFin, setShowPickerFin] = useState(false);
+  const scrollRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
 
   const [formData, setFormData] = useState({
     id_contenido: null,
@@ -743,13 +747,38 @@ const GestionContenidoPage = () => {
                   </View>
 
                   {/* Scroll horizontal de agentes con drag */}
-                  <ScrollView
-                    horizontal={true}
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{
+                  <View
+                    ref={scrollRef}
+                    onStartShouldSetResponder={() => true}
+                    style={{
+                      flexDirection: 'row',
+                      overflowX: 'scroll',
+                      overflowY: 'hidden',
+                      cursor: isDragging ? 'grabbing' : 'grab',
+                      userSelect: 'none',
                       paddingHorizontal: 16,
                       paddingVertical: 4,
                       gap: 8,
+                      scrollbarWidth: 'none',  // ← Oculta la barra en Firefox
+                      msOverflowStyle: 'none',  // ← Oculta la barra en IE/Edge
+                    }}
+                    onMouseDown={(e) => {
+                      setIsDragging(true);
+                      setStartX(e.pageX - scrollRef.current.offsetLeft);
+                      setScrollLeft(scrollRef.current.scrollLeft);
+                    }}
+                    onMouseLeave={() => {
+                      setIsDragging(false);
+                    }}
+                    onMouseUp={() => {
+                      setIsDragging(false);
+                    }}
+                    onMouseMove={(e) => {
+                      if (!isDragging) return;
+                      e.preventDefault();
+                      const x = e.pageX - scrollRef.current.offsetLeft;
+                      const walk = (x - startX) * 2;
+                      scrollRef.current.scrollLeft = scrollLeft - walk;
                     }}
                   >
                     {filteredAgentes.length === 0 ? (
@@ -794,7 +823,7 @@ const GestionContenidoPage = () => {
                         </TouchableOpacity>
                       ))
                     )}
-                  </ScrollView>
+                  </View>
 
                   {/* Botón Nuevo */}
                   <TouchableOpacity
