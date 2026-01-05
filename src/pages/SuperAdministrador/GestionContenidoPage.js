@@ -22,7 +22,7 @@ import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles'
 import GestionContenidoCard from '../../components/SuperAdministrador/GestionContenidoCard';
 import { styles } from '../../styles/GestionContenidoStyles';
 
-const ESTADOS = ['borrador', 'revision', 'activo', 'inactivo', 'archivado'];
+const ESTADOS = ['activo', 'inactivo'];
 
 // 🔥 NUEVO: Información de prioridades
 const PRIORITY_LABELS = {
@@ -71,7 +71,7 @@ const GestionContenidoPage = () => {
     palabras_clave: '',
     etiquetas: '',
     prioridad: 5,
-    estado: 'borrador',
+    estado: 'activo',
     fecha_vigencia_inicio: null,
     fecha_vigencia_fin: null
   });
@@ -270,7 +270,7 @@ const GestionContenidoPage = () => {
         palabras_clave: '',
         etiquetas: '',
         prioridad: 5,
-        estado: 'borrador',
+        estado: 'activo',
         fecha_vigencia_inicio: null,
         fecha_vigencia_fin: null
       });
@@ -296,7 +296,7 @@ const GestionContenidoPage = () => {
       palabras_clave: '',
       etiquetas: '',
       prioridad: 5,
-      estado: 'borrador',
+      estado: 'activo',
       // 🔥 NUEVOS CAMPOS
       fecha_vigencia_inicio: null,
       fecha_vigencia_fin: null
@@ -379,10 +379,7 @@ const GestionContenidoPage = () => {
         hayErrores = true;
       }
 
-      if (!formData.estado) {
-        nuevosErrores.estado = '⚠️ Debes seleccionar un estado';
-        hayErrores = true;
-      }
+      // Estado se maneja automáticamente por vigencia - no requiere validación
 
       if (formData.fecha_vigencia_inicio && !formData.fecha_vigencia_fin) {
         nuevosErrores.fecha_vigencia_fin = '⚠️ Si defines fecha de inicio, debes definir fecha de fin';
@@ -575,8 +572,6 @@ const GestionContenidoPage = () => {
     );
   };
 
-  // En GestionContenidoPage.jsx
-
   const eliminarContenido = (id) => {
     console.log('🗑️ Abriendo modal de eliminación para ID:', id);
     setContenidoAEliminar(id);
@@ -681,11 +676,8 @@ const GestionContenidoPage = () => {
                 >
                   {[
                     { key: '', label: 'Todos', icon: 'apps' },
-                    { key: 'borrador', label: 'Borrador', icon: 'create' },
-                    { key: 'revision', label: 'Revisión', icon: 'eye' },
                     { key: 'activo', label: 'Activo', icon: 'checkmark-circle' },
-                    { key: 'inactivo', label: 'Inactivo', icon: 'close-circle' },
-                    { key: 'archivado', label: 'Archivado', icon: 'archive' }
+                    { key: 'inactivo', label: 'Inactivo', icon: 'close-circle' }
                   ].map((filter) => (
                     <TouchableOpacity
                       key={filter.key}
@@ -1660,84 +1652,126 @@ const GestionContenidoPage = () => {
                 </View>
               )}
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <Text style={{ fontSize: 18 }}>📊</Text>
-                <Text style={styles.formLabel}>Estado</Text>
-              </View>
-              <View style={{ gap: 10, marginBottom: 16 }}>
-                {ESTADOS.map((estado) => {
-                  const estadoColors = {
-                    borrador: { icon: '📝', color: '#9ca3af', label: 'Borrador' },
-                    revision: { icon: '🔍', color: '#fbbf24', label: 'En Revisión' },
-                    activo: { icon: '✅', color: '#10b981', label: 'Activo' },
-                    inactivo: { icon: '❌', color: '#ef4444', label: 'Inactivo' },
-                    archivado: { icon: '📦', color: '#6b7280', label: 'Archivado' },
-                  };
-                  const info = estadoColors[estado];
-
-                  return (
-                    <TouchableOpacity
-                      key={estado}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 12,
-                        padding: 14,
-                        borderRadius: 12,
-                        borderWidth: 2,
-                        borderColor: formData.estado === estado ? info.color : 'rgba(255, 255, 255, 0.15)',
-                        backgroundColor: formData.estado === estado ? `${info.color}33` : 'rgba(255, 255, 255, 0.05)',
-                      }}
-                      onPress={() => setFormData({ ...formData, estado: estado })}
-                      activeOpacity={0.7}
-                    >
-                      <View style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 10,
-                        backgroundColor: info.color,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                      }}>
-                        <Text style={{ fontSize: 20 }}>{info.icon}</Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{
-                          color: formData.estado === estado ? info.color : 'white',
-                          fontWeight: '700',
-                          fontSize: 15,
-                        }}>
-                          {info.label}
-                        </Text>
-                      </View>
-                      {formData.estado === estado && (
-                        <Text style={{ fontSize: 24 }}>✅</Text>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* 🔥 MENSAJE DE ERROR DE ESTADO */}
-              {errores.estado && (
-                <View style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: 10,
-                  marginTop: 8,
-                  marginBottom: 16,
-                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                  borderRadius: 8,
-                  borderLeftWidth: 3,
-                  borderLeftColor: '#ef4444',
-                }}>
-                  <Ionicons name="alert-circle" size={16} color="#ef4444" />
-                  <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>
-                    {errores.estado}
+              {/* ============ INFORMACIÓN DE ESTADO AUTOMÁTICO ============ */}
+              <View style={{
+                padding: 16,
+                marginBottom: 20,
+                backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                borderRadius: 12,
+                borderLeftWidth: 3,
+                borderLeftColor: '#3498db',
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <Text style={{ fontSize: 18 }}>ℹ️</Text>
+                  <Text style={{
+                    color: '#3498db',
+                    fontWeight: '700',
+                    fontSize: 14,
+                  }}>
+                    Estado del Contenido (Automático)
                   </Text>
                 </View>
-              )}
+                <Text style={{
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  fontSize: 13,
+                  lineHeight: 20,
+                }}>
+                  El estado se determina automáticamente según las fechas de vigencia:{'\n'}
+                  • Sin fechas → <Text style={{ color: '#10b981', fontWeight: '600' }}>Activo</Text>{'\n'}
+                  • Antes del inicio → <Text style={{ color: '#ef4444', fontWeight: '600' }}>Inactivo</Text>{'\n'}
+                  • Durante vigencia → <Text style={{ color: '#10b981', fontWeight: '600' }}>Activo</Text>{'\n'}
+                  • Después del fin → <Text style={{ color: '#ef4444', fontWeight: '600' }}>Inactivo</Text>
+                </Text>
+
+                {/* Mostrar estado actual previsto */}
+                <View style={{
+                  marginTop: 12,
+                  padding: 12,
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  borderRadius: 8,
+                }}>
+                  <Text style={{
+                    color: 'rgba(255, 255, 255, 0.6)',
+                    fontSize: 12,
+                    marginBottom: 4
+                  }}>
+                    Estado actual previsto:
+                  </Text>
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}>
+                    <View style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 8,
+                      backgroundColor: (() => {
+                        if (!formData.fecha_vigencia_inicio && !formData.fecha_vigencia_fin) {
+                          return '#10b981';
+                        }
+                        const hoy = new Date().toISOString().split('T')[0];
+                        if (formData.fecha_vigencia_inicio && hoy < formData.fecha_vigencia_inicio) {
+                          return '#ef4444';
+                        }
+                        if (formData.fecha_vigencia_fin && hoy > formData.fecha_vigencia_fin) {
+                          return '#ef4444';
+                        }
+                        return '#10b981';
+                      })(),
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}>
+                      <Text style={{ fontSize: 16 }}>
+                        {(() => {
+                          if (!formData.fecha_vigencia_inicio && !formData.fecha_vigencia_fin) {
+                            return '✅';
+                          }
+                          const hoy = new Date().toISOString().split('T')[0];
+                          if (formData.fecha_vigencia_inicio && hoy < formData.fecha_vigencia_inicio) {
+                            return '❌';
+                          }
+                          if (formData.fecha_vigencia_fin && hoy > formData.fecha_vigencia_fin) {
+                            return '❌';
+                          }
+                          return '✅';
+                        })()}
+                      </Text>
+                    </View>
+                    <Text style={{
+                      color: (() => {
+                        if (!formData.fecha_vigencia_inicio && !formData.fecha_vigencia_fin) {
+                          return '#10b981';
+                        }
+                        const hoy = new Date().toISOString().split('T')[0];
+                        if (formData.fecha_vigencia_inicio && hoy < formData.fecha_vigencia_inicio) {
+                          return '#ef4444';
+                        }
+                        if (formData.fecha_vigencia_fin && hoy > formData.fecha_vigencia_fin) {
+                          return '#ef4444';
+                        }
+                        return '#10b981';
+                      })(),
+                      fontWeight: '700',
+                      fontSize: 14,
+                    }}>
+                      {(() => {
+                        if (!formData.fecha_vigencia_inicio && !formData.fecha_vigencia_fin) {
+                          return 'Activo (sin restricciones)';
+                        }
+                        const hoy = new Date().toISOString().split('T')[0];
+                        if (formData.fecha_vigencia_inicio && hoy < formData.fecha_vigencia_inicio) {
+                          return 'Inactivo (aún no comienza)';
+                        }
+                        if (formData.fecha_vigencia_fin && hoy > formData.fecha_vigencia_fin) {
+                          return 'Inactivo (ya finalizó)';
+                        }
+                        return 'Activo (dentro de vigencia)';
+                      })()}
+                    </Text>
+                  </View>
+                </View>
+              </View>
 
               {/* ============ VIGENCIA TEMPORAL ============ */}
               <View style={{ marginBottom: 20, marginTop: 10 }}>
@@ -2459,40 +2493,19 @@ const GestionContenidoPage = () => {
                     </View>
                     <View style={{
                       padding: 14,
-                      backgroundColor: (() => {
-                        const colors = {
-                          borrador: '#9ca3af22',
-                          revision: '#fbbf2422',
-                          activo: '#10b98122',
-                          inactivo: '#ef444422',
-                          archivado: '#6b728022',
-                        };
-                        return colors[contenidoView.estado] || 'rgba(255, 255, 255, 0.1)';
-                      })(),
+                      backgroundColor: contenidoView.estado === 'activo'
+                        ? '#10b98122'
+                        : '#ef444422',
                       borderRadius: 12,
                       borderWidth: 2,
-                      borderColor: (() => {
-                        const colors = {
-                          borrador: '#9ca3af',
-                          revision: '#fbbf24',
-                          activo: '#10b981',
-                          inactivo: '#ef4444',
-                          archivado: '#6b7280',
-                        };
-                        return colors[contenidoView.estado] || '#666';
-                      })(),
+                      borderColor: contenidoView.estado === 'activo'
+                        ? '#10b981'
+                        : '#ef4444',
                     }}>
                       <Text style={{
-                        color: (() => {
-                          const colors = {
-                            borrador: '#9ca3af',
-                            revision: '#fbbf24',
-                            activo: '#10b981',
-                            inactivo: '#ef4444',
-                            archivado: '#6b7280',
-                          };
-                          return colors[contenidoView.estado] || '#999';
-                        })(),
+                        color: contenidoView.estado === 'activo'
+                          ? '#10b981'
+                          : '#ef4444',
                         fontSize: 14,
                         fontWeight: '700',
                         textTransform: 'capitalize'
@@ -2634,24 +2647,14 @@ const GestionContenidoPage = () => {
                       paddingHorizontal: 8,
                       paddingVertical: 4,
                       borderRadius: 6,
-                      backgroundColor: (() => {
-                        const colors = {
-                          activo: 'rgba(16, 185, 129, 0.2)',
-                          borrador: 'rgba(156, 163, 175, 0.2)',
-                          revision: 'rgba(251, 191, 36, 0.2)',
-                        };
-                        return colors[contenidoDuplicado.estado] || 'rgba(255, 255, 255, 0.1)';
-                      })(),
+                      backgroundColor: contenidoDuplicado.estado === 'activo'
+                        ? 'rgba(16, 185, 129, 0.2)'
+                        : 'rgba(239, 68, 68, 0.2)',
                     }}>
                       <Text style={{
-                        color: (() => {
-                          const colors = {
-                            activo: '#10b981',
-                            borrador: '#9ca3af',
-                            revision: '#fbbf24',
-                          };
-                          return colors[contenidoDuplicado.estado] || '#999';
-                        })(),
+                        color: contenidoDuplicado.estado === 'activo'
+                          ? '#10b981'
+                          : '#ef4444',
                         fontSize: 11,
                         fontWeight: '600',
                         textTransform: 'capitalize'
