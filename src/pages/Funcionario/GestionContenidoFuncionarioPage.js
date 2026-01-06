@@ -186,6 +186,7 @@ const GestionContenidoPage = () => {
   const [agentesPermitidos, setAgentesPermitidos] = useState([]);
   const [modalEliminarVisible, setModalEliminarVisible] = useState(false);
   const [contenidoAEliminar, setContenidoAEliminar] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
 
   // Estados para personas designado a departamento
   const [departamentoUsuario, setDepartamentoUsuario] = useState(null);
@@ -215,7 +216,9 @@ const GestionContenidoPage = () => {
   const [successMessage, setSuccessMessage] = useState('');
 
   const [showErrorNotification, setShowErrorNotification] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+
+  const [modalDuplicadoVisible, setModalDuplicadoVisible] = useState(false);
+  const [contenidoDuplicado, setContenidoDuplicado] = useState(null);
 
   const [errores, setErrores] = useState({
     id_categoria: '',
@@ -679,9 +682,81 @@ const GestionContenidoPage = () => {
       }
     };
 
+    const detectarContenidoSimilar = () => {
+      const tituloNormalizado = formData.titulo.toLowerCase().trim();
+      const contenidoNormalizado = formData.contenido.toLowerCase().trim();
+
+      const similares = contenidos.filter(c => {
+        // 🔥 Si estamos editando, excluir el contenido actual
+        if (editando && c.id_contenido === formData.id_contenido) {
+          return false;
+        }
+
+        const tituloExistente = c.titulo.toLowerCase().trim();
+        const contenidoExistente = c.contenido.toLowerCase().trim();
+
+        // 🔥 1. COINCIDENCIA EXACTA DE TÍTULO
+        if (tituloNormalizado === tituloExistente) {
+          return true;
+        }
+
+        // 🔥 2. COINCIDENCIA DE PRIMERAS 200 PALABRAS
+        const fragmentoNuevo = contenidoNormalizado.substring(0, 200);
+        const fragmentoExistente = contenidoExistente.substring(0, 200);
+
+        if (fragmentoNuevo === fragmentoExistente && fragmentoNuevo.length > 50) {
+          return true;
+        }
+
+        // 🔥 3. SIMILITUD DE TÍTULO POR PALABRAS (>80%)
+        const palabrasTituloNuevo = tituloNormalizado.split(/\s+/).filter(p => p.length > 3);
+        const palabrasTituloExistente = tituloExistente.split(/\s+/).filter(p => p.length > 3);
+
+        if (palabrasTituloNuevo.length >= 3 && palabrasTituloExistente.length >= 3) {
+          const coincidencias = palabrasTituloNuevo.filter(palabra =>
+            palabrasTituloExistente.includes(palabra)
+          ).length;
+
+          const porcentajeSimilitud = coincidencias / Math.max(palabrasTituloNuevo.length, palabrasTituloExistente.length);
+
+          if (porcentajeSimilitud > 0.8) {
+            return true;
+          }
+        }
+
+        // 🔥 4. SIMILITUD DE CONTENIDO (>85%)
+        const palabrasContenidoNuevo = contenidoNormalizado.substring(0, 500).split(/\s+/);
+        const palabrasContenidoExistente = contenidoExistente.substring(0, 500).split(/\s+/);
+
+        if (palabrasContenidoNuevo.length >= 20 && palabrasContenidoExistente.length >= 20) {
+          const coincidenciasContenido = palabrasContenidoNuevo.filter(palabra =>
+            palabrasContenidoExistente.includes(palabra) && palabra.length > 3
+          ).length;
+
+          const similitudContenido = coincidenciasContenido / Math.max(palabrasContenidoNuevo.length, palabrasContenidoExistente.length);
+
+          if (similitudContenido > 0.85) {
+            return true;
+          }
+        }
+
+        return false;
+      });
+
+      return similares;
+    };
+
     // 🔥 VALIDAR PRIMERO
     if (!validarFormulario()) {
       Alert.alert('Campos incompletos', 'Por favor completa todos los campos obligatorios marcados en rojo');
+      return;
+    }
+
+    //Detectar contenido duplicado/similar
+    const similares = detectarContenidoSimilar();
+    if (similares.length > 0) {
+      setContenidoDuplicado(similares[0]);
+      setModalDuplicadoVisible(true);
       return;
     }
 
@@ -2941,7 +3016,320 @@ const GestionContenidoPage = () => {
               )}
             </View>
           </View>
-        </Modal>  {/* ← Cierre del modal de visualización */}
+        </Modal>
+
+        {/* 🔥 Modal de contenido duplicado */}
+        <Modal
+          visible={modalDuplicadoVisible}
+          animationType="fade"
+          transparent={true}
+          onRequestClose={() => setModalDuplicadoVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { maxWidth: 700 }]}>
+
+              {/* Header */}
+              <View style={{
+                padding: 20,
+                borderBottomWidth: 1,
+                borderBottomColor: 'rgba(251, 191, 36, 0.2)',
+                backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <View style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 14,
+                    backgroundColor: 'rgba(251, 191, 36, 0.3)',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}>
+                    <Text style={{ fontSize: 28 }}>⚠️</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 20, fontWeight: '900', color: '#fbbf24' }}>
+                      ⚠️ Contenido Similar Detectado
+                    </Text>
+                    <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12, marginTop: 2 }}>
+                      Evita duplicar información en el sistema
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Contenido */}
+              {contenidoDuplicado && (
+                <ScrollView style={{ maxHeight: 600 }}>
+                  <View style={{ padding: 20 }}>
+
+                    {/* Mensaje principal */}
+                    <View style={{
+                      padding: 16,
+                      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                      borderRadius: 12,
+                      borderLeftWidth: 4,
+                      borderLeftColor: '#ef4444',
+                      marginBottom: 20,
+                    }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <Text style={{ fontSize: 18 }}>🚫</Text>
+                        <Text style={{ color: '#ef4444', fontWeight: '700', fontSize: 14 }}>
+                          No se puede crear contenido duplicado
+                        </Text>
+                      </View>
+                      <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 13, lineHeight: 20 }}>
+                        Ya existe un contenido muy similar en el sistema. Esto puede causar confusión
+                        y respuestas inconsistentes del agente.
+                      </Text>
+                    </View>
+
+                    {/* Comparación lado a lado */}
+                    <View style={{ marginBottom: 20 }}>
+                      <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 13, marginBottom: 12, fontWeight: '600' }}>
+                        📊 Comparación de contenidos:
+                      </Text>
+
+                      <View style={{ gap: 12 }}>
+                        {/* Tu contenido nuevo */}
+                        <View style={{
+                          padding: 16,
+                          backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                          borderRadius: 12,
+                          borderWidth: 1,
+                          borderColor: 'rgba(52, 152, 219, 0.3)',
+                        }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                            <Text style={{ fontSize: 16 }}>📝</Text>
+                            <Text style={{ color: '#3498db', fontWeight: '700', fontSize: 13 }}>
+                              Tu contenido (nuevo)
+                            </Text>
+                          </View>
+                          <Text style={{ color: 'white', fontWeight: '600', fontSize: 14, marginBottom: 8 }}>
+                            {formData.titulo}
+                          </Text>
+                          <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12 }} numberOfLines={3}>
+                            {formData.contenido.substring(0, 200)}...
+                          </Text>
+                        </View>
+
+                        {/* Contenido existente */}
+                        <View style={{
+                          padding: 16,
+                          backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                          borderRadius: 12,
+                          borderWidth: 1,
+                          borderColor: 'rgba(251, 191, 36, 0.3)',
+                        }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                            <Text style={{ fontSize: 16 }}>📄</Text>
+                            <Text style={{ color: '#fbbf24', fontWeight: '700', fontSize: 13 }}>
+                              Contenido existente en la base de datos
+                            </Text>
+                          </View>
+                          <Text style={{ color: 'white', fontWeight: '600', fontSize: 14, marginBottom: 8 }}>
+                            {contenidoDuplicado.titulo}
+                          </Text>
+                          <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12, marginBottom: 10 }} numberOfLines={3}>
+                            {contenidoDuplicado.contenido.substring(0, 200)}...
+                          </Text>
+
+                          {/* Metadata */}
+                          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                            <View style={{
+                              paddingHorizontal: 8,
+                              paddingVertical: 4,
+                              borderRadius: 6,
+                              backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                            }}>
+                              <Text style={{ color: '#667eea', fontSize: 10, fontWeight: '600' }}>
+                                📁 {categorias.find(c => c.id_categoria === contenidoDuplicado.id_categoria)?.nombre || 'N/A'}
+                              </Text>
+                            </View>
+
+                            <View style={{
+                              paddingHorizontal: 8,
+                              paddingVertical: 4,
+                              borderRadius: 6,
+                              backgroundColor: contenidoDuplicado.estado === 'activo'
+                                ? 'rgba(16, 185, 129, 0.2)'
+                                : 'rgba(239, 68, 68, 0.2)',
+                            }}>
+                              <Text style={{
+                                color: contenidoDuplicado.estado === 'activo' ? '#10b981' : '#ef4444',
+                                fontSize: 10,
+                                fontWeight: '600',
+                                textTransform: 'capitalize'
+                              }}>
+                                📊 {contenidoDuplicado.estado}
+                              </Text>
+                            </View>
+
+                            <View style={{
+                              paddingHorizontal: 8,
+                              paddingVertical: 4,
+                              borderRadius: 6,
+                              backgroundColor: 'rgba(251, 191, 36, 0.2)',
+                            }}>
+                              <Text style={{ color: '#fbbf24', fontSize: 10, fontWeight: '600' }}>
+                                🚩 Prioridad {contenidoDuplicado.prioridad}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Opciones */}
+                    <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 13, marginBottom: 16, fontWeight: '600' }}>
+                      🤔 ¿Qué deseas hacer?
+                    </Text>
+
+                    <View style={{ gap: 10 }}>
+                      {/* OPCIÓN 1 */}
+                      <TouchableOpacity
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 12,
+                          padding: 16,
+                          borderRadius: 12,
+                          backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                          borderWidth: 2,
+                          borderColor: 'rgba(16, 185, 129, 0.4)',
+                        }}
+                        onPress={() => {
+                          setModalDuplicadoVisible(false);
+                          abrirModal(contenidoDuplicado);
+                          setContenidoDuplicado(null);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <View style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 10,
+                          backgroundColor: '#10b981',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}>
+                          <Text style={{ fontSize: 20 }}>✏️</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: '#10b981', fontWeight: '700', fontSize: 14 }}>
+                            ✅ Actualizar contenido existente (Recomendado)
+                          </Text>
+                          <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 11, marginTop: 2 }}>
+                            Editar y mejorar el contenido que ya existe
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* OPCIÓN 2 */}
+                      <TouchableOpacity
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 12,
+                          padding: 16,
+                          borderRadius: 12,
+                          backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                          borderWidth: 2,
+                          borderColor: 'rgba(52, 152, 219, 0.4)',
+                        }}
+                        onPress={() => {
+                          setModalDuplicadoVisible(false);
+                          setContenidoDuplicado(null);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <View style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 10,
+                          backgroundColor: '#3498db',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}>
+                          <Text style={{ fontSize: 20 }}>🔍</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: '#3498db', fontWeight: '700', fontSize: 14 }}>
+                            🔍 Revisar y modificar mi contenido
+                          </Text>
+                          <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 11, marginTop: 2 }}>
+                            Volver al formulario y hacer cambios
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* OPCIÓN 3 */}
+                      <TouchableOpacity
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 12,
+                          padding: 16,
+                          borderRadius: 12,
+                          backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                          borderWidth: 2,
+                          borderColor: 'rgba(239, 68, 68, 0.4)',
+                        }}
+                        onPress={() => {
+                          setModalDuplicadoVisible(false);
+                          setContenidoDuplicado(null);
+                          cerrarModal();
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <View style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 10,
+                          backgroundColor: '#ef4444',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}>
+                          <Text style={{ fontSize: 20 }}>❌</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: '#ef4444', fontWeight: '700', fontSize: 14 }}>
+                            ❌ Cancelar creación
+                          </Text>
+                          <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 11, marginTop: 2 }}>
+                            Descartar y volver al listado
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Info */}
+                    <View style={{
+                      marginTop: 16,
+                      padding: 12,
+                      backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                      borderRadius: 10,
+                      borderLeftWidth: 3,
+                      borderLeftColor: '#3498db',
+                    }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <Text style={{ fontSize: 14 }}>💡</Text>
+                        <Text style={{ color: '#3498db', fontWeight: '700', fontSize: 12 }}>
+                          Consejo
+                        </Text>
+                      </View>
+                      <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 11, lineHeight: 16 }}>
+                        Mantener el contenido organizado evita confusiones y mejora la calidad
+                        de las respuestas del agente.
+                      </Text>
+                    </View>
+                  </View>
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        </Modal>
 
         {/* 🔥 Modal de confirmación de eliminación */}
         <Modal
