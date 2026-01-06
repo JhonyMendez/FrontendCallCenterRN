@@ -65,10 +65,7 @@ export default function SuperAdminSidebar({ isOpen }) {
       label: 'Métricas Globales',
       icon: 'bar-chart-outline',
       submenu: [
-        { label: 'Dashboard de Métricas', route: '/(superadmin)/metricas' },
-        { label: 'Reportes por Departamento', route: '/(superadmin)/metricas/departamentos' },
-        { label: 'Reportes por Usuario', route: '/(superadmin)/metricas/usuarios' },
-        { label: 'Análisis de Rendimiento', route: '/(superadmin)/metricas/rendimiento' },
+        { label: 'Dashboard de Métricas', route: '/superadmin/metricas' },
       ]
     },
     {
