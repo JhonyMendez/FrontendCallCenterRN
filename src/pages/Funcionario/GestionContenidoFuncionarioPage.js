@@ -466,7 +466,6 @@ const GestionContenidoPage = () => {
       return;
     }
 
-    // ... resto del código sin cambios
     if (contenido) {
       setEditando(true);
 
@@ -687,8 +686,14 @@ const GestionContenidoPage = () => {
       const contenidoNormalizado = formData.contenido.toLowerCase().trim();
 
       const similares = contenidos.filter(c => {
-        // 🔥 Si estamos editando, excluir el contenido actual
-        if (editando && c.id_contenido === formData.id_contenido) {
+        // 🔥 CRÍTICO: Si estamos editando, excluir SIEMPRE el contenido actual
+        // Ya sea que estemos editando desde el listado O desde el modal de duplicados
+        if (c.id_contenido === formData.id_contenido) {
+          return false;
+        }
+
+        // 🔥 NUEVO: También excluir si es el contenido duplicado que estamos actualizando
+        if (contenidoDuplicado && c.id_contenido === contenidoDuplicado.id_contenido) {
           return false;
         }
 
@@ -3199,10 +3204,60 @@ const GestionContenidoPage = () => {
                           borderWidth: 2,
                           borderColor: 'rgba(16, 185, 129, 0.4)',
                         }}
-                        onPress={() => {
-                          setModalDuplicadoVisible(false);
-                          abrirModal(contenidoDuplicado);
-                          setContenidoDuplicado(null);
+                        onPress={async () => {
+                          console.log('🔄 Actualizando contenido existente directamente...');
+
+                          try {
+                            // Cerrar modal de duplicado
+                            setModalDuplicadoVisible(false);
+
+                            // 🔥 Preparar datos para actualización directa
+                            const categoriaSeleccionada = categorias.find(
+                              cat => cat.id_categoria === formData.id_categoria
+                            );
+
+                            const agenteSeleccionado = agentes.find(
+                              ag => ag.id_agente === categoriaSeleccionada?.id_agente
+                            );
+
+                            const id_departamento = agenteSeleccionado?.id_departamento || null;
+
+                            const dataToSend = {
+                              id_agente: parseInt(categoriaSeleccionada.id_agente),
+                              id_categoria: parseInt(formData.id_categoria),
+                              id_departamento: id_departamento ? parseInt(id_departamento) : null,
+                              titulo: formData.titulo.trim(),
+                              contenido: formData.contenido.trim(),
+                              resumen: formData.resumen,
+                              palabras_clave: formData.palabras_clave,
+                              etiquetas: formData.etiquetas,
+                              prioridad: parseInt(formData.prioridad),
+                              estado: formData.estado,
+                              fecha_vigencia_inicio: formData.fecha_vigencia_inicio || null,
+                              fecha_vigencia_fin: formData.fecha_vigencia_fin || null
+                            };
+
+                            console.log('📤 Actualizando contenido ID:', contenidoDuplicado.id_contenido);
+                            console.log('📦 Datos:', dataToSend);
+
+                            // 🔥 Actualizar directamente
+                            await contenidoService.update(contenidoDuplicado.id_contenido, dataToSend);
+
+                            mostrarNotificacionExito('✅ Contenido actualizado correctamente');
+
+                            // Limpiar estados
+                            setContenidoDuplicado(null);
+                            cerrarModal();
+
+                            // Recargar contenidos
+                            await cargarContenidos();
+
+                            console.log('✅ Actualización completada');
+
+                          } catch (error) {
+                            console.error('❌ Error actualizando:', error);
+                            mostrarNotificacionError('❌ Error al actualizar el contenido');
+                          }
                         }}
                         activeOpacity={0.7}
                       >

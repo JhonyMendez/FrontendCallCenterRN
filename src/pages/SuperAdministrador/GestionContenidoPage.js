@@ -2775,7 +2775,7 @@ const GestionContenidoPage = () => {
                   </Text>
 
                   <View style={{ gap: 10 }}>
-                    {/* 🔥 OPCIÓN 1: Actualizar existente (Recomendado) */}
+                    {/* 🔥 OPCIÓN 1: Actualizar existente - GUARDADO DIRECTO */}
                     <TouchableOpacity
                       style={{
                         flexDirection: 'row',
@@ -2787,11 +2787,65 @@ const GestionContenidoPage = () => {
                         borderWidth: 2,
                         borderColor: 'rgba(16, 185, 129, 0.4)',
                       }}
-                      onPress={() => {
-                        console.log('✅ Usuario eligió: Actualizar contenido existente');
-                        setModalDuplicadoVisible(false);
-                        abrirModal(contenidoDuplicado); // Cargar el contenido existente para editar
-                        setContenidoDuplicado(null);
+                      onPress={async () => {
+                        console.log('🔄 Actualizando contenido existente directamente...');
+
+                        try {
+                          // Cerrar modal de duplicado
+                          setModalDuplicadoVisible(false);
+
+                          // 🔥 Preparar datos para actualización directa
+                          const categoriaSeleccionada = categorias.find(
+                            (cat) => Number(cat.id_categoria) === Number(formData.id_categoria)
+                          );
+
+                          if (!categoriaSeleccionada) {
+                            Alert.alert('Error', 'No se pudo encontrar la categoría seleccionada');
+                            return;
+                          }
+
+                          const agenteSeleccionado = agentes.find(
+                            ag => ag.id_agente === categoriaSeleccionada?.id_agente
+                          );
+
+                          const id_departamento = agenteSeleccionado?.id_departamento || null;
+
+                          const dataToSend = {
+                            id_agente: parseInt(categoriaSeleccionada.id_agente),
+                            id_categoria: parseInt(formData.id_categoria),
+                            id_departamento: id_departamento ? parseInt(id_departamento) : null,
+                            titulo: formData.titulo.trim(),
+                            contenido: formData.contenido.trim(),
+                            resumen: formData.resumen.trim(),
+                            palabras_clave: formData.palabras_clave.trim(),
+                            etiquetas: formData.etiquetas.trim(),
+                            prioridad: parseInt(formData.prioridad),
+                            estado: formData.estado,
+                            fecha_vigencia_inicio: formData.fecha_vigencia_inicio || null,
+                            fecha_vigencia_fin: formData.fecha_vigencia_fin || null
+                          };
+
+                          console.log('📤 Actualizando contenido ID:', contenidoDuplicado.id_contenido);
+                          console.log('📦 Datos:', dataToSend);
+
+                          // 🔥 Actualizar directamente en la base de datos
+                          await contenidoService.update(contenidoDuplicado.id_contenido, dataToSend);
+
+                          mostrarNotificacionExito('✅ Contenido actualizado correctamente');
+
+                          // Limpiar estados
+                          setContenidoDuplicado(null);
+                          cerrarModal();
+
+                          // Recargar contenidos
+                          await cargarContenidos();
+
+                          console.log('✅ Actualización completada');
+
+                        } catch (error) {
+                          console.error('❌ Error actualizando:', error);
+                          Alert.alert('Error', error.message || 'No se pudo actualizar el contenido');
+                        }
                       }}
                       activeOpacity={0.7}
                     >
@@ -2810,7 +2864,7 @@ const GestionContenidoPage = () => {
                           ✅ Actualizar contenido existente (Recomendado)
                         </Text>
                         <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 11, marginTop: 2 }}>
-                          Editar y mejorar el contenido que ya existe en lugar de crear uno nuevo
+                          Actualizar directamente el contenido existente con tus cambios
                         </Text>
                       </View>
                     </TouchableOpacity>
