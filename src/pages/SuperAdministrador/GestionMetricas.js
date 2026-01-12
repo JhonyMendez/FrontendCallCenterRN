@@ -18,6 +18,9 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { agenteService } from '../../api/services/agenteService';
+import { conversacionService } from '../../api/services/conversacionService';
+import { visitanteAnonimoService } from '../../api/services/visitanteAnonimoService';
 import SuperAdminSidebar from '../../components/Sidebar/sidebarSuperAdmin';
 import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles';
 import GestionMetricasCard from '../../components/SuperAdministrador/GestionMetricasCard';
@@ -34,9 +37,9 @@ export default function GestionMetricas() {
     const [filtroActivo, setFiltroActivo] = useState('hoy');
     const [agenteSeleccionado, setAgenteSeleccionado] = useState(null);
     const [fadeAnim] = useState(new Animated.Value(0));
-    const [sidebarOpen, setSidebarOpen] = useState(true); // ✅ NUEVO
+    const [sidebarOpen, setSidebarOpen] = useState(true);
 
-    // Datos de métricas basados en tu BD
+    // Estado inicial VACÍO (sin datos quemados)
     const [metricas, setMetricas] = useState({
         resumen: {
             totalConversaciones: 0,
@@ -53,12 +56,25 @@ export default function GestionMetricas() {
         metricasPorDia: [],
         horasPico: [],
         contenidoMasUsado: [],
-        agentesDisponibles: []
+        agentesDisponibles: [],
+
+        visitantes: {
+            total: 0,
+            activos: 0,
+            porDispositivo: [],
+            porPais: [],
+            tendenciaSemanal: []
+        },
+        conversacionesDetalle: {
+            porEstado: [],
+            tendenciaSemanal: [],
+            tiempoPromedio: 0,
+            satisfaccion: 0
+        }
     });
 
     // ==================== EFECTOS ====================
     useEffect(() => {
-        // Animación de entrada
         Animated.timing(fadeAnim, {
             toValue: 1,
             duration: 800,
@@ -74,184 +90,280 @@ export default function GestionMetricas() {
         }
     }, [filtroActivo, agenteSeleccionado]);
 
+    // ==================== FUNCIÓN AUXILIAR: CARGAR AGENTES REALES ====================
+    const cargarAgentesReales = async (estadisticasAgentes) => {
+        try {
+
+            // ✅ OBTENER TODOS LOS AGENTES DEL SISTEMA
+            const todosLosAgentes = await agenteService.getAll({ activo: true });
+
+            if (!todosLosAgentes) {
+                console.error('❌ todosLosAgentes es null o undefined');
+                return [];
+            }
+
+            // ✅ EXTRAER ARRAY DE AGENTES
+            let agentesArray = todosLosAgentes;
+            if (!Array.isArray(todosLosAgentes)) {
+                console.warn('⚠️ todosLosAgentes no es un array, intentando acceder a .data');
+                agentesArray = todosLosAgentes.data || todosLosAgentes.agentes || [];
+            }
+
+            if (!Array.isArray(agentesArray) || agentesArray.length === 0) {
+                console.warn('⚠️ No se encontraron agentes activos');
+                return [];
+            }
+
+            // ✅ MAPEAR AGENTES CON ESTADÍSTICAS (si existen)
+            const agentesConEstadisticas = agentesArray.map(agente => {
+                // 🔍 Buscar estadísticas de este agente (si existen)
+                let stats = {};
+
+                // Intentar encontrar estadísticas en diferentes estructuras posibles
+                if (estadisticasAgentes?.agentes_activos && Array.isArray(estadisticasAgentes.agentes_activos)) {
+                    stats = estadisticasAgentes.agentes_activos.find(
+                        a => a.id === agente.id_agente || a.id_agente === agente.id_agente
+                    ) || {};
+                } else if (Array.isArray(estadisticasAgentes)) {
+                    stats = estadisticasAgentes.find(
+                        a => a.id === agente.id_agente || a.id_agente === agente.id_agente
+                    ) || {};
+                }
+                // ✅ CONSTRUIR OBJETO CON DATOS DEL AGENTE + ESTADÍSTICAS
+                return {
+                    id: agente.id_agente,
+                    nombre: agente.nombre_agente || agente.nombre || 'Agente Desconocido',
+                    icono: agente.icono || '🤖',
+                    color: agente.color_tema || agente.color || '#667eea',
+                    area: agente.area_especialidad || agente.area || 'General',
+                    // Estadísticas (pueden ser 0 si no hay datos)
+                    conversacionesIniciadas: stats.conversaciones_iniciadas || 0,
+                    mensajesEnviados: stats.mensajes_enviados || 0,
+                    satisfaccionPromedio: stats.satisfaccion_promedio || 0,
+                    tasaResolucion: stats.tasa_resolucion || 0,
+                    tiempoRespuestaPromedioMs: stats.tiempo_respuesta_promedio_ms || 0
+                };
+            });
+            return agentesConEstadisticas;
+
+        } catch (error) {
+            console.error('❌ Error en cargarAgentesReales:', error);
+            console.error('❌ Stack:', error.stack);
+            return [];
+        }
+    };
+
+    // Nueva función auxiliar para procesar agentes
+    const procesarAgentes = (agentesArray, estadisticasAgentes) => {
+        const agentesConEstadisticas = agentesArray.map(agente => {
+            // Buscar las estadísticas de este agente específico
+            const stats = estadisticasAgentes?.agentes_activos?.find(
+                a => a.id === agente.id
+            ) || {};
+            return {
+                id: agente.id,
+                nombre: agente.nombre || 'Agente Desconocido',
+                icono: agente.icono || '🤖',
+                color: agente.color || '#667eea',
+                area: agente.id_departamento?.nombre || agente.area || 'General',
+                conversacionesIniciadas: stats.conversaciones_iniciadas || 0,
+                mensajesEnviados: stats.mensajes_enviados || 0,
+                satisfaccionPromedio: stats.satisfaccion_promedio || 0,
+                tasaResolucion: stats.tasa_resolucion || 0,
+                tiempoRespuestaPromedioMs: stats.tiempo_respuesta_promedio_ms || 0
+            };
+        });
+        return agentesConEstadisticas;
+    };
+
+    // ==================== FUNCIÓN AUXILIAR: CARGAR AGENTES DISPONIBLES ====================
+    const cargarAgentesDisponibles = async () => {
+        try {
+            const agentes = await agenteService.getAll({ activo: true });
+            if (!agentes) {
+                console.error('❌ Respuesta null o undefined');
+                return [];
+            }
+            let agentesArray = agentes;
+
+            // Si la respuesta no es un array, intentar extraer el array
+            if (!Array.isArray(agentes)) {
+                agentesArray = agentes.data || agentes.agentes || [];
+            }
+
+            if (!Array.isArray(agentesArray)) {
+                console.error('❌ No se pudo extraer un array válido');
+                return [];
+            }
+
+            const resultado = agentesArray.map(a => ({
+                id: a.id,
+                nombre: a.nombre || 'Sin nombre',
+                activo: a.activo !== undefined ? a.activo : true
+            }));
+            return resultado;
+
+        } catch (error) {
+            console.error('❌ Error cargando agentes disponibles:', error);
+            console.error('❌ Stack:', error.stack);
+            return [];
+        }
+    };
+
     // ==================== FUNCIONES DE CARGA ====================
     const cargarMetricas = async () => {
         try {
             if (!refreshing) {
                 setLoading(true);
             }
+            // ✅ CARGAR DATOS CON MANEJO DE ERRORES INDIVIDUAL
+            const [estadisticasConv, estadisticasAgentes, estadisticasVisitantes] = await Promise.all([
+                conversacionService.getEstadisticasGenerales().catch(err => {
+                    console.error('❌ Error en conversaciones:', err.message);
+                    return null; // Retornar null si falla
+                }),
+                agenteService.getEstadisticasGenerales().catch(err => {
+                    console.error('❌ Error en agentes:', err.message);
+                    return null;
+                }),
+                visitanteAnonimoService.getEstadisticas().catch(err => {
+                    console.error('❌ Error en visitantes:', err.message);
+                    return null; // ⚠️ Este está fallando con error 500
+                })
+            ]);
 
-            // TODO: Reemplazar con llamada real a la API
-            // const response = await metricasService.obtenerMetricasDiarias({
-            //   periodo: filtroActivo,
-            //   idAgente: agenteSeleccionado
-            // });
+            // ✅ CARGAR AGENTES REALES
+            const agentesReales = await cargarAgentesReales(estadisticasAgentes);
+            const agentesDisp = await cargarAgentesDisponibles();
 
-            // Simular carga de datos desde tu BD
-            await new Promise(resolve => setTimeout(resolve, 600));
-
-            // Datos basados en tu estructura de BD
-            const datosEjemplo = {
+            // 🎯 CONSTRUIR DATOS FINALES (manejando valores null)
+            const datosFinales = {
                 resumen: {
-                    totalConversaciones: 1247,
-                    totalMensajes: 8932,
-                    visitantesUnicos: 856,
-                    conversacionesActivas: 23,
-                    conversacionesFinalizadas: 1186,
-                    conversacionesEscaladas: 38,
-                    satisfaccionPromedio: 4.6,
-                    tiempoRespuestaPromedioMs: 2345,
-                    duracionConversacionPromedioSeg: 325
+                    totalConversaciones: estadisticasConv?.total_conversaciones || 0,
+                    totalMensajes: estadisticasConv?.total_mensajes || 0,
+                    visitantesUnicos: estadisticasConv?.visitantes_unicos || 0,
+                    conversacionesActivas: estadisticasConv?.activas || 0,
+                    conversacionesFinalizadas: estadisticasConv?.finalizadas || 0,
+                    conversacionesEscaladas: estadisticasConv?.escaladas || 0,
+                    satisfaccionPromedio: estadisticasConv?.satisfaccion_promedio || 0,
+                    tiempoRespuestaPromedioMs: estadisticasConv?.tiempo_respuesta_promedio_ms || 0,
+                    duracionConversacionPromedioSeg: estadisticasConv?.duracion_promedio_seg || 0
                 },
-                agentesMasActivos: [
-                    {
-                        id: 1,
-                        nombre: 'Desarrollo de Software y Tecnología',
-                        area: 'Desarrollo de Software, Programación',
-                        conversacionesIniciadas: 342,
-                        conversacionesFinalizadas: 328,
-                        mensajesEnviados: 2456,
-                        mensajesRecibidos: 2398,
-                        satisfaccionPromedio: 4.7,
-                        tasaResolucion: 89.2,
-                        tiempoRespuestaPromedioMs: 1823,
-                        color: '#667eea',
-                        icono: '🧠'
-                    },
-                    {
-                        id: 8,
-                        nombre: 'Especialista en Big Data',
-                        area: 'Big Data y Analítica de Datos',
-                        conversacionesIniciadas: 328,
-                        conversacionesFinalizadas: 298,
-                        mensajesEnviados: 2331,
-                        mensajesRecibidos: 2276,
-                        satisfaccionPromedio: 4.6,
-                        tasaResolucion: 88.1,
-                        tiempoRespuestaPromedioMs: 1956,
-                        color: '#20c997',
-                        icono: '📊'
-                    },
-                    {
-                        id: 4,
-                        nombre: 'Agente de Deporte y Salud',
-                        area: 'Actividad Física, Deporte',
-                        conversacionesIniciadas: 223,
-                        conversacionesFinalizadas: 208,
-                        mensajesEnviados: 1589,
-                        mensajesRecibidos: 1542,
-                        satisfaccionPromedio: 4.8,
-                        tasaResolucion: 91.4,
-                        tiempoRespuestaPromedioMs: 1678,
-                        color: '#3bc9db',
-                        icono: '⚡'
-                    },
-                    {
-                        id: 2,
-                        nombre: 'Agente de Infraestructura',
-                        area: 'Redes, Servidores, Plataformas',
-                        conversacionesIniciadas: 198,
-                        conversacionesFinalizadas: 182,
-                        mensajesEnviados: 1432,
-                        mensajesRecibidos: 1398,
-                        satisfaccionPromedio: 4.5,
-                        tasaResolucion: 85.3,
-                        tiempoRespuestaPromedioMs: 2134,
-                        color: '#764ba2',
-                        icono: '🔧'
-                    },
-                    {
-                        id: 3,
-                        nombre: 'Agente de Procesos Industriales',
-                        area: 'Procesos Industriales, Manufactura',
-                        conversacionesIniciadas: 156,
-                        conversacionesFinalizadas: 142,
-                        mensajesEnviados: 1124,
-                        mensajesRecibidos: 1089,
-                        satisfaccionPromedio: 4.4,
-                        tasaResolucion: 82.7,
-                        tiempoRespuestaPromedioMs: 2287,
-                        color: '#f093fb',
-                        icono: '🔧'
-                    }
-                ],
-                metricasPorDia: [
-                    { fecha: '2026-01-01', conversaciones: 178, mensajes: 1243, visitantes: 124 },
-                    { fecha: '2026-01-02', conversaciones: 189, mensajes: 1356, visitantes: 142 },
-                    { fecha: '2026-01-03', conversaciones: 167, mensajes: 1187, visitantes: 118 },
-                    { fecha: '2026-01-04', conversaciones: 203, mensajes: 1478, visitantes: 156 },
-                    { fecha: '2026-01-05', conversaciones: 196, mensajes: 1389, visitantes: 147 },
-                    { fecha: '2026-01-06', conversaciones: 142, mensajes: 998, visitantes: 98 },
-                    { fecha: '2026-01-07', conversaciones: 172, mensajes: 1281, visitantes: 131 }
-                ],
-                horasPico: [
-                    { hora: 9, cantidad: 87, conversaciones: 45 },
-                    { hora: 11, cantidad: 134, conversaciones: 67 },
-                    { hora: 14, cantidad: 178, conversaciones: 89 },
-                    { hora: 16, cantidad: 156, conversaciones: 73 },
-                    { hora: 18, cantidad: 98, conversaciones: 52 }
-                ],
-                contenidoMasUsado: [
-                    {
-                        id: 1,
-                        titulo: 'Introducción a los Lenguajes de Programación',
-                        agente: 'Desarrollo de Software',
-                        usos: 234,
-                        utilidad: 4.7,
-                        categoria: 'Lenguajes de Programación'
-                    },
-                    {
-                        id: 2,
-                        titulo: 'Requisitos para Prácticas Preprofesionales',
-                        agente: 'Desarrollo de Software',
-                        usos: 198,
-                        utilidad: 4.6,
-                        categoria: 'Prácticas Profesionales'
-                    },
-                    {
-                        id: 3,
-                        titulo: 'Uso de Talleres y Laboratorios Industriales',
-                        agente: 'Procesos Industriales',
-                        usos: 167,
-                        utilidad: 4.5,
-                        categoria: 'Uso de Talleres'
-                    },
-                    {
-                        id: 7,
-                        titulo: 'Actividades Deportivas y Bienestar',
-                        agente: 'Deporte y Salud',
-                        usos: 156,
-                        utilidad: 4.8,
-                        categoria: 'Deporte y Bienestar'
-                    },
-                    {
-                        id: 11,
-                        titulo: 'Protocolos de Seguridad Institucional',
-                        agente: 'Seguridad y Rescate',
-                        usos: 143,
-                        utilidad: 4.6,
-                        categoria: 'Seguridad Institucional'
-                    }
-                ],
-                agentesDisponibles: [
-                    { id: 1, nombre: 'Desarrollo de Software', activo: true },
-                    { id: 2, nombre: 'Infraestructura', activo: true },
-                    { id: 3, nombre: 'Procesos Industriales', activo: true },
-                    { id: 4, nombre: 'Deporte y Salud', activo: true },
-                    { id: 5, nombre: 'Gestión y Finanzas', activo: true },
-                    { id: 6, nombre: 'Seguridad y Rescate', activo: true },
-                    { id: 8, nombre: 'Big Data', activo: true }
-                ]
+                agentesMasActivos: agentesReales,
+                metricasPorDia: Array.isArray(estadisticasConv?.metricas_por_dia)
+                    ? estadisticasConv.metricas_por_dia
+                    : [],
+                horasPico: Array.isArray(estadisticasConv?.horas_pico)
+                    ? estadisticasConv.horas_pico
+                    : [],
+                contenidoMasUsado: Array.isArray(estadisticasConv?.contenido_mas_usado)
+                    ? estadisticasConv.contenido_mas_usado
+                    : [],
+                agentesDisponibles: agentesDisp,
+                visitantes: {
+                    total: estadisticasVisitantes?.total_visitantes || 0,
+                    activos: estadisticasVisitantes?.visitantes_activos || 0,
+                    porDispositivo: Array.isArray(estadisticasVisitantes?.por_dispositivo)
+                        ? estadisticasVisitantes.por_dispositivo.map(d => ({
+                            name: d.dispositivo || d.name,
+                            value: d.cantidad || d.value,
+                            porcentaje: d.porcentaje
+                        }))
+                        : [],
+                    porPais: Array.isArray(estadisticasVisitantes?.por_pais)
+                        ? estadisticasVisitantes.por_pais
+                        : [],
+                    tendenciaSemanal: Array.isArray(estadisticasVisitantes?.tendencia_semanal)
+                        ? estadisticasVisitantes.tendencia_semanal
+                        : []
+                },
+                conversacionesDetalle: {
+                    porEstado: [
+                        {
+                            name: 'Finalizadas',
+                            value: estadisticasConv?.finalizadas || 0,
+                            color: '#10b981'
+                        },
+                        {
+                            name: 'Activas',
+                            value: estadisticasConv?.activas || 0,
+                            color: '#3b82f6'
+                        },
+                        {
+                            name: 'Escaladas',
+                            value: estadisticasConv?.escaladas || 0,
+                            color: '#f59e0b'
+                        }
+                    ],
+                    tendenciaSemanal: Array.isArray(estadisticasConv?.tendencia_semanal)
+                        ? estadisticasConv.tendencia_semanal
+                        : [],
+                    tiempoPromedio: estadisticasConv?.duracion_promedio_seg || 0,
+                    satisfaccion: estadisticasConv?.satisfaccion_promedio || 0
+                }
             };
 
-            setMetricas(datosEjemplo);
+            setMetricas(datosFinales);
+
+            // ⚠️ Advertir sobre endpoints que fallaron
+            const endpointsFallidos = [];
+            if (!estadisticasConv) endpointsFallidos.push('Conversaciones');
+            if (!estadisticasAgentes) endpointsFallidos.push('Agentes');
+            if (!estadisticasVisitantes) endpointsFallidos.push('Visitantes');
+
+            if (endpointsFallidos.length > 0 && !refreshing) {
+                console.warn('⚠️ Endpoints con errores:', endpointsFallidos.join(', '));
+
+                if (!isWeb) {
+                    Alert.alert(
+                        'Advertencia',
+                        `No se pudieron cargar algunas métricas: ${endpointsFallidos.join(', ')}`,
+                        [{ text: 'OK' }]
+                    );
+                }
+            }
 
         } catch (error) {
-            console.error('Error cargando métricas:', error);
-            if (!isWeb) {
+            console.error('❌ Error CRÍTICO cargando métricas:', error);
+            console.error('❌ Detalles:', error.response?.data || error.message);
+
+            // Mantener estado vacío
+            setMetricas({
+                resumen: {
+                    totalConversaciones: 0,
+                    totalMensajes: 0,
+                    visitantesUnicos: 0,
+                    conversacionesActivas: 0,
+                    conversacionesFinalizadas: 0,
+                    conversacionesEscaladas: 0,
+                    satisfaccionPromedio: 0,
+                    tiempoRespuestaPromedioMs: 0,
+                    duracionConversacionPromedioSeg: 0
+                },
+                agentesMasActivos: [],
+                metricasPorDia: [],
+                horasPico: [],
+                contenidoMasUsado: [],
+                agentesDisponibles: [],
+                visitantes: {
+                    total: 0,
+                    activos: 0,
+                    porDispositivo: [],
+                    porPais: [],
+                    tendenciaSemanal: []
+                },
+                conversacionesDetalle: {
+                    porEstado: [],
+                    tendenciaSemanal: [],
+                    tiempoPromedio: 0,
+                    satisfaccion: 0
+                }
+            });
+
+            if (!isWeb && !refreshing) {
                 Alert.alert(
                     'Error',
-                    'No se pudieron cargar las métricas. Intenta nuevamente.',
+                    'No se pudieron cargar las métricas. Verifica tu conexión.',
                     [{ text: 'OK' }]
                 );
             }
@@ -269,8 +381,9 @@ export default function GestionMetricas() {
     // ==================== FUNCIONES DE EXPORTACIÓN ====================
     const exportarDatos = async (formato) => {
         try {
-            // TODO: Implementar exportación real
-            console.log(`Exportando datos en formato: ${formato}`);
+
+            // TODO: Implementar exportación real cuando el backend tenga el endpoint
+            // const response = await metricasService.exportar(formato);
 
             if (!isWeb) {
                 Alert.alert(
@@ -280,7 +393,7 @@ export default function GestionMetricas() {
                 );
             }
         } catch (error) {
-            console.error('Error exportando datos:', error);
+            console.error('❌ Error exportando datos:', error);
         }
     };
 
@@ -429,6 +542,9 @@ export default function GestionMetricas() {
                             {loading && !refreshing ? (
                                 <View style={metricasStyles.loadingInline}>
                                     <ActivityIndicator size="large" color="#667eea" />
+                                    <Text style={{ color: '#a29bfe', marginTop: 15, fontSize: 14 }}>
+                                        Cargando métricas...
+                                    </Text>
                                 </View>
                             ) : (
                                 <GestionMetricasCard

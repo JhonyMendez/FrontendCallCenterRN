@@ -1,8 +1,8 @@
-// app/(superadmin)/departamentos.tsx
+// app/(superadmin)/contenidoAdmin.tsx
 import GestionContenidoAdminPage from '@/src/pages/Administrador/GestionContenidoAdminPage';
 import { Platform, StatusBar, StyleSheet, View } from 'react-native';
 
-export default function DepartamentosScreen() {
+export default function ContenidoAdminScreen() {
   return (
     <View style={styles.container}>
       <GestionContenidoAdminPage />

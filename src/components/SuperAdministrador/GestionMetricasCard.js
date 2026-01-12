@@ -1,5 +1,5 @@
 // ==================================================================================
-// src/components/Metricas/GestionMetricasCard.js
+// src/components/SuperAdministrador/GestionMetricasCard.js
 // Cards Premium para visualización de métricas institucionales
 // ==================================================================================
 
@@ -30,7 +30,9 @@ export default function GestionMetricasCard({
         agentes: true,
         tendencias: true,
         contenido: true,
-        horas: true
+        horas: true,
+        visitantes: true,
+        conversaciones: true
     });
 
     // ==================== FUNCIONES AUXILIARES ====================
@@ -576,6 +578,547 @@ export default function GestionMetricasCard({
         );
     };
 
+    // ==================== VISITANTES ====================
+    const renderVisitantes = () => {
+        if (!metricas.visitantes) {
+            return null;
+        }
+
+        const { visitantes } = metricas;
+
+        return (
+            <View style={metricasStyles.seccionContainer}>
+                <TouchableOpacity
+                    onPress={() => toggleSeccion('visitantes')}
+                    activeOpacity={0.7}
+                >
+                    <View style={metricasStyles.seccionHeader}>
+                        <View style={metricasStyles.seccionIcono}>
+                            <Ionicons name="people" size={22} color="#667eea" />
+                        </View>
+                        <Text style={metricasStyles.seccionTitulo}>Visitantes Anónimos</Text>
+                        <Ionicons
+                            name={seccionExpandida.visitantes ? "chevron-up" : "chevron-down"}
+                            size={26}
+                            color="#a29bfe"
+                            style={{ marginLeft: 'auto' }}
+                        />
+                    </View>
+                </TouchableOpacity>
+
+                {seccionExpandida.visitantes && (
+                    <View>
+                        {/* Tarjetas Resumen */}
+                        <View style={metricasStyles.estadisticasGrid}>
+                            <View style={metricasStyles.estadisticaItem}>
+                                <LinearGradient
+                                    colors={['#3bc9db', '#1c7ed6']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={metricasStyles.estadisticaCard}
+                                >
+                                    <Ionicons
+                                        name="people-outline"
+                                        size={28}
+                                        color="rgba(255,255,255,0.25)"
+                                        style={metricasStyles.estadisticaIcono}
+                                    />
+                                    <Text style={metricasStyles.estadisticaValor}>
+                                        {formatearNumero(visitantes.total)}
+                                    </Text>
+                                    <Text style={metricasStyles.estadisticaLabel}>Total Visitantes</Text>
+                                </LinearGradient>
+                            </View>
+
+                            <View style={metricasStyles.estadisticaItem}>
+                                <LinearGradient
+                                    colors={['#20c997', '#17a2b8']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={metricasStyles.estadisticaCard}
+                                >
+                                    <Ionicons
+                                        name="pulse"
+                                        size={28}
+                                        color="rgba(255,255,255,0.25)"
+                                        style={metricasStyles.estadisticaIcono}
+                                    />
+                                    <Text style={metricasStyles.estadisticaValor}>
+                                        {visitantes.activos || 0}
+                                    </Text>
+                                    <Text style={metricasStyles.estadisticaLabel}>Activos Ahora</Text>
+                                </LinearGradient>
+                            </View>
+                        </View>
+
+                        {/* Gráfica: Dispositivos */}
+                        {visitantes.porDispositivo && visitantes.porDispositivo.length > 0 && (
+                            <View style={[metricasStyles.graficoContainer, { marginTop: 20 }]}>
+                                <View style={metricasStyles.graficoHeader}>
+                                    <Text style={metricasStyles.graficoTitulo}>Por Dispositivo</Text>
+                                </View>
+
+                                <View style={{ paddingVertical: 20 }}>
+                                    {visitantes.porDispositivo.map((dispositivo, index) => {
+                                        const colores = [
+                                            ['#667eea', '#764ba2'],
+                                            ['#f093fb', '#f5576c'],
+                                            ['#3bc9db', '#1c7ed6']
+                                        ];
+                                        const iconos = ['phone-portrait', 'desktop', 'tablet-portrait'];
+
+                                        return (
+                                            <View key={index} style={{
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                marginBottom: 15,
+                                                paddingHorizontal: 15
+                                            }}>
+                                                <LinearGradient
+                                                    colors={colores[index] || colores[0]}
+                                                    start={{ x: 0, y: 0 }}
+                                                    end={{ x: 1, y: 1 }}
+                                                    style={{
+                                                        width: 40,
+                                                        height: 40,
+                                                        borderRadius: 12,
+                                                        justifyContent: 'center',
+                                                        alignItems: 'center',
+                                                        marginRight: 12
+                                                    }}
+                                                >
+                                                    <Ionicons
+                                                        name={iconos[index] || 'phone-portrait'}
+                                                        size={20}
+                                                        color="#fff"
+                                                    />
+                                                </LinearGradient>
+
+                                                <View style={{ flex: 1 }}>
+                                                    <View style={{
+                                                        flexDirection: 'row',
+                                                        justifyContent: 'space-between',
+                                                        marginBottom: 6
+                                                    }}>
+                                                        <Text style={{
+                                                            fontSize: 15,
+                                                            fontWeight: '700',
+                                                            color: '#fff'
+                                                        }}>
+                                                            {dispositivo.name}
+                                                        </Text>
+                                                        <Text style={{
+                                                            fontSize: 15,
+                                                            fontWeight: '700',
+                                                            color: '#fff'
+                                                        }}>
+                                                            {dispositivo.value}
+                                                        </Text>
+                                                    </View>
+
+                                                    <View style={{
+                                                        height: 8,
+                                                        backgroundColor: 'rgba(162, 155, 254, 0.15)',
+                                                        borderRadius: 4,
+                                                        overflow: 'hidden'
+                                                    }}>
+                                                        <LinearGradient
+                                                            colors={colores[index] || colores[0]}
+                                                            start={{ x: 0, y: 0 }}
+                                                            end={{ x: 1, y: 0 }}
+                                                            style={{
+                                                                height: '100%',
+                                                                width: `${dispositivo.porcentaje}%`
+                                                            }}
+                                                        />
+                                                    </View>
+
+                                                    <Text style={{
+                                                        fontSize: 12,
+                                                        color: '#a29bfe',
+                                                        fontWeight: '600',
+                                                        marginTop: 4
+                                                    }}>
+                                                        {dispositivo.porcentaje}% del total
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                        );
+                                    })}
+                                </View>
+                            </View>
+                        )}
+
+                        {/* Gráfica: Top Países */}
+                        {visitantes.porPais && visitantes.porPais.length > 0 && (
+                            <View style={[metricasStyles.graficoContainer, { marginTop: 20 }]}>
+                                <View style={metricasStyles.graficoHeader}>
+                                    <Text style={metricasStyles.graficoTitulo}>Top Países</Text>
+                                </View>
+
+                                <View style={{ paddingVertical: 15 }}>
+                                    {visitantes.porPais.slice(0, 5).map((pais, index) => {
+                                        const maxCantidad = visitantes.porPais[0]?.cantidad || 1;
+                                        const porcentaje = (pais.cantidad / maxCantidad) * 100;
+
+                                        return (
+                                            <View key={index} style={{
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                marginBottom: 12,
+                                                paddingHorizontal: 15
+                                            }}>
+                                                <View style={{
+                                                    width: 35,
+                                                    height: 35,
+                                                    borderRadius: 10,
+                                                    backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                                                    justifyContent: 'center',
+                                                    alignItems: 'center',
+                                                    marginRight: 12
+                                                }}>
+                                                    <Text style={{ fontSize: 18 }}>
+                                                        {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '📍'}
+                                                    </Text>
+                                                </View>
+
+                                                <View style={{ flex: 1 }}>
+                                                    <View style={{
+                                                        flexDirection: 'row',
+                                                        justifyContent: 'space-between',
+                                                        marginBottom: 6
+                                                    }}>
+                                                        <Text style={{
+                                                            fontSize: 14,
+                                                            fontWeight: '700',
+                                                            color: '#fff'
+                                                        }}>
+                                                            {pais.pais}
+                                                        </Text>
+                                                        <Text style={{
+                                                            fontSize: 14,
+                                                            fontWeight: '700',
+                                                            color: '#a29bfe'
+                                                        }}>
+                                                            {pais.cantidad}
+                                                        </Text>
+                                                    </View>
+
+                                                    <View style={{
+                                                        height: 6,
+                                                        backgroundColor: 'rgba(162, 155, 254, 0.15)',
+                                                        borderRadius: 3,
+                                                        overflow: 'hidden'
+                                                    }}>
+                                                        <LinearGradient
+                                                            colors={['#667eea', '#764ba2']}
+                                                            start={{ x: 0, y: 0 }}
+                                                            end={{ x: 1, y: 0 }}
+                                                            style={{
+                                                                height: '100%',
+                                                                width: `${porcentaje}%`
+                                                            }}
+                                                        />
+                                                    </View>
+                                                </View>
+                                            </View>
+                                        );
+                                    })}
+                                </View>
+                            </View>
+                        )}
+                    </View>
+                )}
+            </View>
+        );
+    };
+
+    // ==================== CONVERSACIONES DETALLADAS ====================
+    const renderConversacionesDetalle = () => {
+        if (!metricas.conversacionesDetalle) {
+            return null;
+        }
+
+        const { conversacionesDetalle } = metricas;
+
+        return (
+            <View style={metricasStyles.seccionContainer}>
+                <TouchableOpacity
+                    onPress={() => toggleSeccion('conversaciones')}
+                    activeOpacity={0.7}
+                >
+                    <View style={metricasStyles.seccionHeader}>
+                        <View style={metricasStyles.seccionIcono}>
+                            <Ionicons name="chatbubbles" size={22} color="#667eea" />
+                        </View>
+                        <Text style={metricasStyles.seccionTitulo}>Análisis de Conversaciones</Text>
+                        <Ionicons
+                            name={seccionExpandida.conversaciones ? "chevron-up" : "chevron-down"}
+                            size={26}
+                            color="#a29bfe"
+                            style={{ marginLeft: 'auto' }}
+                        />
+                    </View>
+                </TouchableOpacity>
+
+                {seccionExpandida.conversaciones && (
+                    <View>
+                        {/* Distribución por Estado */}
+                        {conversacionesDetalle.porEstado && conversacionesDetalle.porEstado.length > 0 && (
+                            <View style={[metricasStyles.graficoContainer, { marginTop: 15 }]}>
+                                <View style={metricasStyles.graficoHeader}>
+                                    <Text style={metricasStyles.graficoTitulo}>Estado Actual</Text>
+                                </View>
+
+                                <View style={{ paddingVertical: 15 }}>
+                                    {conversacionesDetalle.porEstado.map((estado, index) => {
+                                        const total = conversacionesDetalle.porEstado.reduce(
+                                            (sum, e) => sum + e.value, 0
+                                        );
+                                        const porcentaje = ((estado.value / total) * 100).toFixed(1);
+
+                                        return (
+                                            <View key={index} style={{
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                marginBottom: 15,
+                                                paddingHorizontal: 15
+                                            }}>
+                                                <View style={{
+                                                    width: 40,
+                                                    height: 40,
+                                                    borderRadius: 12,
+                                                    backgroundColor: estado.color,
+                                                    justifyContent: 'center',
+                                                    alignItems: 'center',
+                                                    marginRight: 12
+                                                }}>
+                                                    <Ionicons
+                                                        name={
+                                                            estado.name === 'Finalizadas' ? 'checkmark-done' :
+                                                                estado.name === 'Activas' ? 'pulse' : 'arrow-up-circle'
+                                                        }
+                                                        size={20}
+                                                        color="#fff"
+                                                    />
+                                                </View>
+
+                                                <View style={{ flex: 1 }}>
+                                                    <View style={{
+                                                        flexDirection: 'row',
+                                                        justifyContent: 'space-between',
+                                                        marginBottom: 6
+                                                    }}>
+                                                        <Text style={{
+                                                            fontSize: 15,
+                                                            fontWeight: '700',
+                                                            color: '#fff'
+                                                        }}>
+                                                            {estado.name}
+                                                        </Text>
+                                                        <Text style={{
+                                                            fontSize: 15,
+                                                            fontWeight: '700',
+                                                            color: '#fff'
+                                                        }}>
+                                                            {estado.value}
+                                                        </Text>
+                                                    </View>
+
+                                                    <View style={{
+                                                        height: 8,
+                                                        backgroundColor: 'rgba(162, 155, 254, 0.15)',
+                                                        borderRadius: 4,
+                                                        overflow: 'hidden'
+                                                    }}>
+                                                        <View style={{
+                                                            height: '100%',
+                                                            width: `${porcentaje}%`,
+                                                            backgroundColor: estado.color
+                                                        }} />
+                                                    </View>
+
+                                                    <Text style={{
+                                                        fontSize: 12,
+                                                        color: '#a29bfe',
+                                                        fontWeight: '600',
+                                                        marginTop: 4
+                                                    }}>
+                                                        {porcentaje}% del total
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                        );
+                                    })}
+                                </View>
+                            </View>
+                        )}
+
+                        {/* Métricas Adicionales */}
+                        <View style={[metricasStyles.estadisticasGrid, { marginTop: 20 }]}>
+                            <View style={metricasStyles.estadisticaItem}>
+                                <LinearGradient
+                                    colors={['#667eea', '#764ba2']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={metricasStyles.estadisticaCard}
+                                >
+                                    <Ionicons
+                                        name="time"
+                                        size={28}
+                                        color="rgba(255,255,255,0.25)"
+                                        style={metricasStyles.estadisticaIcono}
+                                    />
+                                    <Text style={metricasStyles.estadisticaValor}>
+                                        {formatearDuracion(conversacionesDetalle.tiempoPromedio || 0)}
+                                    </Text>
+                                    <Text style={metricasStyles.estadisticaLabel}>Duración Promedio</Text>
+                                </LinearGradient>
+                            </View>
+
+                            <View style={metricasStyles.estadisticaItem}>
+                                <LinearGradient
+                                    colors={obtenerColorSatisfaccion(conversacionesDetalle.satisfaccion || 0)}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={metricasStyles.estadisticaCard}
+                                >
+                                    <Ionicons
+                                        name="star"
+                                        size={28}
+                                        color="rgba(255,255,255,0.25)"
+                                        style={metricasStyles.estadisticaIcono}
+                                    />
+                                    <Text style={metricasStyles.estadisticaValor}>
+                                        {(conversacionesDetalle.satisfaccion || 0).toFixed(1)}
+                                    </Text>
+                                    <Text style={metricasStyles.estadisticaLabel}>Satisfacción</Text>
+                                </LinearGradient>
+                            </View>
+                        </View>
+
+                        {/* Tendencia Semanal */}
+                        {conversacionesDetalle.tendenciaSemanal &&
+                            conversacionesDetalle.tendenciaSemanal.length > 0 && (
+                                <View style={[metricasStyles.graficoContainer, { marginTop: 20 }]}>
+                                    <View style={metricasStyles.graficoHeader}>
+                                        <Text style={metricasStyles.graficoTitulo}>Tendencia Semanal</Text>
+                                        <View style={metricasStyles.graficoLeyenda}>
+                                            <View style={metricasStyles.leyendaItem}>
+                                                <LinearGradient
+                                                    colors={['#667eea', '#764ba2']}
+                                                    start={{ x: 0, y: 0 }}
+                                                    end={{ x: 1, y: 1 }}
+                                                    style={metricasStyles.leyendaColor}
+                                                />
+                                                <Text style={metricasStyles.leyendaTexto}>Iniciadas</Text>
+                                            </View>
+                                            <View style={metricasStyles.leyendaItem}>
+                                                <LinearGradient
+                                                    colors={['#20c997', '#17a2b8']}
+                                                    start={{ x: 0, y: 0 }}
+                                                    end={{ x: 1, y: 1 }}
+                                                    style={metricasStyles.leyendaColor}
+                                                />
+                                                <Text style={metricasStyles.leyendaTexto}>Resueltas</Text>
+                                            </View>
+                                        </View>
+                                    </View>
+
+                                    <ScrollView
+                                        horizontal
+                                        showsHorizontalScrollIndicator={false}
+                                        contentContainerStyle={{ paddingVertical: 15, paddingHorizontal: 5 }}
+                                    >
+                                        {conversacionesDetalle.tendenciaSemanal.map((dia, index) => {
+                                            const maxConv = Math.max(
+                                                ...conversacionesDetalle.tendenciaSemanal.map(d => d.conversaciones)
+                                            );
+                                            const alturaTotal = (dia.conversaciones / maxConv) * 120;
+                                            const alturaResueltas = (dia.resueltas / maxConv) * 120;
+
+                                            return (
+                                                <View
+                                                    key={index}
+                                                    style={{
+                                                        alignItems: 'center',
+                                                        marginRight: 20,
+                                                        width: 70
+                                                    }}
+                                                >
+                                                    <View style={{ alignItems: 'center', marginBottom: 10 }}>
+                                                        <Text style={{
+                                                            fontSize: 16,
+                                                            fontWeight: '900',
+                                                            color: '#fff',
+                                                            marginBottom: 2
+                                                        }}>
+                                                            {dia.conversaciones}
+                                                        </Text>
+                                                        <Text style={{
+                                                            fontSize: 10,
+                                                            color: '#a29bfe',
+                                                            fontWeight: '600'
+                                                        }}>
+                                                            total
+                                                        </Text>
+                                                    </View>
+
+                                                    <View style={{
+                                                        flexDirection: 'row',
+                                                        gap: 8,
+                                                        alignItems: 'flex-end',
+                                                        marginBottom: 10
+                                                    }}>
+                                                        <LinearGradient
+                                                            colors={['#667eea', '#764ba2']}
+                                                            start={{ x: 0, y: 0 }}
+                                                            end={{ x: 0, y: 1 }}
+                                                            style={{
+                                                                width: 25,
+                                                                height: alturaTotal,
+                                                                borderRadius: 8
+                                                            }}
+                                                        />
+                                                        <LinearGradient
+                                                            colors={['#20c997', '#17a2b8']}
+                                                            start={{ x: 0, y: 0 }}
+                                                            end={{ x: 0, y: 1 }}
+                                                            style={{
+                                                                width: 25,
+                                                                height: alturaResueltas,
+                                                                borderRadius: 8
+                                                            }}
+                                                        />
+                                                    </View>
+
+                                                    <Text style={{
+                                                        fontSize: 13,
+                                                        color: '#fff',
+                                                        fontWeight: '700',
+                                                        marginBottom: 2
+                                                    }}>
+                                                        {dia.dia}
+                                                    </Text>
+                                                    <Text style={{
+                                                        fontSize: 10,
+                                                        color: '#20c997',
+                                                        fontWeight: '600'
+                                                    }}>
+                                                        {dia.resueltas} ✓
+                                                    </Text>
+                                                </View>
+                                            );
+                                        })}
+                                    </ScrollView>
+                                </View>
+                            )}
+                    </View>
+                )}
+            </View>
+        );
+    };
+
     // ==================== RENDER PRINCIPAL ====================
     return (
         <View style={metricasStyles.cardContainer}>
@@ -584,6 +1127,8 @@ export default function GestionMetricasCard({
             {renderTendencias()}
             {renderHorasPico()}
             {renderContenidoMasUsado()}
+            {renderVisitantes()}
+            {renderConversacionesDetalle()}
         </View>
     );
 }

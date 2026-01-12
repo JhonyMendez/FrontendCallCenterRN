@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 const DEV_CONFIG = {
   web: 'http://localhost:8000/api/v1',
   ios: 'http://localhost:8000/api/v1',
-  android: 'http://192.168.5.12:8000/api/v1',
+  android: 'http://192.168.54.51:8000/api/v1',
   default: 'http://localhost:8000/api/v1',
 };
 

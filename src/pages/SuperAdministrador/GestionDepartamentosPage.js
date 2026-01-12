@@ -839,8 +839,6 @@ export default function GestionDepartamentosPage() {
                     </Text>
                   </TouchableOpacity>
                 </View>
-
-
               </View>
             </View>
           </Modal>

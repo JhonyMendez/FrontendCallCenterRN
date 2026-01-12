@@ -1,8 +1,8 @@
-// app/(superadmin)/departamentos.tsx
+// app/(superadmin)/categoriaAdmin.tsx
 import GestionCategoriaAdminPage from '@/src/pages/Administrador/GestionCategoriaAdminPage';
 import { Platform, StatusBar, StyleSheet, View } from 'react-native';
 
-export default function DepartamentosScreen() {
+export default function CategoriaAdminScreen() {
   return (
     <View style={styles.container}>
       <GestionCategoriaAdminPage />

@@ -1,4 +1,4 @@
-// app/(admin)/dashboard.tsx
+// app/(admin)/dashboardAdmin.tsx
 import { ROLES } from '@/app/constants/roles';
 import { ProtectedRoute } from '@/app/routes/ProtectedRoute';
 

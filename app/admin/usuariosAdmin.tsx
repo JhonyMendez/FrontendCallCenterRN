@@ -1,3 +1,4 @@
+// app/admin/usuarioAdmin.tsx
 import React from 'react';
 import GestionUsuarioAdminPage from '../../src/pages/Administrador/GestionUsuarioAdminPage';
 
