@@ -1,6 +1,6 @@
 // src/api/services/authService.js
 import { Platform } from 'react-native';
-import { apiClient } from '../client'; // ✅ IMPORTAR apiClient
+import { apiClient } from '../client';
 
 const isWeb = Platform.OS === 'web';
 

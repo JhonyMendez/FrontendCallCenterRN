@@ -1,12 +1,8 @@
-// ==================================================================================
 // src/hooks/useAuth.js
-// Hook UNIVERSAL con integración de SessionContext
-// ==================================================================================
-
 import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
-import { useSession } from '../contexts/SessionContext'; // ✅ IMPORTAR
+import { useSession } from '../contexts/SessionContext';
 
 const isWeb = Platform.OS === 'web';
 
@@ -24,9 +20,7 @@ export const ROLES = {
 
 const TOKEN_KEY = 'auth_token';
 
-// ==================================================================================
-// STORAGE UNIVERSAL
-// ==================================================================================
+// ==================== STORAGE UNIVERSAL ====================
 const storage = {
   async getItem(key) {
     if (isWeb) {
@@ -53,9 +47,7 @@ const storage = {
   }
 };
 
-// ==================================================================================
-// HELPER: Obtener ruta por rol
-// ==================================================================================
+// ==================== HELPERS ====================
 const getRutaPorRol = (idRol) => {
   switch (idRol) {
     case ROLES.SUPER_ADMIN:
@@ -69,17 +61,11 @@ const getRutaPorRol = (idRol) => {
   }
 };
 
-// ==================================================================================
-// HELPER: Normalizar pathname
-// ==================================================================================
 const normalizarPath = (path) => {
   if (!path) return '';
   return path.toLowerCase().replace(/\/$/, '').replace(/^\(|\)$/g, '');
 };
 
-// ==================================================================================
-// HELPER: Verificar si la ruta pertenece a la sección del rol
-// ==================================================================================
 const rutaPerteneceAlRol = (pathname, idRol) => {
   if (!pathname) return false;
   
@@ -100,18 +86,17 @@ const rutaPerteneceAlRol = (pathname, idRol) => {
   return false;
 };
 
-// ==================================================================================
-// HOOK PRINCIPAL - CON SessionContext
-// ==================================================================================
+// ==================== HOOK PRINCIPAL ====================
 export const useAuth = (rolesPermitidos = []) => {
   const router = useRouter();
   const pathname = usePathname();
-  const { handleSessionExpired } = useSession(); // ✅ USAR CONTEXTO
+  const { handleSessionExpired, handleManualLogout } = useSession();
   
   const verificacionRealizada = useRef(false);
   const montado = useRef(true);
   const redirecting = useRef(false);
-  const sessionExpiredTriggered = useRef(false); // ✅ NUEVO
+  const sessionExpiredTriggered = useRef(false);
+  const intervalRef = useRef(null); // ✅ Referencia al intervalo
   
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
@@ -128,25 +113,36 @@ export const useAuth = (rolesPermitidos = []) => {
     }
 
     // ✅ Verificar cada 5 segundos si el token sigue presente
-    const intervalo = setInterval(async () => {
+    intervalRef.current = setInterval(async () => {
+      // Solo verificar si estamos autenticados
+      if (!authenticated) return;
+      
       const token = await storage.getItem(TOKEN_KEY);
       
       // Si no hay token pero estamos autenticados = sesión expirada
-      if (!token && authenticated && !sessionExpiredTriggered.current) {
+      if (!token && !sessionExpiredTriggered.current) {
         console.log('🔒 [useAuth] Token desapareció - SESIÓN EXPIRADA');
         sessionExpiredTriggered.current = true;
+        
+        // ✅ Detener el intervalo inmediatamente
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
         
         setAuthenticated(false);
         setLoading(false);
         
-        // ✅ Llamar al manejador del contexto para mostrar modal
+        // ✅ Delegar al SessionContext (que limpiará y mostrará modal)
         handleSessionExpired();
       }
     }, 5000);
     
     return () => {
       montado.current = false;
-      clearInterval(intervalo);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
     };
   }, [authenticated, handleSessionExpired]);
 
@@ -257,10 +253,16 @@ export const useAuth = (rolesPermitidos = []) => {
       if (montado.current && !redirecting.current && !sessionExpiredTriggered.current) {
         sessionExpiredTriggered.current = true;
         
+        // ✅ Detener intervalo
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        
         setLoading(false);
         setAuthenticated(false);
         
-        // ✅ Usar el contexto para mostrar modal y limpiar
+        // ✅ Delegar al SessionContext
         handleSessionExpired();
       }
     }
@@ -283,9 +285,10 @@ export const useAuth = (rolesPermitidos = []) => {
     return rolPrincipal?.id_rol === ROLES.FUNCIONARIO;
   };
 
+  // ✅ LOGOUT SIMPLIFICADO - Delega al SessionContext
   const logout = async () => {
     try {
-      console.log('🚪 [useAuth] Cerrando sesión...');
+      console.log('🚪 [useAuth] Logout solicitado - delegando a SessionContext');
       
       if (redirecting.current || sessionExpiredTriggered.current) {
         console.log('🔄 [useAuth] Logout ya en proceso');
@@ -295,39 +298,13 @@ export const useAuth = (rolesPermitidos = []) => {
       sessionExpiredTriggered.current = true;
       redirecting.current = true;
       
-      const token = await storage.getItem(TOKEN_KEY);
-      
-      if (token) {
-        try {
-          if (isWeb) {
-            await fetch('/api/auth/logout', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
-            });
-          } else {
-            await apiClient.post('/auth/logout');
-          }
-        } catch (error) {
-          console.error('Error en llamada de logout:', error);
-        }
+      // ✅ Detener intervalo
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
-
-      // ✅ Limpiar todo
-      await Promise.all([
-        storage.removeItem(TOKEN_KEY),
-        storage.removeItem('@usuario_id'),
-        storage.removeItem('@usuario_username'),
-        storage.removeItem('@usuario_email'),
-        storage.removeItem('@rol_principal_id'),
-        storage.removeItem('@rol_principal_nombre'),
-        storage.removeItem('@todos_roles'),
-        storage.removeItem('@permisos'),
-        storage.removeItem('@datos_sesion'),
-      ]);
       
+      // ✅ Limpiar estado local
       if (montado.current) {
         setAuthenticated(false);
         setUsuario(null);
@@ -335,8 +312,8 @@ export const useAuth = (rolesPermitidos = []) => {
         setPermisos({});
       }
       
-      await new Promise(resolve => setTimeout(resolve, 100));
-      router.replace('/auth/login');
+      // ✅ Delegar limpieza completa al SessionContext
+      await handleManualLogout();
       
     } catch (error) {
       console.error('❌ [useAuth] Error en logout:', error);
@@ -359,9 +336,7 @@ export const useAuth = (rolesPermitidos = []) => {
   };
 };
 
-// ==================================================================================
-// COMPONENTE WRAPPER PARA PROTEGER RUTAS
-// ==================================================================================
+// ==================== PROTECTED ROUTE ====================
 export const ProtectedRoute = ({ children, rolesPermitidos = [] }) => {
   const { loading, authenticated } = useAuth(rolesPermitidos);
 
