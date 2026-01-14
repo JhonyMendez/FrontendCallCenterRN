@@ -67,16 +67,9 @@ export const SessionProvider = ({ children }) => {
         console.log('🔄 Cerrando modal y redirigiendo al login');
         setShowExpiredModal(false);
 
-        // ✅ Pequeño delay para que el modal se cierre visualmente
         await new Promise(resolve => setTimeout(resolve, 100));
-
-        // ✅ CLAVE: usar replace() para reemplazar la historia de navegación
-        // Esto previene que el usuario pueda retroceder
         if (Platform.OS === 'web') {
-            // En web, también limpiamos el historial
             router.replace('/auth/login');
-            // Opcional: forzar recarga para limpiar cualquier estado en memoria
-            // window.location.href = '/auth/login';
         } else {
             // En mobile
             router.replace('/auth/login');

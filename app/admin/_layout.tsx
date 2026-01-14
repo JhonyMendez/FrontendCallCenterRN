@@ -2,13 +2,7 @@
 import { Stack } from 'expo-router';
 import React from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
-// ⚠️ AJUSTA ESTA RUTA según dónde esté tu useAuth.js
-// Opciones comunes:
-// import { useAuth, ROLES } from '../../src/hooks/useAuth';  // Si está en src/hooks/
-// import { useAuth, ROLES } from '../../hooks/useAuth';       // Si está en hooks/ raíz
-// import { useAuth, ROLES } from '../hooks/useAuth';          // Si está en app/hooks/
-
-import { ROLES, useAuth } from '../../src/hooks/useAuth'; // 👈 CAMBIA ESTO
+import { ROLES, useAuth } from '../../src/hooks/useAuth';
 
 export default function AdminLayout() {
   const { loading, authenticated } = useAuth([ROLES.ADMIN]);
