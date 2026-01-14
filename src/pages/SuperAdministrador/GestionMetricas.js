@@ -90,6 +90,27 @@ export default function GestionMetricas() {
         }
     }, [filtroActivo, agenteSeleccionado]);
 
+    // ==================== FUNCIÓN AUXILIAR: VERIFICAR TOKEN EXPIRADO ====================
+    const verificarTokenExpirado = (error) => {
+        if (error?.message && error.message.includes('Token expirado')) {
+            Alert.alert(
+                'Sesión Expirada',
+                'Tu sesión ha caducado. Por favor inicia sesión nuevamente.',
+                [
+                    {
+                        text: 'OK',
+                        onPress: () => {
+                            // Aquí redirigir al login
+                            // navigation.navigate('Login');
+                        }
+                    }
+                ]
+            );
+            return true;
+        }
+        return false;
+    };
+
     // ==================== FUNCIÓN AUXILIAR: CARGAR AGENTES REALES ====================
     const cargarAgentesReales = async (estadisticasAgentes) => {
         try {
@@ -220,14 +241,26 @@ export default function GestionMetricas() {
             const [estadisticasConv, estadisticasAgentes, estadisticasVisitantes] = await Promise.all([
                 conversacionService.getEstadisticasGenerales().catch(err => {
                     console.error('❌ Error en conversaciones:', err.message);
+                    // ✅ Verificar si es un error de token expirado
+                    if (err.message && err.message.includes('Token expirado')) {
+                        throw err; // Propagar el error para manejarlo en el catch principal
+                    }
                     return null; // Retornar null si falla
                 }),
                 agenteService.getEstadisticasGenerales().catch(err => {
                     console.error('❌ Error en agentes:', err.message);
+                    // ✅ Verificar si es un error de token expirado
+                    if (err.message && err.message.includes('Token expirado')) {
+                        throw err; // Propagar el error
+                    }
                     return null;
                 }),
                 visitanteAnonimoService.getEstadisticas().catch(err => {
                     console.error('❌ Error en visitantes:', err.message);
+                    // ✅ Verificar si es un error de token expirado
+                    if (err.message && err.message.includes('Token expirado')) {
+                        throw err; // Propagar el error
+                    }
                     return null; // ⚠️ Este está fallando con error 500
                 })
             ]);
@@ -326,6 +359,17 @@ export default function GestionMetricas() {
         } catch (error) {
             console.error('❌ Error CRÍTICO cargando métricas:', error);
             console.error('❌ Detalles:', error.response?.data || error.message);
+
+            // ✅ Verificar si es un error de token expirado
+            if (error.message && error.message.includes('Token expirado')) {
+                Alert.alert(
+                    'Sesión Expirada',
+                    'Tu sesión ha caducado. Por favor inicia sesión nuevamente.',
+                );
+                setLoading(false);
+                setRefreshing(false);
+                return; // Salir sin mostrar más errores
+            }
 
             // Mantener estado vacío
             setMetricas({

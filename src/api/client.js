@@ -4,6 +4,14 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 import { API_CONFIG } from './config';
 
+// ✅ CALLBACK PARA EL MODAL DE SESIÓN EXPIRADA
+let sessionExpiredCallback = null;
+
+export const setSessionExpiredCallback = (callback) => {
+  sessionExpiredCallback = callback;
+  console.log('✅ Callback de sesión expirada configurado');
+};
+
 // Storage universal para web y mobile
 const Storage = {
   async setItem(key, value) {
@@ -66,7 +74,7 @@ class ApiClient {
 
     // Interceptor para manejar respuestas y errores
     this.axiosInstance.interceptors.response.use(
-      async (response) => {  // ✅ AHORA ES ASYNC
+      async (response) => {
         console.log(`✅ Response status: ${response.status}`);
 
         const newToken = response.headers['x-new-token'];
@@ -78,8 +86,43 @@ class ApiClient {
         console.log('─────────────────────────────────────────────────');
         return response;
       },
-      (error) => {
+      async (error) => {
         console.log('─────────────────────────────────────────────────');
+
+        // ✅ VERIFICAR SI ES ERROR DE TOKEN EXPIRADO
+        const isTokenExpired =
+          error.response?.status === 401 ||
+          error.response?.data?.message?.includes('Token expirado') ||
+          error.response?.data?.detail?.includes('Token expirado') ||
+          error.message?.includes('Token expirado');
+
+        if (isTokenExpired) {
+          console.error('🔒 TOKEN EXPIRADO - Iniciando proceso de cierre de sesión...');
+
+          // Limpiar todo el almacenamiento
+          try {
+            await this.removeToken();
+            await Storage.removeItem('userData');
+            await Storage.removeItem('userRole');
+            console.log('✅ Sesión limpiada correctamente');
+          } catch (e) {
+            console.error('❌ Error limpiando sesión:', e);
+          }
+
+          // ✅ MOSTRAR MODAL (si el callback está configurado)
+          if (sessionExpiredCallback) {
+            sessionExpiredCallback();
+          } else {
+            console.warn('⚠️ Callback de sesión expirada no configurado');
+          }
+
+          // Retornar error personalizado
+          const tokenError = new Error('Token expirado. Por favor inicia sesión nuevamente');
+          tokenError.status = 401;
+          tokenError.isTokenExpired = true;
+          console.log('─────────────────────────────────────────────────');
+          return Promise.reject(tokenError);
+        }
 
         if (error.code === 'ECONNABORTED') {
           console.error('❌ TIMEOUT: El servidor tardó más de', this.timeout / 1000, 'segundos');

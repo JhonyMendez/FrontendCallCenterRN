@@ -163,6 +163,10 @@ const GestionUsuarioPage = () => {
         cargarRoles()
       ]);
     } catch (error) {
+      if (error?.isTokenExpired) {
+        console.log('🔒 Token expirado - SessionContext manejará');
+        return;
+      }
       console.error('Error cargando datos:', error);
       Alert.alert('Error', 'No se pudieron cargar los datos');
     } finally {
@@ -187,6 +191,10 @@ const GestionUsuarioPage = () => {
       setUsuarios(listaUsuarios);
       setTotalUsuarios(total);
     } catch (error) {
+      if (error?.isTokenExpired) {
+        console.log('🔒 Token expirado - SessionContext manejará');
+        return;
+      }
       console.error('❌ Error cargando usuarios:', error);
       throw error;
     }
@@ -214,6 +222,10 @@ const GestionUsuarioPage = () => {
 
       setRoles(rolesValidos);
     } catch (error) {
+      if (error?.isTokenExpired) {
+        console.log('🔒 Token expirado - SessionContext manejará');
+        return;
+      }
       console.error('Error cargando roles:', error);
       throw error;
     }
@@ -253,6 +265,10 @@ const GestionUsuarioPage = () => {
             : 'Usuario creado correctamente'
         );
       } catch (error) {
+        if (error?.isTokenExpired) {
+          console.log('🔒 Token expirado - SessionContext manejará');
+          return;
+        }
         console.error('Error recargando usuarios:', error);
       } finally {
         setLoading(false);
@@ -374,6 +390,12 @@ const GestionUsuarioPage = () => {
       console.log('✅ [eliminarUsuario] Proceso completado');
 
     } catch (error) {
+      if (error?.isTokenExpired) {
+        console.log('🔒 Token expirado - SessionContext manejará');
+        setLoading(false);
+        return;
+      }
+
       console.error('❌ [eliminarUsuario] ERROR COMPLETO:', error);
       console.error('❌ [eliminarUsuario] Error.message:', error.message);
       console.error('❌ [eliminarUsuario] Error.data:', error.data);
@@ -450,6 +472,12 @@ const GestionUsuarioPage = () => {
         type: 'success'
       });
     } catch (error) {
+      if (error?.isTokenExpired) {
+        console.log('🔒 Token expirado - SessionContext manejará');
+        setLoading(false);
+        return;
+      }
+
       console.error('❌ Error reactivando usuario:', error);
       const mensajeError = SecurityValidator.sanitizeText(
         error.message || 'No se pudo reactivar el usuario'

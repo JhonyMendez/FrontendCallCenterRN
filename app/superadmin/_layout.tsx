@@ -1,11 +1,32 @@
-// ==================================================================================
-// app/(superadmin)/_layout.tsx
-// Layout para el grupo de rutas de Super Admin
-// ==================================================================================
-
+// app/superadmin/_layout.tsx
 import { Stack } from 'expo-router';
+import React from 'react';
+import { ActivityIndicator, Text, View } from 'react-native';
+import { ROLES, useAuth } from '../../src/hooks/useAuth';
 
 export default function SuperAdminLayout() {
+  const { loading, authenticated } = useAuth([ROLES.SUPER_ADMIN]);
+
+  if (loading) {
+    return (
+      <View style={{ 
+        flex: 1, 
+        justifyContent: 'center', 
+        alignItems: 'center',
+        backgroundColor: '#f5f5f5'
+      }}>
+        <ActivityIndicator size="large" color="#3b82f6" />
+        <Text style={{ marginTop: 15, color: '#6b7280', fontSize: 14 }}>
+          Verificando permisos de Super Administrador...
+        </Text>
+      </View>
+    );
+  }
+
+  if (!authenticated) {
+    return null;
+  }
+
   return (
     <Stack
       screenOptions={{
@@ -13,72 +34,37 @@ export default function SuperAdminLayout() {
         contentStyle: { backgroundColor: '#f5f5f5' }
       }}
     >
-      {/* Rutas de primer nivel */}
       <Stack.Screen 
         name="dashboard" 
         options={{ title: 'Dashboard Super Admin' }}
       />
-
-      {/* ✅ CORRECTO: Solo el nombre de la carpeta, sin /index */}
       <Stack.Screen 
-        name="usuarios"
-        options={{ title: 'Gestión de Usuarios' }}
-      />
-
-      {/* Otras rutas */}
-      <Stack.Screen 
-        name="agentes"
+        name="agente"
         options={{ title: 'Gestión de Agentes' }}
       />
-      
       <Stack.Screen 
-        name="organizacion"
-        options={{ title: 'Organización' }}
+        name="categoria"
+        options={{ title: 'Categorías' }}
       />
-      
+      <Stack.Screen 
+        name="contenido"
+        options={{ title: 'Contenido' }}
+      />
+      <Stack.Screen 
+        name="departamento"
+        options={{ title: 'Departamentos' }}
+      />
+      <Stack.Screen 
+        name="DepartamentoUsuario"
+        options={{ title: 'Departamento-Usuario' }}
+      />
       <Stack.Screen 
         name="metricas"
-        options={{ title: 'Métricas Globales' }}
+        options={{ title: 'Métricas del Sistema' }}
       />
-      
       <Stack.Screen 
-        name="roles"
-        options={{ title: 'Gestión de Roles' }}
-      />
-      
-      <Stack.Screen 
-        name="sistema"
-        options={{ title: 'Sistema' }}
-      />
-      
-      <Stack.Screen 
-        name="api-keys"
-        options={{ title: 'API Keys' }}
-      />
-      
-      <Stack.Screen 
-        name="interacciones"
-        options={{ title: 'Interacciones' }}
-      />
-      
-      <Stack.Screen 
-        name="logs"
-        options={{ title: 'Logs del Sistema' }}
-      />
-      
-      <Stack.Screen 
-        name="backups"
-        options={{ title: 'Backups' }}
-      />
-      
-      <Stack.Screen 
-        name="notificaciones"
-        options={{ title: 'Notificaciones' }}
-      />
-      
-      <Stack.Screen 
-        name="configuracion"
-        options={{ title: 'Configuración' }}
+        name="usuario"
+        options={{ title: 'Gestión de Usuarios' }}
       />
     </Stack>
   );

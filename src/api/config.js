@@ -1,20 +1,57 @@
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-const DEV_CONFIG = {
-  web: 'http://localhost:8000/api/v1',
-  ios: 'http://localhost:8000/api/v1',
-  android: 'http://192.168.54.51:8000/api/v1',
-  default: 'http://localhost:8000/api/v1',
-};
-
+/**
+ * Obtiene la URL base automáticamente según la plataforma
+ */
 const getBaseURL = () => {
-  if (__DEV__) {
-    const url = DEV_CONFIG[Platform.OS] || DEV_CONFIG.default;
-    console.log('🌐 Platform:', Platform.OS);
+  const PORT = '8000';
+  const API_PATH = '/api/v1';
+
+  // 🌐 Producción: usar dominio real
+  if (!__DEV__) {
+    return `https://tu-dominio.com${API_PATH}`;
+  }
+
+  // 💻 WEB: Usar localhost
+  if (Platform.OS === 'web') {
+    const url = `http://localhost:${PORT}${API_PATH}`;
+    console.log('🌐 Platform: WEB');
     console.log('🌐 Using URL:', url);
     return url;
   }
-  return 'https://tu-dominio.com/api/v1';
+
+  // 📱 iOS: Usar localhost (simulador usa la red de la Mac)
+  if (Platform.OS === 'ios') {
+    const url = `http://localhost:${PORT}${API_PATH}`;
+    console.log('🌐 Platform: iOS');
+    console.log('🌐 Using URL:', url);
+    return url;
+  }
+
+  // 🤖 ANDROID: Detectar IP automáticamente desde Expo
+  if (Platform.OS === 'android') {
+    // Expo proporciona la IP automáticamente cuando ejecutas "npx expo start"
+    const debuggerHost = Constants.expoConfig?.hostUri?.split(':')[0];
+    
+    if (debuggerHost) {
+      const url = `http://${debuggerHost}:${PORT}${API_PATH}`;
+      console.log('🌐 Platform: Android');
+      console.log('✅ IP detectada automáticamente:', debuggerHost);
+      console.log('🌐 Using URL:', url);
+      return url;
+    }
+
+    // Fallback si no se detecta la IP
+    const fallbackUrl = `http://192.168.1.100:${PORT}${API_PATH}`;
+    console.warn('⚠️ No se detectó IP automática en Android');
+    console.warn('⚠️ Usando fallback:', fallbackUrl);
+    console.warn('💡 Asegúrate de ejecutar: npx expo start');
+    return fallbackUrl;
+  }
+
+  // Default fallback
+  return `http://localhost:${PORT}${API_PATH}`;
 };
 
 export const API_CONFIG = {
@@ -131,7 +168,7 @@ export const ENDPOINTS = {
     MENSAJES: (id) => `/visitantes/${id}/mensajes`,
   },
 
-    CEDULAS: {
+  CEDULAS: {
     BASE: '/cedulas',
     BY_CEDULA: (cedula) => `/cedulas/${cedula}`,
   },
@@ -144,33 +181,32 @@ export const ENDPOINTS = {
     BY_AGENTE: (idAgente) => `/usuario-agente/agente/${idAgente}`,
   },
 
-
   // Escalamiento a Humanos
   ESCALAMIENTO: {
     BASE: '/escalamiento',
     
     // Conversaciones
     CONVERSACIONES_ESCALADAS: '/escalamiento/conversaciones-escaladas',
-    MIS_CONVERSACIONES: '/escalamiento/mis-conversaciones',  // 🔥 NUEVO
+    MIS_CONVERSACIONES: '/escalamiento/mis-conversaciones',
     CONVERSACION_DETALLE: (sessionId) => `/escalamiento/conversacion/${encodeURIComponent(sessionId)}`,
     
     // Acciones
-    TOMAR_CONVERSACION: (sessionId) => `/escalamiento/conversacion/${encodeURIComponent(sessionId)}/tomar`,  // 🔥 NUEVO
+    TOMAR_CONVERSACION: (sessionId) => `/escalamiento/conversacion/${encodeURIComponent(sessionId)}/tomar`,
     RESPONDER: (sessionId) => `/escalamiento/conversacion/${encodeURIComponent(sessionId)}/responder`,
-    TRANSFERIR_CONVERSACION: (sessionId) => `/escalamiento/conversacion/${encodeURIComponent(sessionId)}/transferir`,  // 🔥 NUEVO
+    TRANSFERIR_CONVERSACION: (sessionId) => `/escalamiento/conversacion/${encodeURIComponent(sessionId)}/transferir`,
     RESOLVER: (sessionId) => `/escalamiento/conversacion/${encodeURIComponent(sessionId)}/resolver`,
     
     // Estadísticas
-    ESTADISTICAS: '/escalamiento/estadisticas',  // 🔥 NUEVO
-    MIS_ESTADISTICAS: '/escalamiento/mis-estadisticas',  // 🔥 NUEVO
+    ESTADISTICAS: '/escalamiento/estadisticas',
+    MIS_ESTADISTICAS: '/escalamiento/mis-estadisticas',
     
     // Notificaciones
     MIS_NOTIFICACIONES: '/escalamiento/mis-notificaciones',
     MARCAR_LEIDA: (idNotificacion) => `/escalamiento/notificacion/${idNotificacion}/marcar-leida`,
-    MARCAR_TODAS_LEIDAS: '/escalamiento/notificaciones/marcar-todas-leidas',  // 🔥 NUEVO
+    MARCAR_TODAS_LEIDAS: '/escalamiento/notificaciones/marcar-todas-leidas',
     
     // Utilidades
-    FUNCIONARIOS_DISPONIBLES: '/escalamiento/funcionarios-disponibles',  // 🔥 NUEVO
+    FUNCIONARIOS_DISPONIBLES: '/escalamiento/funcionarios-disponibles',
   },
 
   // Usuario-Roles

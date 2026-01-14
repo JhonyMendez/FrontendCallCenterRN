@@ -1,11 +1,12 @@
 // ==================================================================================
 // src/hooks/useAuth.js
-// Hook UNIVERSAL para autenticación - SOLUCIÓN DEFINITIVA AL BUCLE INFINITO
+// Hook UNIVERSAL con integración de SessionContext
 // ==================================================================================
 
 import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
+import { useSession } from '../contexts/SessionContext'; // ✅ IMPORTAR
 
 const isWeb = Platform.OS === 'web';
 
@@ -21,7 +22,6 @@ export const ROLES = {
   FUNCIONARIO: 3
 };
 
-// 🔑 CLAVE ÚNICA PARA EL TOKEN (MISMA QUE USA ApiClient)
 const TOKEN_KEY = 'auth_token';
 
 // ==================================================================================
@@ -65,7 +65,7 @@ const getRutaPorRol = (idRol) => {
     case ROLES.FUNCIONARIO:
       return isWeb ? '/funcionario/dashboard' : '/(funcionario)/dashboard';
     default:
-      return '/login';
+      return '/auth/login';
   }
 };
 
@@ -85,17 +85,14 @@ const rutaPerteneceAlRol = (pathname, idRol) => {
   
   const pathNormalizado = normalizarPath(pathname);
   
-  // Para SuperAdmin
   if (idRol === ROLES.SUPER_ADMIN) {
     return pathNormalizado.includes('superadmin');
   }
   
-  // Para Admin (pero no superadmin)
   if (idRol === ROLES.ADMIN) {
     return pathNormalizado.includes('admin') && !pathNormalizado.includes('superadmin');
   }
   
-  // Para Funcionario
   if (idRol === ROLES.FUNCIONARIO) {
     return pathNormalizado.includes('funcionario');
   }
@@ -104,16 +101,17 @@ const rutaPerteneceAlRol = (pathname, idRol) => {
 };
 
 // ==================================================================================
-// HOOK PRINCIPAL - SIN BUCLE INFINITO
+// HOOK PRINCIPAL - CON SessionContext
 // ==================================================================================
 export const useAuth = (rolesPermitidos = []) => {
   const router = useRouter();
   const pathname = usePathname();
+  const { handleSessionExpired } = useSession(); // ✅ USAR CONTEXTO
   
-  // CRÍTICO: Prevenir verificaciones múltiples
   const verificacionRealizada = useRef(false);
   const montado = useRef(true);
-  const redirecting = useRef(false); // 🔥 NUEVO: Prevenir redirecciones múltiples
+  const redirecting = useRef(false);
+  const sessionExpiredTriggered = useRef(false); // ✅ NUEVO
   
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
@@ -124,20 +122,35 @@ export const useAuth = (rolesPermitidos = []) => {
   useEffect(() => {
     montado.current = true;
     
-    // Solo verificar una vez al montar
     if (!verificacionRealizada.current) {
       verificacionRealizada.current = true;
       verificarAutenticacion();
     }
+
+    // ✅ Verificar cada 5 segundos si el token sigue presente
+    const intervalo = setInterval(async () => {
+      const token = await storage.getItem(TOKEN_KEY);
+      
+      // Si no hay token pero estamos autenticados = sesión expirada
+      if (!token && authenticated && !sessionExpiredTriggered.current) {
+        console.log('🔒 [useAuth] Token desapareció - SESIÓN EXPIRADA');
+        sessionExpiredTriggered.current = true;
+        
+        setAuthenticated(false);
+        setLoading(false);
+        
+        // ✅ Llamar al manejador del contexto para mostrar modal
+        handleSessionExpired();
+      }
+    }, 5000);
     
     return () => {
       montado.current = false;
+      clearInterval(intervalo);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authenticated, handleSessionExpired]);
 
   const verificarAutenticacion = async () => {
-    // 🔥 CRÍTICO: Si ya estamos redirigiendo, no hacer nada
     if (redirecting.current) {
       console.log('🔄 [useAuth] Ya estamos redirigiendo, ignorando verificación');
       return;
@@ -147,7 +160,6 @@ export const useAuth = (rolesPermitidos = []) => {
       console.log('🔍 [useAuth] Verificando autenticación...');
       console.log('📍 [useAuth] Ruta actual:', pathname);
       
-      // 🔑 AHORA LEE LA MISMA KEY QUE EL ApiClient
       const token = await storage.getItem(TOKEN_KEY);
       console.log('🧪 [useAuth] Token desde storage:', token ? 'PRESENTE' : 'NULL');
       
@@ -157,12 +169,11 @@ export const useAuth = (rolesPermitidos = []) => {
           redirecting.current = true;
           setLoading(false);
           setAuthenticated(false);
-          router.replace('/login');
+          router.replace('/auth/login');
         }
         return;
       }
 
-      // Obtener todos los datos necesarios del storage
       const [rolIdStr, usernameStorage, emailStorage, nombreRolStorage, usuarioIdStr] = await Promise.all([
         storage.getItem('@rol_principal_id'),
         storage.getItem('@usuario_username'),
@@ -171,7 +182,6 @@ export const useAuth = (rolesPermitidos = []) => {
         storage.getItem('@usuario_id')
       ]);
       
-      // 🔥 VALIDACIÓN CRÍTICA: Verificar que existan TODOS los datos esenciales
       if (!rolIdStr || !usernameStorage) {
         console.log('❌ [useAuth] Sesión incompleta (falta rol o username)');
         throw new Error('Sesión incompleta - datos faltantes');
@@ -179,7 +189,6 @@ export const useAuth = (rolesPermitidos = []) => {
 
       const idRolActual = parseInt(rolIdStr);
       
-      // 🔥 VALIDACIÓN: Verificar que el rol sea válido
       if (isNaN(idRolActual) || idRolActual < 1 || idRolActual > 3) {
         console.log('❌ [useAuth] Rol inválido:', idRolActual);
         throw new Error('Rol inválido');
@@ -187,26 +196,15 @@ export const useAuth = (rolesPermitidos = []) => {
       
       console.log('✅ [useAuth] Usuario desde storage:', usernameStorage);
       console.log('🎭 [useAuth] Rol ID:', idRolActual);
-      console.log('🎭 [useAuth] Rol Nombre:', nombreRolStorage);
-      console.log('🔐 [useAuth] Roles permitidos en esta ruta:', rolesPermitidos);
-      console.log('📍 [useAuth] Pathname normalizado:', normalizarPath(pathname));
 
-      // 🔥 CRÍTICO: Verificar si estamos en la ruta correcta PRIMERO
       const estaEnRutaCorrecta = rutaPerteneceAlRol(pathname, idRolActual);
       
-      console.log('📍 [useAuth] ¿Está en ruta correcta para su rol?', estaEnRutaCorrecta);
-
-      // 🔥 LÓGICA CORREGIDA: Solo verificar permisos si se especificaron roles permitidos
       if (rolesPermitidos.length > 0) {
         const tieneRolPermitido = rolesPermitidos.includes(idRolActual);
 
-        console.log('🔐 [useAuth] ¿Tiene rol permitido?', tieneRolPermitido);
-
         if (!tieneRolPermitido) {
           console.log('⚠️ [useAuth] Usuario no tiene permisos para esta ruta');
-          console.log('🔀 [useAuth] Rol actual:', idRolActual, '- Roles permitidos:', rolesPermitidos);
           
-          // 🔥 SOLO REDIRIGIR SI NO ESTÁ EN SU RUTA CORRECTA
           if (!estaEnRutaCorrecta && !redirecting.current) {
             const rutaCorrecta = getRutaPorRol(idRolActual);
             console.log('🔀 [useAuth] Redirigiendo a su ruta correcta:', rutaCorrecta);
@@ -216,14 +214,11 @@ export const useAuth = (rolesPermitidos = []) => {
               setLoading(false);
               setAuthenticated(false);
               
-              // 🔥 Pequeño delay para evitar race conditions
               await new Promise(resolve => setTimeout(resolve, 100));
               router.replace(rutaCorrecta);
             }
             return;
           } else if (estaEnRutaCorrecta) {
-            // 🔥 Está en su ruta correcta pero la página específica requiere otro rol
-            // En este caso, simplemente no autenticar pero tampoco redirigir
             console.log('⚠️ [useAuth] Está en su sección pero esta página requiere otro rol');
             if (montado.current) {
               setLoading(false);
@@ -234,15 +229,13 @@ export const useAuth = (rolesPermitidos = []) => {
         }
       }
 
-      // 🔥 Si llegamos aquí, el usuario está autenticado correctamente
       console.log('✅ [useAuth] Autenticación exitosa');
       
-      // Construir datos del usuario desde storage
       const usuarioData = {
         id_usuario: usuarioIdStr ? parseInt(usuarioIdStr) : null,
         username: usernameStorage,
         email: emailStorage,
-        nombre_completo: usernameStorage // Fallback
+        nombre_completo: usernameStorage
       };
 
       const rolPrincipalData = {
@@ -261,28 +254,14 @@ export const useAuth = (rolesPermitidos = []) => {
     } catch (error) {
       console.error('❌ [useAuth] Error verificando autenticación:', error.message);
       
-      if (montado.current && !redirecting.current) {
-        redirecting.current = true;
-        
-        // Limpiar sesión corrupta
-        try {
-          await storage.removeItem(TOKEN_KEY);
-          await storage.removeItem('@rol_principal_id');
-          await storage.removeItem('@usuario_username');
-          await storage.removeItem('@usuario_email');
-          await storage.removeItem('@rol_principal_nombre');
-          await storage.removeItem('@usuario_id');
-          console.log('🧹 [useAuth] Sesión corrupta limpiada');
-        } catch (cleanupError) {
-          console.error('Error limpiando sesión:', cleanupError);
-        }
+      if (montado.current && !redirecting.current && !sessionExpiredTriggered.current) {
+        sessionExpiredTriggered.current = true;
         
         setLoading(false);
         setAuthenticated(false);
         
-        // 🔥 Pequeño delay antes de redirigir
-        await new Promise(resolve => setTimeout(resolve, 100));
-        router.replace('/login');
+        // ✅ Usar el contexto para mostrar modal y limpiar
+        handleSessionExpired();
       }
     }
   };
@@ -308,12 +287,12 @@ export const useAuth = (rolesPermitidos = []) => {
     try {
       console.log('🚪 [useAuth] Cerrando sesión...');
       
-      // Prevenir múltiples logouts
-      if (redirecting.current) {
+      if (redirecting.current || sessionExpiredTriggered.current) {
         console.log('🔄 [useAuth] Logout ya en proceso');
         return;
       }
       
+      sessionExpiredTriggered.current = true;
       redirecting.current = true;
       
       const token = await storage.getItem(TOKEN_KEY);
@@ -335,19 +314,19 @@ export const useAuth = (rolesPermitidos = []) => {
           console.error('Error en llamada de logout:', error);
         }
       }
-    } catch (error) {
-      console.error('❌ [useAuth] Error en logout:', error);
-    } finally {
-      // Limpiar todo el storage
-      await storage.removeItem(TOKEN_KEY);
-      await storage.removeItem('@usuario_id');
-      await storage.removeItem('@usuario_username');
-      await storage.removeItem('@usuario_email');
-      await storage.removeItem('@rol_principal_id');
-      await storage.removeItem('@rol_principal_nombre');
-      await storage.removeItem('@todos_roles');
-      await storage.removeItem('@permisos');
-      await storage.removeItem('@datos_sesion');
+
+      // ✅ Limpiar todo
+      await Promise.all([
+        storage.removeItem(TOKEN_KEY),
+        storage.removeItem('@usuario_id'),
+        storage.removeItem('@usuario_username'),
+        storage.removeItem('@usuario_email'),
+        storage.removeItem('@rol_principal_id'),
+        storage.removeItem('@rol_principal_nombre'),
+        storage.removeItem('@todos_roles'),
+        storage.removeItem('@permisos'),
+        storage.removeItem('@datos_sesion'),
+      ]);
       
       if (montado.current) {
         setAuthenticated(false);
@@ -357,7 +336,10 @@ export const useAuth = (rolesPermitidos = []) => {
       }
       
       await new Promise(resolve => setTimeout(resolve, 100));
-      router.replace('/login');
+      router.replace('/auth/login');
+      
+    } catch (error) {
+      console.error('❌ [useAuth] Error en logout:', error);
     }
   };
 
