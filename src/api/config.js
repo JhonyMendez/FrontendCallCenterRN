@@ -1,4 +1,3 @@
-import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 /**
@@ -8,49 +7,28 @@ const getBaseURL = () => {
   const PORT = '8000';
   const API_PATH = '/api/v1';
 
-  // 🌐 Producción: usar dominio real
-  if (!__DEV__) {
-    return `https://tu-dominio.com${API_PATH}`;
+  // 🤖 ANDROID: IP fija siempre
+  if (Platform.OS === 'android') {
+    const url = `http://192.168.5.15:${PORT}${API_PATH}`;
+    console.log('🤖 ANDROID - URL:', url);
+    return url;
   }
 
-  // 💻 WEB: Usar localhost
+  // 💻 WEB: localhost
   if (Platform.OS === 'web') {
     const url = `http://localhost:${PORT}${API_PATH}`;
-    console.log('🌐 Platform: WEB');
-    console.log('🌐 Using URL:', url);
+    console.log('🌐 WEB - URL:', url);
     return url;
   }
 
-  // 📱 iOS: Usar localhost (simulador usa la red de la Mac)
+  // 📱 iOS: localhost
   if (Platform.OS === 'ios') {
     const url = `http://localhost:${PORT}${API_PATH}`;
-    console.log('🌐 Platform: iOS');
-    console.log('🌐 Using URL:', url);
+    console.log('📱 iOS - URL:', url);
     return url;
   }
 
-  // 🤖 ANDROID: Detectar IP automáticamente desde Expo
-  if (Platform.OS === 'android') {
-    // Expo proporciona la IP automáticamente cuando ejecutas "npx expo start"
-    const debuggerHost = Constants.expoConfig?.hostUri?.split(':')[0];
-    
-    if (debuggerHost) {
-      const url = `http://${debuggerHost}:${PORT}${API_PATH}`;
-      console.log('🌐 Platform: Android');
-      console.log('✅ IP detectada automáticamente:', debuggerHost);
-      console.log('🌐 Using URL:', url);
-      return url;
-    }
-
-    // Fallback si no se detecta la IP
-    const fallbackUrl = `http://192.168.1.100:${PORT}${API_PATH}`;
-    console.warn('⚠️ No se detectó IP automática en Android');
-    console.warn('⚠️ Usando fallback:', fallbackUrl);
-    console.warn('💡 Asegúrate de ejecutar: npx expo start');
-    return fallbackUrl;
-  }
-
-  // Default fallback
+  // Default
   return `http://localhost:${PORT}${API_PATH}`;
 };
 
@@ -184,27 +162,27 @@ export const ENDPOINTS = {
   // Escalamiento a Humanos
   ESCALAMIENTO: {
     BASE: '/escalamiento',
-    
+
     // Conversaciones
     CONVERSACIONES_ESCALADAS: '/escalamiento/conversaciones-escaladas',
     MIS_CONVERSACIONES: '/escalamiento/mis-conversaciones',
     CONVERSACION_DETALLE: (sessionId) => `/escalamiento/conversacion/${encodeURIComponent(sessionId)}`,
-    
+
     // Acciones
     TOMAR_CONVERSACION: (sessionId) => `/escalamiento/conversacion/${encodeURIComponent(sessionId)}/tomar`,
     RESPONDER: (sessionId) => `/escalamiento/conversacion/${encodeURIComponent(sessionId)}/responder`,
     TRANSFERIR_CONVERSACION: (sessionId) => `/escalamiento/conversacion/${encodeURIComponent(sessionId)}/transferir`,
     RESOLVER: (sessionId) => `/escalamiento/conversacion/${encodeURIComponent(sessionId)}/resolver`,
-    
+
     // Estadísticas
     ESTADISTICAS: '/escalamiento/estadisticas',
     MIS_ESTADISTICAS: '/escalamiento/mis-estadisticas',
-    
+
     // Notificaciones
     MIS_NOTIFICACIONES: '/escalamiento/mis-notificaciones',
     MARCAR_LEIDA: (idNotificacion) => `/escalamiento/notificacion/${idNotificacion}/marcar-leida`,
     MARCAR_TODAS_LEIDAS: '/escalamiento/notificaciones/marcar-todas-leidas',
-    
+
     // Utilidades
     FUNCIONARIOS_DISPONIBLES: '/escalamiento/funcionarios-disponibles',
   },
@@ -214,7 +192,7 @@ export const ENDPOINTS = {
     BASE: '/usuario-roles',
     BY_ID: (id) => `/usuario-roles/${id}`,
     ESTADISTICAS: '/usuario-roles/estadisticas',
-    
+
     // Endpoints de usuario
     ROLES_USUARIO: (id_usuario) => `/usuario-roles/usuario/${id_usuario}/roles`,
     ESTADISTICAS_USUARIO: (id_usuario) => `/usuario-roles/usuario/${id_usuario}/estadisticas`,
@@ -222,11 +200,11 @@ export const ENDPOINTS = {
     ASIGNAR_MULTIPLES_ROLES: (id_usuario) => `/usuario-roles/usuario/${id_usuario}/asignar-multiples-roles`,
     REVOCAR_ROL: (id_usuario, id_rol) => `/usuario-roles/usuario/${id_usuario}/revocar-rol/${id_rol}`,
     REVOCAR_TODOS_ROLES: (id_usuario) => `/usuario-roles/usuario/${id_usuario}/revocar-todos-roles`,
-    
+
     // Endpoints de rol
     USUARIOS_CON_ROL: (id_rol) => `/usuario-roles/rol/${id_rol}/usuarios`,
     ESTADISTICAS_ROL: (id_rol) => `/usuario-roles/rol/${id_rol}/estadisticas`,
-    
+
     // Verificación y mantenimiento
     VERIFICAR_ROL: (id_usuario, id_rol) => `/usuario-roles/verificar/usuario/${id_usuario}/tiene-rol/${id_rol}`,
     PROCESAR_EXPIRACIONES: '/usuario-roles/procesar-expiraciones',
