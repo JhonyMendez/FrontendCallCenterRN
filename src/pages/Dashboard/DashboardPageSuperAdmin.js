@@ -277,25 +277,6 @@ export default function DashboardPageSuperAdmin() {
           }}>
             Dashboard
           </Text>
-
-          {/* Usuario en el header derecho */}
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: '#312e81',
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            borderRadius: 12,
-          }}>
-            <Ionicons name="person-circle" size={24} color="#a78bfa" style={{ marginRight: 8 }} />
-            <Text style={{
-              color: '#ffffff',
-              fontSize: 14,
-              fontWeight: '600',
-            }}>
-              {usuario.username || 'Usuario'}
-            </Text>
-          </View>
         </View>
 
         <ScrollView

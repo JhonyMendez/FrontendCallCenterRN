@@ -18,7 +18,7 @@ import {
 import { usuarioService } from '../../api/services/usuarioService';
 import GestionPerfilCard from '../../components/SuperAdministrador/GestionPerfilCard';
 
-import SuperAdminSidebar from '../../components/Sidebar/sidebarSuperAdmin';
+import AdminSidebar from '../../components/Sidebar/sidebarAdmin';
 import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles';
 import { getUserIdFromToken } from '../../components/utils/authHelper';
 import SecurityValidator from '../../components/utils/SecurityValidator';
@@ -171,7 +171,7 @@ const GestionPerfilPage = () => {
     return (
         <View style={contentStyles.wrapper}>
             {/* Sidebar */}
-            <SuperAdminSidebar
+            <AdminSidebar
                 isOpen={sidebarOpen}
                 onToggle={() => setSidebarOpen(!sidebarOpen)}
             />
