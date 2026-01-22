@@ -1,59 +1,77 @@
 // ==================================================================================
 // src/pages/Login/LoginPage.js
 // Sistema de Bloqueo PROGRESIVO POR USUARIO (almacenado en frontend)
+// Compatible con Web (localStorage) y Móvil (AsyncStorage)
 // ==================================================================================
 
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Platform, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, ScrollView, View } from "react-native";
 import { apiClient } from "../../api/client";
 import authService from "../../api/services/authService";
 import { usuarioService } from "../../api/services/usuarioService";
 import LoginCard from "../../components/Login/LoginCard";
 import { loginStyles } from "../../styles/loginStyles";
 
-// Detectar plataforma
-const isWeb = Platform.OS === 'web';
-
-// Importación condicional de AsyncStorage
-let AsyncStorage;
-if (!isWeb) {
-  AsyncStorage = require('@react-native-async-storage/async-storage').default;
-}
-
 // ==================================================================================
-// STORAGE UNIVERSAL
+// STORAGE UNIVERSAL - Compatible con Web y Móvil
 // ==================================================================================
 const storage = {
   async getItem(key) {
-    if (isWeb) {
-      return localStorage.getItem(key);
-    } else {
-      return await AsyncStorage.getItem(key);
+    try {
+      if (Platform.OS === 'web') {
+        // Web: usar localStorage (síncrono pero lo hacemos async)
+        return Promise.resolve(localStorage.getItem(key));
+      } else {
+        // Móvil: usar AsyncStorage
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        return await AsyncStorage.getItem(key);
+      }
+    } catch (error) {
+      console.error(`Error obteniendo ${key}:`, error);
+      return null;
     }
   },
 
   async setItem(key, value) {
-    if (isWeb) {
-      localStorage.setItem(key, value);
-    } else {
-      await AsyncStorage.setItem(key, value);
+    try {
+      if (Platform.OS === 'web') {
+        localStorage.setItem(key, value);
+        return Promise.resolve();
+      } else {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        return await AsyncStorage.setItem(key, value);
+      }
+    } catch (error) {
+      console.error(`Error guardando ${key}:`, error);
     }
   },
 
   async removeItem(key) {
-    if (isWeb) {
-      localStorage.removeItem(key);
-    } else {
-      await AsyncStorage.removeItem(key);
+    try {
+      if (Platform.OS === 'web') {
+        localStorage.removeItem(key);
+        return Promise.resolve();
+      } else {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        return await AsyncStorage.removeItem(key);
+      }
+    } catch (error) {
+      console.error(`Error eliminando ${key}:`, error);
     }
   },
 
   async multiRemove(keys) {
-    if (isWeb) {
-      keys.forEach(key => localStorage.removeItem(key));
-    } else {
-      await AsyncStorage.multiRemove(keys);
+    try {
+      if (Platform.OS === 'web') {
+        keys.forEach(key => localStorage.removeItem(key));
+        return Promise.resolve();
+      } else {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        return await AsyncStorage.multiRemove(keys);
+      }
+    } catch (error) {
+      console.error('Error eliminando múltiples keys:', error);
     }
   }
 };
@@ -328,24 +346,35 @@ export default function LoginPage() {
   };
 
   // ==================== TEMPORIZADOR DE BLOQUEO ====================
-  const iniciarTemporizadorBloqueo = (tiempoBloqueo) => {
-    const intervalo = setInterval(() => {
-      const ahora = Date.now();
-      const restante = tiempoBloqueo - ahora;
+  useEffect(() => {
+    let intervalo;
 
-      if (restante <= 0) {
-        clearInterval(intervalo);
-        setTiempoRestante(0);
-        setBloqueadoHasta(null);
-        if (username.trim()) {
-          BloqueoUsuarioManager.limpiarBloqueoActual(username.trim());
+    if (bloqueadoHasta && bloqueadoHasta > Date.now()) {
+      intervalo = setInterval(() => {
+        const ahora = Date.now();
+        const restante = bloqueadoHasta - ahora;
+
+        if (restante <= 0) {
+          setTiempoRestante(0);
+          setBloqueadoHasta(null);
+          if (username.trim()) {
+            BloqueoUsuarioManager.limpiarBloqueoActual(username.trim());
+          }
+        } else {
+          setTiempoRestante(Math.ceil(restante / 1000));
         }
-      } else {
-        setTiempoRestante(Math.ceil(restante / 1000));
-      }
-    }, 1000);
+      }, 1000);
+    }
 
-    return () => clearInterval(intervalo);
+    return () => {
+      if (intervalo) clearInterval(intervalo);
+    };
+  }, [bloqueadoHasta, username]);
+
+  const iniciarTemporizadorBloqueo = (tiempoBloqueo) => {
+    setBloqueadoHasta(tiempoBloqueo);
+    const restante = Math.ceil((tiempoBloqueo - Date.now()) / 1000);
+    setTiempoRestante(restante);
   };
 
   // ==================== VALIDACIONES DE SEGURIDAD ====================
@@ -522,7 +551,7 @@ export default function LoginPage() {
       redirigiendo.current = true;
       await new Promise(resolve => setTimeout(resolve, 0));
 
-      if (!isWeb) {
+      if (Platform.OS !== 'web') {
         Alert.alert(
           "Bienvenido",
           `Hola ${resultadoAuth.usuario}, has iniciado sesion como ${resultadoAuth.rolPrincipal}`,
@@ -574,7 +603,7 @@ export default function LoginPage() {
 
           setErrorMsg(mensajeBloqueo);
 
-          if (!isWeb) {
+          if (Platform.OS !== 'web') {
             Alert.alert(
               "Cuenta bloqueada temporalmente",
               `Este es tu bloqueo numero ${datosBloqueo.nuevoContador}.\n\n` +
@@ -654,26 +683,33 @@ export default function LoginPage() {
   }
 
   return (
-    <View style={loginStyles.container}>
-      {isLoading ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#0000ff" />
-        </View>
-      ) : (
-        <LoginCard
-          username={username}
-          password={password}
-          setUsername={setUsername}
-          setPassword={setPassword}
-          errorMsg={errorMsg}
-          handleLogin={handleLogin}
-          isBlocked={bloqueadoHasta && Date.now() < bloqueadoHasta}
-          tiempoRestante={formatearTiempoRestante()}
-          intentosRestantes={Math.max(0, MAX_INTENTOS_LOGIN - intentosFallidos)}
-          mostrarPassword={mostrarPassword}
-          setMostrarPassword={setMostrarPassword}
-        />
-      )}
-    </View>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: '#1a1a2e' }}
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: 200 }}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={loginStyles.container}>
+        {isLoading ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#0000ff" />
+          </View>
+        ) : (
+          <LoginCard
+            username={username}
+            password={password}
+            setUsername={setUsername}
+            setPassword={setPassword}
+            errorMsg={errorMsg}
+            handleLogin={handleLogin}
+            isBlocked={bloqueadoHasta && Date.now() < bloqueadoHasta}
+            tiempoRestante={formatearTiempoRestante()}
+            intentosRestantes={Math.max(0, MAX_INTENTOS_LOGIN - intentosFallidos)}
+            mostrarPassword={mostrarPassword}
+            setMostrarPassword={setMostrarPassword}
+          />
+        )}
+      </View>
+    </ScrollView>
   );
 }

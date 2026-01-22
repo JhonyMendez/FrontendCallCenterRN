@@ -5,31 +5,44 @@ import { Platform } from 'react-native';
  */
 const getBaseURL = () => {
   const API_PATH = '/api/v1';
+  
+  // 🔧 CONFIGURACIÓN DE IPs Y URLs
+  const LOCAL_IP = '192.168.5.6';  // Tu IP local de desarrollo
+  const LOCAL_PORT = '8000';
+  const NGROK_URL = 'https://untranscribable-nonhedonistically-stetson.ngrok-free.dev';
+  
+  // 🚀 MODO: Cambia entre 'development' o 'production'
+  const MODE = 'development'; // Cambia a 'production' para usar ngrok
 
-  // 🤖 ANDROID: Usa ngrok para APK de producción
+  // 🤖 ANDROID
   if (Platform.OS === 'android') {
-    // ✅ CAMBIA ESTA URL POR LA DE NGROK
-    const url = `https://untranscribable-nonhedonistically-stetson.ngrok-free.dev${API_PATH}`;
-    console.log('🤖 ANDROID - URL:', url);
+    const url = MODE === 'development' 
+      ? `http://${LOCAL_IP}:${LOCAL_PORT}${API_PATH}`
+      : `${NGROK_URL}${API_PATH}`;
+    console.log(`🤖 ANDROID [${MODE.toUpperCase()}] - URL:`, url);
     return url;
   }
 
-  // 💻 WEB: localhost
+  // 💻 WEB
   if (Platform.OS === 'web') {
-    const url = `http://localhost:8000${API_PATH}`;
-    console.log('🌐 WEB - URL:', url);
+    const url = MODE === 'development'
+      ? `http://${LOCAL_IP}:${LOCAL_PORT}${API_PATH}`
+      : `${NGROK_URL}${API_PATH}`;
+    console.log(`🌐 WEB [${MODE.toUpperCase()}] - URL:`, url);
     return url;
   }
 
-  // 📱 iOS: localhost
+  // 📱 iOS
   if (Platform.OS === 'ios') {
-    const url = `http://localhost:8000${API_PATH}`;
-    console.log('📱 iOS - URL:', url);
+    const url = MODE === 'development'
+      ? `http://${LOCAL_IP}:${LOCAL_PORT}${API_PATH}`
+      : `${NGROK_URL}${API_PATH}`;
+    console.log(`📱 iOS [${MODE.toUpperCase()}] - URL:`, url);
     return url;
   }
 
   // Default
-  return `http://localhost:8000${API_PATH}`;
+  return `http://${LOCAL_IP}:${LOCAL_PORT}${API_PATH}`;
 };
 
 export const API_CONFIG = {

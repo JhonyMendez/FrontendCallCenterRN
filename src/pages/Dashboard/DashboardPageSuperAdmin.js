@@ -129,12 +129,8 @@ export default function DashboardPageSuperAdmin() {
       console.log('📊 [Dashboard] Iniciando carga de estadísticas...');
 
       console.log('📤 [Dashboard] Llamando a usuarioService.listarCompleto()...');
-      const usuarios = await usuarioService.listarCompleto({ limit: 1 }).catch((err) => {
-        console.error('❌ [Dashboard] Error al cargar usuarios:', err);
-        return { total: 0 };
-      });
+      const usuarios = await usuarioService.listarCompleto({ limit: 1 });
       console.log('📦 [Dashboard] Usuarios recibidos:', usuarios);
-
       console.log('📤 [Dashboard] Llamando a agenteService.getAll()...');
       const agentes = await agenteService.getAll().catch((err) => {
         console.error('❌ [Dashboard] Error al cargar agentes:', err);

@@ -74,7 +74,7 @@ const GestionPerfilPage = () => {
             console.log('📡 Cargando datos desde el backend usando /completo...');
             const response = await usuarioService.listarCompleto({
                 skip: 0,
-                limit: 1000
+                limit: 100  
             });
 
             console.log('✅ Respuesta completa recibida:', response);
@@ -104,7 +104,6 @@ const GestionPerfilPage = () => {
             setLoading(false);
         }
     };
-
     // ==================== NAVEGACIÓN ====================
     const abrirFormularioEditar = () => {
         setMostrarFormulario(true);
@@ -275,10 +274,10 @@ const GestionPerfilPage = () => {
                                         }
                                         style={styles.estadoBadgeHeader}
                                     >
-                                        <Ionicons 
-                                            name={usuario?.estado?.toLowerCase() === 'activo' ? "checkmark-circle" : "close-circle"} 
-                                            size={16} 
-                                            color="#FFFFFF" 
+                                        <Ionicons
+                                            name={usuario?.estado?.toLowerCase() === 'activo' ? "checkmark-circle" : "close-circle"}
+                                            size={16}
+                                            color="#FFFFFF"
                                         />
                                         <Text style={styles.estadoBadgeText}>
                                             {usuario?.estado?.toUpperCase() || 'INACTIVO'}
@@ -289,7 +288,7 @@ const GestionPerfilPage = () => {
                         </LinearGradient>
 
                         {/* Perfil Card Mejorado */}
-                        <Animated.View 
+                        <Animated.View
                             style={[
                                 styles.perfilContainer,
                                 { transform: [{ scale: scaleAnim }] }
