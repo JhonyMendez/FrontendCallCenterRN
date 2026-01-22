@@ -12,6 +12,7 @@ import {
   Alert,
   Animated,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -31,10 +32,11 @@ import { getUserIdFromToken } from '../../components/utils/authHelper';
 import SecurityValidator from '../../components/utils/SecurityValidator';
 import { styles } from '../../styles/GestionUsuariosStyles';
 
+const isWeb = Platform.OS === 'web';
 
 const GestionUsuarioPage = () => {
   // ==================== ESTADOS ====================
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [usuarios, setUsuarios] = useState([]);
   const [usuariosFiltrados, setUsuariosFiltrados] = useState([]);
@@ -538,13 +540,17 @@ const GestionUsuarioPage = () => {
   // ==================== RENDER ====================
   return (
     <View style={contentStyles.wrapper}>
-      {/* Sidebar */}
-      <AdminSidebar
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-      />
 
-      {/* Botón Toggle */}
+      {/* ============ SIDEBAR WEB ============ */}
+      {isWeb && (
+        <AdminSidebar
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
+          onNavigate={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* ============ BOTÓN TOGGLE SIDEBAR ============ */}
       <TouchableOpacity
         style={{
           position: 'absolute',
@@ -554,18 +560,18 @@ const GestionUsuarioPage = () => {
           backgroundColor: '#1e1b4b',
           padding: 12,
           borderRadius: 12,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.25,
-          shadowRadius: 3.84,
-          elevation: 5,
+          shadowColor: '#667eea',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.4,
+          shadowRadius: 8,
+          elevation: 8,
         }}
         onPress={() => setSidebarOpen(!sidebarOpen)}
       >
         <Ionicons name={sidebarOpen ? "close" : "menu"} size={24} color="#ffffff" />
       </TouchableOpacity>
 
-      {/* Contenido Principal */}
+      {/* ============ CONTENIDO PRINCIPAL ============ */}
       <View style={[
         contentStyles.mainContent,
         sidebarOpen && contentStyles.mainContentWithSidebar
@@ -771,6 +777,42 @@ const GestionUsuarioPage = () => {
         departamento={modalDepartamentoAsignado.departamento}
         onClose={() => setModalDepartamentoAsignado({ visible: false, usuario: null, departamento: null })}
       />
+
+      {/* ============ SIDEBAR MÓVIL ============ */}
+      {!isWeb && sidebarOpen && (
+        <>
+          {/* Overlay oscuro */}
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              zIndex: 998,
+            }}
+            onPress={() => setSidebarOpen(false)}
+            activeOpacity={1}
+          />
+
+          {/* Sidebar deslizante */}
+          <View style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            bottom: 0,
+            width: '80%',
+            maxWidth: 320,
+            zIndex: 999,
+          }}>
+            <AdminSidebar
+              isOpen={sidebarOpen}
+              onNavigate={() => setSidebarOpen(false)}
+            />
+          </View>
+        </>
+      )}
     </View>
   );
 };

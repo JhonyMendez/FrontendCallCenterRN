@@ -27,7 +27,7 @@ export default function DashboardPageAdmin() {
   const router = useRouter();
 
   // State
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [usuario, setUsuario] = useState({
     nombre_completo: '',
@@ -242,8 +242,14 @@ export default function DashboardPageAdmin() {
   return (
     <View style={{ flex: 1, flexDirection: 'row', backgroundColor: '#0f172a' }}>
 
-      {/* Sidebar */}
-      <AdminSidebar isOpen={sidebarOpen} />
+      {/* ============ SIDEBAR WEB ============ */}
+      {isWeb && (
+        <AdminSidebar
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
+          onNavigate={() => setSidebarOpen(false)}
+        />
+      )}
 
       {/* Contenido Principal */}
       <View style={{ flex: 1, backgroundColor: '#0f172a' }}>
@@ -357,6 +363,41 @@ export default function DashboardPageAdmin() {
           </View>
 
         </ScrollView>
+        {/* ============ SIDEBAR MÓVIL ============ */}
+        {!isWeb && sidebarOpen && (
+          <>
+            {/* Overlay oscuro */}
+            <TouchableOpacity
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                zIndex: 998,
+              }}
+              onPress={() => setSidebarOpen(false)}
+              activeOpacity={1}
+            />
+
+            {/* Sidebar deslizante */}
+            <View style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: '80%',
+              maxWidth: 320,
+              zIndex: 999,
+            }}>
+              <AdminSidebar
+                isOpen={sidebarOpen}
+                onNavigate={() => setSidebarOpen(false)}
+              />
+            </View>
+          </>
+        )}
       </View>
     </View>
   );

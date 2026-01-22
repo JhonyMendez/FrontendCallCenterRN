@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   RefreshControl,
   ScrollView,
   Text,
@@ -25,12 +26,13 @@ import {
   UsuarioDetalleModal
 } from '../../components/SuperAdministrador/GestionAsignacionUsCard';
 import { styles } from '../../styles/GestionAsignacionUsStyles';
+const isWeb = Platform.OS === 'web';
 
 export default function GestionAsignacionUsPage() {
   const router = useRouter();
 
   // State
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [departamentos, setDepartamentos] = useState([]);
@@ -881,13 +883,16 @@ export default function GestionAsignacionUsPage() {
   return (
     <View style={styles.wrapper}>
 
-      {/* Sidebar */}
-      <AdminSidebar
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-      />
+      {/* ============ SIDEBAR WEB ============ */}
+      {isWeb && (
+        <AdminSidebar
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
+          onNavigate={() => setSidebarOpen(false)}
+        />
+      )}
 
-      {/* Botón Toggle */}
+      {/* ============ BOTÓN TOGGLE SIDEBAR ============ */}
       <TouchableOpacity
         style={[
           styles.toggleButton,
@@ -898,7 +903,7 @@ export default function GestionAsignacionUsPage() {
         <Ionicons name={sidebarOpen ? "close" : "menu"} size={24} color="#ffffff" />
       </TouchableOpacity>
 
-      {/* Contenido Principal */}
+      {/* ============ CONTENIDO PRINCIPAL ============ */}
       <View style={styles.mainContent}>
         <ScrollView
           style={styles.container}
@@ -1296,6 +1301,42 @@ export default function GestionAsignacionUsPage() {
       />
       {/* ✅ Modal de Revocación */}
       <ModalRevocacion />
+
+      {/* ============ SIDEBAR MÓVIL ============ */}
+      {!isWeb && sidebarOpen && (
+        <>
+          {/* Overlay oscuro */}
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              zIndex: 998,
+            }}
+            onPress={() => setSidebarOpen(false)}
+            activeOpacity={1}
+          />
+
+          {/* Sidebar deslizante */}
+          <View style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            bottom: 0,
+            width: '80%',
+            maxWidth: 320,
+            zIndex: 999,
+          }}>
+            <AdminSidebar
+              isOpen={sidebarOpen}
+              onNavigate={() => setSidebarOpen(false)}
+            />
+          </View>
+        </>
+      )}
     </View>
   );
 }

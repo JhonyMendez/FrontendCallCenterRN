@@ -27,7 +27,7 @@ export default function DashboardPageSuperAdmin() {
   const router = useRouter();
 
   // State
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [usuario, setUsuario] = useState({
     nombre_completo: '',
@@ -235,124 +235,150 @@ export default function DashboardPageSuperAdmin() {
   }
 
   return (
-    <View style={{ flex: 1, flexDirection: 'row', backgroundColor: '#0f172a' }}>
+    <View style={{ flex: 1, backgroundColor: '#0f172a' }}>
+      <View style={{ flex: 1, flexDirection: isWeb ? 'row' : 'column' }}>
 
-      {/* Sidebar */}
-      <SuperAdminSidebar isOpen={sidebarOpen} />
+        {/* Sidebar - En web es fijo, en móvil es overlay */}
+        {isWeb && <SuperAdminSidebar isOpen={sidebarOpen} onNavigate={() => setSidebarOpen(false)} />}
 
-      {/* Contenido Principal */}
-      <View style={{ flex: 1, backgroundColor: '#0f172a' }}>
+        {/* Contenido Principal */}
+        <View style={{ flex: 1, backgroundColor: '#0f172a' }}>
 
-        {/* Header con botón toggle */}
-        <View style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          backgroundColor: '#1e1b4b',
-          borderBottomWidth: 1,
-          borderBottomColor: '#312e81',
-        }}>
-          <TouchableOpacity
-            style={{
-              backgroundColor: '#312e81',
-              padding: 12,
-              borderRadius: 12,
-              marginRight: 12,
-            }}
-            onPress={() => setSidebarOpen(!sidebarOpen)}
-          >
-            <Ionicons name={sidebarOpen ? "close" : "menu"} size={24} color="#ffffff" />
-          </TouchableOpacity>
-
-          <Text style={{
-            color: '#ffffff',
-            fontSize: 18,
-            fontWeight: '600',
-            flex: 1,
+          {/* Header con botón toggle */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            backgroundColor: '#1e1b4b',
+            borderBottomWidth: 1,
+            borderBottomColor: '#312e81',
           }}>
-            Dashboard
-          </Text>
-        </View>
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#312e81',
+                padding: 12,
+                borderRadius: 12,
+              }}
+              onPress={() => setSidebarOpen(!sidebarOpen)}
+            >
+              <Ionicons name={sidebarOpen ? "close" : "menu"} size={24} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
 
-        <ScrollView
-          style={dashboardStyles.container}
-          contentContainerStyle={dashboardStyles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+          <ScrollView
+            style={dashboardStyles.container}
+            contentContainerStyle={dashboardStyles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
 
-          {/* Header Card */}
-          <HeaderCard
-            nombre={usuario.nombre_completo}
-            username={usuario.username}
-            role={usuario.role}
-            onPress={handleNavigateToProfile}
-          />
+            {/* Header Card */}
+            <HeaderCard
+              nombre={usuario.nombre_completo}
+              username={usuario.username}
+              role={usuario.role}
+              onPress={handleNavigateToProfile}
+            />
 
-          {/* Stats Section */}
-          <SectionHeader
-            title="Estadísticas Generales"
-            subtitle="Vista general del sistema"
-            icon="stats-chart"
-          />
+            {/* Stats Section */}
+            <SectionHeader
+              title="Estadísticas Generales"
+              subtitle="Vista general del sistema"
+              icon="stats-chart"
+            />
 
-          <View style={dashboardStyles.statsGrid}>
-            {statsCards.map((card, index) => (
-              <View key={index} style={dashboardStyles.statCardWrapper}>
-                <StatCard
-                  title={card.title}
-                  value={card.value}
-                  subtitle={card.subtitle}
-                  icon={card.icon}
-                  color={card.color}
-                  trend={card.trend}
-                  onClick={() => console.log(`Clicked: ${card.title}`)}
+            <View style={dashboardStyles.statsGrid}>
+              {statsCards.map((card, index) => (
+                <View key={index} style={dashboardStyles.statCardWrapper}>
+                  <StatCard
+                    title={card.title}
+                    value={card.value}
+                    subtitle={card.subtitle}
+                    icon={card.icon}
+                    color={card.color}
+                    trend={card.trend}
+                    onClick={() => console.log(`Clicked: ${card.title}`)}
+                  />
+                </View>
+              ))}
+            </View>
+
+            {/* Info Cards Section */}
+            <SectionHeader
+              title="Actividad del Sistema"
+              subtitle="Métricas en tiempo real"
+              icon="pulse"
+              onActionPress={handleRefresh}
+              actionText="Actualizar"
+            />
+
+            <View style={dashboardStyles.infoGrid}>
+              <View style={dashboardStyles.infoCardWrapper}>
+                <InfoCard
+                  title="Interacciones"
+                  value={stats.interaccionesHoy}
+                  icon="chatbox-ellipses"
+                  color="#06b6d4"
+                  subtitle="En las últimas 24h"
                 />
               </View>
-            ))}
-          </View>
+              <View style={dashboardStyles.infoCardWrapper}>
+                <InfoCard
+                  title="Tickets"
+                  value={stats.ticketsAbiertos}
+                  icon="ticket"
+                  color="#f97316"
+                  subtitle="Abiertos actualmente"
+                />
+              </View>
+              <View style={dashboardStyles.infoCardWrapper}>
+                <InfoCard
+                  title="Satisfacción"
+                  value={`${stats.satisfaccion}%`}
+                  icon="happy"
+                  color="#10b981"
+                  subtitle="Promedio mensual"
+                />
+              </View>
+            </View>
 
-          {/* Info Cards Section */}
-          <SectionHeader
-            title="Actividad del Sistema"
-            subtitle="Métricas en tiempo real"
-            icon="pulse"
-            onActionPress={handleRefresh}
-            actionText="Actualizar"
+          </ScrollView>
+        </View>
+
+      </View>
+
+      {/* Sidebar móvil - Solo en dispositivos móviles */}
+      {!isWeb && sidebarOpen && (
+        <>
+          {/* Overlay oscuro */}
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              zIndex: 998,
+            }}
+            onPress={() => setSidebarOpen(false)}
+            activeOpacity={1}
           />
 
-          <View style={dashboardStyles.infoGrid}>
-            <View style={dashboardStyles.infoCardWrapper}>
-              <InfoCard
-                title="Interacciones"
-                value={stats.interaccionesHoy}
-                icon="chatbox-ellipses"
-                color="#06b6d4"
-                subtitle="En las últimas 24h"
-              />
-            </View>
-            <View style={dashboardStyles.infoCardWrapper}>
-              <InfoCard
-                title="Tickets"
-                value={stats.ticketsAbiertos}
-                icon="ticket"
-                color="#f97316"
-                subtitle="Abiertos actualmente"
-              />
-            </View>
-            <View style={dashboardStyles.infoCardWrapper}>
-              <InfoCard
-                title="Satisfacción"
-                value={`${stats.satisfaccion}%`}
-                icon="happy"
-                color="#10b981"
-                subtitle="Promedio mensual"
-              />
-            </View>
+          {/* Sidebar deslizante */}
+          <View style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            bottom: 0,
+            width: '80%',
+            maxWidth: 320,
+            zIndex: 999,
+          }}>
+            <SuperAdminSidebar isOpen={sidebarOpen} onNavigate={() => setSidebarOpen(false)} />
           </View>
-
-        </ScrollView>
-      </View>
+        </>
+      )}
     </View>
   );
 }

@@ -37,6 +37,8 @@ const PRIORITY_LABELS = {
   1: { label: '🔵 Opcional', desc: 'Información complementaria', color: '#0ea5e9' }
 };
 
+const isWeb = Platform.OS === 'web';
+
 const GestionContenidoPage = () => {
   const [contenidos, setContenidos] = useState([]);
   const [agentes, setAgentes] = useState([]);
@@ -51,7 +53,7 @@ const GestionContenidoPage = () => {
   const [searchEstado, setSearchEstado] = useState('');
   const [searchAgente, setSearchAgente] = useState('');
   const [searchCategoria, setSearchCategoria] = useState('');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const scrollRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
@@ -657,7 +659,13 @@ const GestionContenidoPage = () => {
   if (loading) {
     return (
       <View style={contentStyles.wrapper}>
-        <AdminSidebar isOpen={sidebarOpen} />
+        {isWeb && (
+          <AdminSidebar
+            isOpen={sidebarOpen}
+            onToggle={() => setSidebarOpen(!sidebarOpen)}
+            onNavigate={() => setSidebarOpen(false)}
+          />
+        )}
         <View style={[contentStyles.mainContent, sidebarOpen && contentStyles.mainContentWithSidebar]}>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#3498db" />
@@ -671,11 +679,14 @@ const GestionContenidoPage = () => {
   return (
     <View style={contentStyles.wrapper}>
 
-      {/* ============ SIDEBAR ============ */}
-      <AdminSidebar
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-      />
+      {/* ============ SIDEBAR WEB ============ */}
+      {isWeb && (
+        <AdminSidebar
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
+          onNavigate={() => setSidebarOpen(false)}
+        />
+      )}
 
       {/* ============ BOTÓN TOGGLE SIDEBAR ============ */}
       <TouchableOpacity
@@ -3133,6 +3144,7 @@ const GestionContenidoPage = () => {
           </View>
         </Modal>
 
+
         {/* 🔥 Notificación flotante mejorada */}
         {showSuccessNotification && (
           <View style={{
@@ -3178,6 +3190,42 @@ const GestionContenidoPage = () => {
               </Text>
             </View>
           </View>
+        )}
+
+        {/* ============ SIDEBAR MÓVIL ============ */}
+        {!isWeb && sidebarOpen && (
+          <>
+            {/* Overlay oscuro */}
+            <TouchableOpacity
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                zIndex: 998,
+              }}
+              onPress={() => setSidebarOpen(false)}
+              activeOpacity={1}
+            />
+
+            {/* Sidebar deslizante */}
+            <View style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: '80%',
+              maxWidth: 320,
+              zIndex: 999,
+            }}>
+              <AdminSidebar
+                isOpen={sidebarOpen}
+                onNavigate={() => setSidebarOpen(false)}
+              />
+            </View>
+          </>
         )}
       </View>
     </View>

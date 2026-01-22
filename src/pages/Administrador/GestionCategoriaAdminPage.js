@@ -5,6 +5,7 @@ import {
   Alert,
   FlatList,
   Modal,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -18,6 +19,8 @@ import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles'
 import GestionCategoriaCard from '../../components/SuperAdministrador/GestionCategoriaCard';
 import { styles } from '../../styles/gestionCategoriaStyles';
 
+const isWeb = Platform.OS === 'web';
+
 export default function GestionCategoriaPage() {
   // ============ STATE ============
   const [categorias, setCategorias] = useState([]);
@@ -29,7 +32,7 @@ export default function GestionCategoriaPage() {
   const [filterAgente, setFilterAgente] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [editingCategoria, setEditingCategoria] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [errors, setErrors] = useState({});
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -364,11 +367,14 @@ export default function GestionCategoriaPage() {
   return (
     <View style={contentStyles.wrapper}>
 
-      {/* ============ SIDEBAR ============ */}
-      <AdminSidebar
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-      />
+      {/* ============ SIDEBAR WEB ============ */}
+      {isWeb && (
+        <AdminSidebar
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
+          onNavigate={() => setSidebarOpen(false)}
+        />
+      )}
 
       {/* ============ BOTÓN TOGGLE SIDEBAR ============ */}
       <TouchableOpacity
@@ -1908,6 +1914,41 @@ export default function GestionCategoriaPage() {
               </View>
             </View>
           </Modal>
+          {/* ============ SIDEBAR MÓVIL ============ */}
+          {!isWeb && sidebarOpen && (
+            <>
+              {/* Overlay oscuro */}
+              <TouchableOpacity
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                  zIndex: 998,
+                }}
+                onPress={() => setSidebarOpen(false)}
+                activeOpacity={1}
+              />
+
+              {/* Sidebar deslizante */}
+              <View style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                bottom: 0,
+                width: '80%',
+                maxWidth: 320,
+                zIndex: 999,
+              }}>
+                <AdminSidebar
+                  isOpen={sidebarOpen}
+                  onNavigate={() => setSidebarOpen(false)}
+                />
+              </View>
+            </>
+          )}
         </View>
       </View>
     </View>

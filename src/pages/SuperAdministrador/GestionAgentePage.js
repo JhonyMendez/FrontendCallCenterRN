@@ -7,6 +7,7 @@ import {
   Alert,
   Image,
   Modal,
+  Platform,
   ScrollView,
   Switch,
   Text,
@@ -26,6 +27,8 @@ import { contentStyles } from '../../styles/contentStyles';
 import { getStatIconColor, modalStyles, styles } from '../../styles/gestionAgenteStyles';
 
 
+const isWeb = Platform.OS === 'web';
+
 export default function GestionAgentePage() {
   // ============ STATE ============
   const [agentes, setAgentes] = useState([]);
@@ -34,7 +37,7 @@ export default function GestionAgentePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipo, setFilterTipo] = useState('todos');
   const [filterEstado, setFilterEstado] = useState('todos');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -842,11 +845,14 @@ export default function GestionAgentePage() {
   return (
     <View style={contentStyles.wrapper}>
 
-      {/* ============ SIDEBAR ============ */}
-      <SuperAdminSidebar
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-      />
+      {/* ============ SIDEBAR WEB ============ */}
+      {isWeb && (
+        <SuperAdminSidebar
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
+          onNavigate={() => setSidebarOpen(false)}
+        />
+      )}
 
       {/* ============ CONTENIDO PRINCIPAL ============ */}
       <View style={[
@@ -859,7 +865,7 @@ export default function GestionAgentePage() {
           style={{
             position: 'absolute',
             top: 16,
-            left: 16,
+            left: sidebarOpen ? 296 : 16,
             zIndex: 1001,
             backgroundColor: '#1e1b4b',
             padding: 12,
@@ -4617,6 +4623,42 @@ export default function GestionAgentePage() {
           </View>
         </View>
       </Modal>
+
+      {/* ============ SIDEBAR MÓVIL ============ */}
+      {!isWeb && sidebarOpen && (
+        <>
+          {/* Overlay oscuro */}
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              zIndex: 998,
+            }}
+            onPress={() => setSidebarOpen(false)}
+            activeOpacity={1}
+          />
+
+          {/* Sidebar deslizante */}
+          <View style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            bottom: 0,
+            width: '80%',
+            maxWidth: 320,
+            zIndex: 999,
+          }}>
+            <SuperAdminSidebar
+              isOpen={sidebarOpen}
+              onNavigate={() => setSidebarOpen(false)}
+            />
+          </View>
+        </>
+      )}
     </View>
   );
 }

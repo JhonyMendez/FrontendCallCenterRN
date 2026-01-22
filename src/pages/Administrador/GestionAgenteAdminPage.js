@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Image,
   Modal,
+  Platform,
   ScrollView,
   Switch,
   Text,
@@ -25,6 +26,8 @@ import SecurityValidator from '../../components/utils/SecurityValidator';
 import { getStatIconColor, modalStyles, styles } from '../../styles/gestionAgenteStyles';
 
 
+const isWeb = Platform.OS === 'web';
+
 export default function GestionAgentePage() {
   // ============ STATE ============
   const [agentes, setAgentes] = useState([]);
@@ -33,7 +36,7 @@ export default function GestionAgentePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipo, setFilterTipo] = useState('todos');
   const [filterEstado, setFilterEstado] = useState('todos');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -860,39 +863,41 @@ export default function GestionAgentePage() {
   return (
     <View style={contentStyles.wrapper}>
 
-      {/* ============ SIDEBAR ============ */}
-      <AdminSidebar
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-      />
+      {/* ============ SIDEBAR WEB ============ */}
+      {isWeb && (
+        <AdminSidebar
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
+          onNavigate={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* ============ BOTÓN TOGGLE SIDEBAR ============ */}
+      <TouchableOpacity
+        style={{
+          position: 'absolute',
+          top: 16,
+          left: sidebarOpen ? 296 : 16,
+          zIndex: 1001,
+          backgroundColor: '#1e1b4b',
+          padding: 12,
+          borderRadius: 12,
+          shadowColor: '#667eea',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.4,
+          shadowRadius: 8,
+          elevation: 8,
+        }}
+        onPress={() => setSidebarOpen(!sidebarOpen)}
+      >
+        <Ionicons name={sidebarOpen ? "close" : "menu"} size={24} color="#ffffff" />
+      </TouchableOpacity>
 
       {/* ============ CONTENIDO PRINCIPAL ============ */}
       <View style={[
-
         contentStyles.mainContent,
         sidebarOpen && contentStyles.mainContentWithSidebar
       ]}>
-
-        {/* ============ BOTÓN TOGGLE SIDEBAR ============ */}
-        <TouchableOpacity
-          style={{
-            position: 'absolute',
-            top: 16,
-            left: 16,
-            zIndex: 1001,
-            backgroundColor: '#1e1b4b',
-            padding: 12,
-            borderRadius: 12,
-            shadowColor: '#667eea',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.4,
-            shadowRadius: 8,
-            elevation: 8,
-          }}
-          onPress={() => setSidebarOpen(!sidebarOpen)}
-        >
-          <Ionicons name={sidebarOpen ? "close" : "menu"} size={24} color="#ffffff" />
-        </TouchableOpacity>
 
         <ScrollView
           style={styles.container}
@@ -4649,7 +4654,42 @@ export default function GestionAgentePage() {
           </View>
         </View>
       </Modal>
+
+      {/* ============ SIDEBAR MÓVIL ============ */}
+      {!isWeb && sidebarOpen && (
+        <>
+          {/* Overlay oscuro */}
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              zIndex: 998,
+            }}
+            onPress={() => setSidebarOpen(false)}
+            activeOpacity={1}
+          />
+
+          {/* Sidebar deslizante */}
+          <View style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            bottom: 0,
+            width: '80%',
+            maxWidth: 320,
+            zIndex: 999,
+          }}>
+            <AdminSidebar
+              isOpen={sidebarOpen}
+              onNavigate={() => setSidebarOpen(false)}
+            />
+          </View>
+        </>
+      )}
     </View >
   );
 }
-

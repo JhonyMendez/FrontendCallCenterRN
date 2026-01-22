@@ -12,6 +12,7 @@ import {
   Alert,
   Animated,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -31,9 +32,11 @@ import { getUserIdFromToken } from '../../components/utils/authHelper';
 import SecurityValidator from '../../components/utils/SecurityValidator';
 import { styles } from '../../styles/GestionUsuariosStyles';
 
+const isWeb = Platform.OS === 'web';
+
 const GestionUsuarioPage = () => {
   // ==================== ESTADOS ====================
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [usuarios, setUsuarios] = useState([]);
   const [usuariosFiltrados, setUsuariosFiltrados] = useState([]);
@@ -541,11 +544,14 @@ const GestionUsuarioPage = () => {
   // ==================== RENDER ====================
   return (
     <View style={contentStyles.wrapper}>
-      {/* Sidebar */}
-      <SuperAdminSidebar
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-      />
+      {/* Sidebar WEB - Fijo al lado */}
+      {isWeb && (
+        <SuperAdminSidebar
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
+          onNavigate={() => setSidebarOpen(false)}
+        />
+      )}
 
       {/* Botón Toggle */}
       <TouchableOpacity
@@ -747,6 +753,42 @@ const GestionUsuarioPage = () => {
           </ScrollView>
         )}
       </View>
+
+      {/* Sidebar MÓVIL - Overlay deslizante */}
+      {!isWeb && sidebarOpen && (
+        <>
+          {/* Overlay oscuro */}
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              zIndex: 998,
+            }}
+            onPress={() => setSidebarOpen(false)}
+            activeOpacity={1}
+          />
+
+          {/* Sidebar deslizante */}
+          <View style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            bottom: 0,
+            width: '80%',
+            maxWidth: 320,
+            zIndex: 999,
+          }}>
+            <SuperAdminSidebar
+              isOpen={sidebarOpen}
+              onNavigate={() => setSidebarOpen(false)}
+            />
+          </View>
+        </>
+      )}
 
       {/* Modales */}
       {console.log('🟡 Renderizando modales - modalConfirm:', modalConfirm)}
