@@ -74,7 +74,7 @@ const GestionPerfilPage = () => {
             console.log('📡 Cargando datos desde el backend usando /completo...');
             const response = await usuarioService.listarCompleto({
                 skip: 0,
-                limit: 1000
+                limit: 100  // ⭐ Aumentar límite para buscar el usuario correcto
             });
 
             console.log('✅ Respuesta completa recibida:', response);
@@ -275,10 +275,10 @@ const GestionPerfilPage = () => {
                                         }
                                         style={styles.estadoBadgeHeader}
                                     >
-                                        <Ionicons 
-                                            name={usuario?.estado?.toLowerCase() === 'activo' ? "checkmark-circle" : "close-circle"} 
-                                            size={16} 
-                                            color="#FFFFFF" 
+                                        <Ionicons
+                                            name={usuario?.estado?.toLowerCase() === 'activo' ? "checkmark-circle" : "close-circle"}
+                                            size={16}
+                                            color="#FFFFFF"
                                         />
                                         <Text style={styles.estadoBadgeText}>
                                             {usuario?.estado?.toUpperCase() || 'INACTIVO'}
@@ -289,7 +289,7 @@ const GestionPerfilPage = () => {
                         </LinearGradient>
 
                         {/* Perfil Card Mejorado */}
-                        <Animated.View 
+                        <Animated.View
                             style={[
                                 styles.perfilContainer,
                                 { transform: [{ scale: scaleAnim }] }

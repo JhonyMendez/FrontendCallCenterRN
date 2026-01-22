@@ -35,7 +35,7 @@ export default function DashboardPageFuncionario() {
     role: '',
     id_usuario: null
   });
-  
+
   const [stats, setStats] = useState({
     totalUsuarios: 0,
     totalAgentes: 0,
@@ -54,42 +54,57 @@ export default function DashboardPageFuncionario() {
     try {
       setLoading(true);
       console.log('🔄 [Dashboard Funcionario] Iniciando carga de datos...');
-      
+
       // ⭐ ESTRATEGIA 1: Primero intentar desde localStorage (MÁS RÁPIDO)
       console.log('🔄 [Dashboard Funcionario] Intentando cargar desde localStorage...');
       let usuarioConfigLoaded = false;
-      
+
       try {
         const posiblesClaves = ['@datos_sesion', 'datos_sesion', '@user_session'];
-        
+
         for (const clave of posiblesClaves) {
           const data = localStorage.getItem(clave);
-          
+
           if (data) {
             const parsed = JSON.parse(data);
             console.log(`📦 [Dashboard Funcionario] Datos en ${clave}:`, parsed);
             console.log(`📦 [Dashboard Funcionario] parsed.usuario:`, parsed.usuario);
             console.log(`📦 [Dashboard Funcionario] parsed.rolPrincipal:`, parsed.rolPrincipal);
-            
+
+            // 🔍 DIAGNÓSTICO COMPLETO
+            console.log('🔍 CAMPOS DISPONIBLES EN parsed.usuario:');
+            console.log('  - id_usuario:', parsed.usuario?.id_usuario);
+            console.log('  - nombre:', parsed.usuario?.nombre);
+            console.log('  - apellido:', parsed.usuario?.apellido);
+            console.log('  - nombre_completo:', parsed.usuario?.nombre_completo);
+            console.log('  - nombreCompleto:', parsed.usuario?.nombreCompleto);
+            console.log('  - username:', parsed.usuario?.username);
+            console.log('  - email:', parsed.usuario?.email);
+            console.log('🔍 ROLES DISPONIBLES:');
+            console.log('  - parsed.roles:', parsed.roles);
+            console.log('  - parsed.usuario.roles:', parsed.usuario?.roles);
+
             if (parsed.usuario) {
               const usuarioConfig = {
                 id_usuario: parsed.usuario.id_usuario,
-                // ⭐ Intentar múltiples variantes del nombre
-                nombre_completo: parsed.usuario.nombre_completo || 
-                                parsed.usuario.nombreCompleto || 
-                                parsed.usuario.nombre || 
-                                parsed.usuario.fullName || 
-                                'Funcionario',
+                nombre_completo: parsed.usuario.nombre_completo ||
+                  parsed.usuario.nombreCompleto ||
+                  `${parsed.usuario.nombre || ''} ${parsed.usuario.apellido || ''}`.trim() ||
+                  parsed.usuario.fullName ||
+                  parsed.usuario.full_name ||
+                  `${parsed.usuario.primer_nombre || ''} ${parsed.usuario.primer_apellido || ''}`.trim() ||
+                  parsed.usuario.username ||
+                  'Funcionario',
                 // ⭐ Intentar múltiples variantes del username
-                username: parsed.usuario.username || 
-                         parsed.usuario.userName || 
-                         parsed.usuario.user_name || 
-                         parsed.usuario.email?.split('@')[0] || 
-                         'funcionario',
-                role: parsed.rolPrincipal?.nombre_rol || 
-                     parsed.rolPrincipal?.nombreRol || 
-                     parsed.usuario.role || 
-                     'Funcionario'
+                username: parsed.usuario.username ||
+                  parsed.usuario.userName ||
+                  parsed.usuario.user_name ||
+                  parsed.usuario.email?.split('@')[0] ||
+                  'funcionario',
+                role: parsed.rolPrincipal?.nombre_rol ||
+                  parsed.rolPrincipal?.nombreRol ||
+                  parsed.usuario.role ||
+                  'Funcionario'
               };
               console.log('✅ [Dashboard Funcionario] Usuario configurado desde localStorage:', usuarioConfig);
               setUsuario(usuarioConfig);
@@ -101,13 +116,13 @@ export default function DashboardPageFuncionario() {
       } catch (localStorageError) {
         console.warn('⚠️ [Dashboard Funcionario] Error leyendo localStorage:', localStorageError);
       }
-      
+
       // ⭐ ESTRATEGIA 2: Si no se encontró en localStorage, intentar desde authService
       if (!usuarioConfigLoaded) {
         console.log('🔄 [Dashboard Funcionario] Intentando cargar desde authService...');
         const datosSesion = await authService.obtenerDatosSesion();
         console.log('📦 [Dashboard Funcionario] Datos de sesión:', datosSesion);
-        
+
         if (datosSesion && datosSesion.usuario) {
           const usuarioConfig = {
             id_usuario: datosSesion.usuario.id_usuario,
@@ -120,35 +135,71 @@ export default function DashboardPageFuncionario() {
           usuarioConfigLoaded = true;
         }
       }
-      
+
+      // ⭐ ESTRATEGIA 3: Obtener desde el token decodificado o API
+      if (!usuarioConfigLoaded) {
+        console.log('🔄 [Dashboard Funcionario] Intentando obtener desde API /usuarios/perfil...');
+
+        try {
+          const response = await apiClient.get('/usuarios/perfil');
+          console.log('📦 [API] Respuesta de /usuarios/perfil:', response);
+
+          if (response?.data) {
+            const usuario = response.data;
+
+            usuarioConfig = {
+              id_usuario: usuario.id_usuario,
+              nombre_completo: usuario.nombre_completo ||
+                usuario.nombreCompleto ||
+                `${usuario.nombre || ''} ${usuario.apellido || ''}`.trim() ||
+                `${usuario.persona?.nombre || ''} ${usuario.persona?.apellido || ''}`.trim() ||
+                'Funcionario',
+              username: usuario.username ||
+                usuario.email?.split('@')[0] ||
+                'funcionario',
+              role: usuario.roles?.[0]?.nombre_rol ||
+                usuario.rol?.nombre_rol ||
+                usuario.role ||
+                'Funcionario'
+            };
+
+            console.log('✅ [API] Usuario configurado desde /usuarios/perfil:', usuarioConfig);
+            setUsuario(usuarioConfig);
+            usuarioConfigLoaded = true;
+          }
+        } catch (apiError) {
+          console.warn('⚠️ Error obteniendo perfil desde API:', apiError);
+        }
+      }
+
       if (!usuarioConfigLoaded) {
         console.warn('⚠️ [Dashboard Funcionario] No se pudo obtener información del usuario');
       }
-      
+
       // Cargar estadísticas en paralelo desde el backend
       console.log('📊 [Dashboard Funcionario] Iniciando carga de estadísticas...');
-      
+
       console.log('📤 [Dashboard Funcionario] Llamando a usuarioService.listarCompleto()...');
       const usuarios = await usuarioService.listarCompleto({ limit: 1 }).catch((err) => {
         console.error('❌ [Dashboard Funcionario] Error al cargar usuarios:', err);
         return { total: 0 };
       });
       console.log('📦 [Dashboard Funcionario] Usuarios recibidos:', usuarios);
-      
+
       console.log('📤 [Dashboard Funcionario] Llamando a agenteService.getAll()...');
       const agentes = await agenteService.getAll().catch((err) => {
         console.error('❌ [Dashboard Funcionario] Error al cargar agentes:', err);
         return [];
       });
       console.log('📦 [Dashboard Funcionario] Agentes recibidos:', agentes);
-      
+
       console.log('📤 [Dashboard Funcionario] Llamando a departamentoService.getAll()...');
       const departamentos = await departamentoService.getAll().catch((err) => {
         console.error('❌ [Dashboard Funcionario] Error al cargar departamentos:', err);
         return [];
       });
       console.log('📦 [Dashboard Funcionario] Departamentos recibidos:', departamentos);
-      
+
       // Actualizar estadísticas con datos reales
       const newStats = {
         totalUsuarios: usuarios.total || 0,
@@ -159,10 +210,10 @@ export default function DashboardPageFuncionario() {
         ticketsAbiertos: 0, // TODO: Implementar endpoint en backend
         satisfaccion: 0 // TODO: Implementar endpoint en backend
       };
-      
+
       console.log('📊 [Dashboard Funcionario] Actualizando stats:', newStats);
       setStats(newStats);
-      
+
       console.log('✅ [Dashboard Funcionario] Datos cargados correctamente');
     } catch (error) {
       console.error('❌ [Dashboard Funcionario] Error CRÍTICO cargando datos:', error);
@@ -186,6 +237,11 @@ export default function DashboardPageFuncionario() {
     } catch (error) {
       console.error('❌ Error cerrando sesión:', error);
     }
+  };
+
+  const handleNavigateToProfile = () => {
+    console.log('📍 Navegando a perfil de funcionario...');
+    router.push('/funcionario/PerfilFuncionario');
   };
 
   // Configuración de tarjetas de estadísticas
@@ -236,13 +292,13 @@ export default function DashboardPageFuncionario() {
 
   return (
     <View style={{ flex: 1, flexDirection: 'row', backgroundColor: '#0f172a' }}>
-      
+
       {/* Sidebar */}
       <FuncionarioSidebar isOpen={sidebarOpen} />
 
       {/* Contenido Principal */}
       <View style={{ flex: 1, backgroundColor: '#0f172a' }}>
-        
+
         {/* Header con botón toggle */}
         <View style={{
           flexDirection: 'row',
@@ -264,7 +320,7 @@ export default function DashboardPageFuncionario() {
           >
             <Ionicons name={sidebarOpen ? "close" : "menu"} size={24} color="#ffffff" />
           </TouchableOpacity>
-          
+
           <Text style={{
             color: '#ffffff',
             fontSize: 18,
@@ -275,17 +331,18 @@ export default function DashboardPageFuncionario() {
           </Text>
         </View>
 
-        <ScrollView 
-          style={dashboardStyles.container} 
+        <ScrollView
+          style={dashboardStyles.container}
           contentContainerStyle={dashboardStyles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          
+
           {/* Header Card */}
           <HeaderCard
             nombre={usuario.nombre_completo}
             username={usuario.username}
             role={usuario.role}
+            onPress={handleNavigateToProfile}
           />
 
           {/* Stats Section */}

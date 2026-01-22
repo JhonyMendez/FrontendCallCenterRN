@@ -74,19 +74,19 @@ export default function DashboardPageSuperAdmin() {
             if (parsed.usuario) {
               const usuarioConfig = {
                 id_usuario: parsed.usuario.id_usuario,
-                // ⭐ Intentar múltiples variantes del nombre
                 nombre_completo: parsed.usuario.nombre_completo ||
                   parsed.usuario.nombreCompleto ||
-                  parsed.usuario.nombre ||
+                  `${parsed.usuario.nombre || ''} ${parsed.usuario.apellido || ''}`.trim() ||
                   parsed.usuario.fullName ||
-                  'Usuario',
-                // ⭐ Intentar múltiples variantes del username
+                  parsed.usuario.username ||
+                  'Super Administrador',
                 username: parsed.usuario.username ||
                   parsed.usuario.userName ||
                   parsed.usuario.user_name ||
                   parsed.usuario.email?.split('@')[0] ||
                   'usuario',
-                role: parsed.rolPrincipal?.nombre_rol ||
+                role: parsed.roles?.[0]?.nombre_rol ||
+                  parsed.rolPrincipal?.nombre_rol ||
                   parsed.rolPrincipal?.nombreRol ||
                   parsed.usuario.role ||
                   'Super Administrador'
@@ -277,6 +277,25 @@ export default function DashboardPageSuperAdmin() {
           }}>
             Dashboard
           </Text>
+
+          {/* Usuario en el header derecho */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#312e81',
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            borderRadius: 12,
+          }}>
+            <Ionicons name="person-circle" size={24} color="#a78bfa" style={{ marginRight: 8 }} />
+            <Text style={{
+              color: '#ffffff',
+              fontSize: 14,
+              fontWeight: '600',
+            }}>
+              {usuario.username || 'Usuario'}
+            </Text>
+          </View>
         </View>
 
         <ScrollView

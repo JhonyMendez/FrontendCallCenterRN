@@ -28,24 +28,7 @@ export function HeaderCard({ username, role }) {
     </View>
   );
 }
-
-export function SearchBar({ searchText, onChangeText, onSearch }) {
-  return (
-    <View style={dashboardFuncionarioStyles.searchContainer}>
-      <View style={dashboardFuncionarioStyles.searchBar}>
-        <Ionicons name="search" size={20} color="#636e72" />
-        <Text style={dashboardFuncionarioStyles.searchPlaceholder}>Buscar</Text>
-        <TouchableOpacity 
-          style={dashboardFuncionarioStyles.searchButton}
-          onPress={onSearch}
-        >
-          <Ionicons name="search" size={18} color="#fff" />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
+  
 export function FilterBar({ 
   selectedCategory, 
   selectedState, 
