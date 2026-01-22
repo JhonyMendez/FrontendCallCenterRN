@@ -10,9 +10,9 @@ export default function AdminLayout() {
   // Mostrar loading mientras verifica autenticación
   if (loading) {
     return (
-      <View style={{ 
-        flex: 1, 
-        justifyContent: 'center', 
+      <View style={{
+        flex: 1,
+        justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: '#f5f5f5'
       }}>
@@ -37,37 +37,41 @@ export default function AdminLayout() {
         contentStyle: { backgroundColor: '#f5f5f5' }
       }}
     >
-      <Stack.Screen 
-        name="dashboard" 
+      <Stack.Screen
+        name="dashboard"
         options={{ title: 'Dashboard Administrador' }}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="usuarios"
         options={{ title: 'Gestión de Usuarios' }}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="organizacion"
         options={{ title: 'Organización' }}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="agentes"
         options={{ title: 'Agentes' }}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="metricas"
         options={{ title: 'Métricas' }}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="interaccion"
         options={{ title: 'Interacciones' }}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="notificaciones"
         options={{ title: 'Notificaciones' }}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="configuracion"
         options={{ title: 'Configuración' }}
+      />
+      <Stack.Screen
+        name="PerfilAdmin"
+        options={{ title: 'Mi Perfil' }}
       />
     </Stack>
   );

@@ -9,9 +9,9 @@ export default function SuperAdminLayout() {
 
   if (loading) {
     return (
-      <View style={{ 
-        flex: 1, 
-        justifyContent: 'center', 
+      <View style={{
+        flex: 1,
+        justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: '#f5f5f5'
       }}>
@@ -34,37 +34,41 @@ export default function SuperAdminLayout() {
         contentStyle: { backgroundColor: '#f5f5f5' }
       }}
     >
-      <Stack.Screen 
-        name="dashboard" 
+      <Stack.Screen
+        name="dashboard"
         options={{ title: 'Dashboard Super Admin' }}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="agente"
         options={{ title: 'Gestión de Agentes' }}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="categoria"
         options={{ title: 'Categorías' }}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="contenido"
         options={{ title: 'Contenido' }}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="departamento"
         options={{ title: 'Departamentos' }}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="DepartamentoUsuario"
         options={{ title: 'Departamento-Usuario' }}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="metricas"
         options={{ title: 'Métricas del Sistema' }}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="usuario"
         options={{ title: 'Gestión de Usuarios' }}
+      />
+      <Stack.Screen
+        name="perfil"
+        options={{ title: 'Mi Perfil' }}
       />
     </Stack>
   );

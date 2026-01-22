@@ -9,9 +9,9 @@ export default function FuncionarioLayout() {
 
   if (loading) {
     return (
-      <View style={{ 
-        flex: 1, 
-        justifyContent: 'center', 
+      <View style={{
+        flex: 1,
+        justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: '#f5f5f5'
       }}>
@@ -34,29 +34,33 @@ export default function FuncionarioLayout() {
         contentStyle: { backgroundColor: '#f5f5f5' }
       }}
     >
-      <Stack.Screen 
-        name="dashboard" 
+      <Stack.Screen
+        name="dashboard"
         options={{ title: 'Dashboard Funcionario' }}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="detalle-conversacion"
         options={{ title: 'Detalle de Conversación' }}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="gestionAgenteFuncionario"
         options={{ title: 'Gestión de Agentes' }}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="gestionCategoriaFuncionario"
         options={{ title: 'Gestión de Categorías' }}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="gestionContenidoFuncionario"
         options={{ title: 'Gestión de Contenido' }}
       />
-      <Stack.Screen 
+      <Stack.Screen
         name="gestionconversacion"
         options={{ title: 'Gestión de Conversaciones' }}
+      />
+      <Stack.Screen
+        name="PerfilFuncionario"
+        options={{ title: 'Mi Perfil' }}
       />
     </Stack>
   );
