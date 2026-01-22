@@ -4,32 +4,32 @@ import { Platform } from 'react-native';
  * Obtiene la URL base automáticamente según la plataforma
  */
 const getBaseURL = () => {
-  const PORT = '8000';
   const API_PATH = '/api/v1';
 
-  // 🤖 ANDROID: IP fija siempre
+  // 🤖 ANDROID: Usa ngrok para APK de producción
   if (Platform.OS === 'android') {
-    const url = `http://192.168.5.15:${PORT}${API_PATH}`;
+    // ✅ CAMBIA ESTA URL POR LA DE NGROK
+    const url = `https://untranscribable-nonhedonistically-stetson.ngrok-free.dev${API_PATH}`;
     console.log('🤖 ANDROID - URL:', url);
     return url;
   }
 
   // 💻 WEB: localhost
   if (Platform.OS === 'web') {
-    const url = `http://localhost:${PORT}${API_PATH}`;
+    const url = `http://localhost:8000${API_PATH}`;
     console.log('🌐 WEB - URL:', url);
     return url;
   }
 
   // 📱 iOS: localhost
   if (Platform.OS === 'ios') {
-    const url = `http://localhost:${PORT}${API_PATH}`;
+    const url = `http://localhost:8000${API_PATH}`;
     console.log('📱 iOS - URL:', url);
     return url;
   }
 
   // Default
-  return `http://localhost:${PORT}${API_PATH}`;
+  return `http://localhost:8000${API_PATH}`;
 };
 
 export const API_CONFIG = {

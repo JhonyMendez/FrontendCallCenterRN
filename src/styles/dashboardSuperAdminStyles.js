@@ -378,4 +378,9 @@ export const dashboardStyles = StyleSheet.create({
     fontWeight: '600',
     color: '#64748b',
   },
+
+  // ==================== HEADER CARD CLICKEABLE ====================
+  headerCardClickeable: {
+    cursor: 'pointer', // Solo para web
+  },
 });

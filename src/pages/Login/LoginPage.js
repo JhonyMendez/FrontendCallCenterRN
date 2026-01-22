@@ -32,7 +32,7 @@ const storage = {
       return await AsyncStorage.getItem(key);
     }
   },
-  
+
   async setItem(key, value) {
     if (isWeb) {
       localStorage.setItem(key, value);
@@ -40,7 +40,7 @@ const storage = {
       await AsyncStorage.setItem(key, value);
     }
   },
-  
+
   async removeItem(key) {
     if (isWeb) {
       localStorage.removeItem(key);
@@ -131,7 +131,7 @@ const BloqueoUsuarioManager = {
   // Bloquear usuario
   bloquearUsuario: async (username) => {
     const datos = await BloqueoUsuarioManager.getDatosUsuario(username);
-    
+
     // Verificar si debe resetear el contador
     if (BloqueoUsuarioManager.debeResetearContador(datos.ultimoReset)) {
       console.log(`🔄 Reseteando contador de bloqueos para ${username}`);
@@ -224,7 +224,7 @@ export default function LoginPage() {
     try {
       console.log("🔍 [LoginPage] Verificando sesión existente...");
       const token = await apiClient.getToken();
-      
+
       if (!token) {
         console.log("ℹ️ [LoginPage] No hay token, mostrando formulario");
         setIsLoading(false);
@@ -232,16 +232,16 @@ export default function LoginPage() {
       }
 
       console.log("✅ [LoginPage] Token encontrado, validando con servidor...");
-      
+
       try {
         const validacion = await apiClient.get('/usuarios/verificar-sesion');
-        
+
         if (!validacion || !validacion.valido) {
           throw new Error("Token inválido según servidor");
         }
-        
+
         console.log("✅ [LoginPage] Token validado correctamente");
-        
+
       } catch (errorValidacion) {
         console.log("❌ [LoginPage] Token inválido:", errorValidacion.message);
         await apiClient.removeToken();
@@ -249,12 +249,12 @@ export default function LoginPage() {
         setIsLoading(false);
         return;
       }
-      
+
       const [rolIdStr, username] = await Promise.all([
         storage.getItem('@rol_principal_id'),
         storage.getItem('@usuario_username')
       ]);
-      
+
       if (!rolIdStr || !username) {
         console.log("⚠️ [LoginPage] Sesión incompleta, limpiando...");
         await apiClient.removeToken();
@@ -274,21 +274,21 @@ export default function LoginPage() {
 
       const ruta = authService.getRutaPorRol(rolId);
       console.log("🚀 [LoginPage] Sesión válida, redirigiendo a:", ruta);
-      
+
       await new Promise(resolve => setTimeout(resolve, 100));
       redirigiendo.current = true;
       router.replace(ruta);
-      
+
     } catch (error) {
       console.log("❌ [LoginPage] Error verificando sesión:", error);
-      
+
       try {
         await apiClient.removeToken();
         await authService.limpiarSesion();
       } catch (cleanupError) {
         console.error("Error limpiando sesión:", cleanupError);
       }
-      
+
       setIsLoading(false);
     }
   };
@@ -309,7 +309,7 @@ export default function LoginPage() {
   const cargarDatosUsuario = async () => {
     try {
       const datos = await BloqueoUsuarioManager.getDatosUsuario(username.trim());
-      
+
       setIntentosFallidos(datos.intentos);
       setContadorBloqueos(datos.contadorBloqueos);
 
@@ -332,7 +332,7 @@ export default function LoginPage() {
     const intervalo = setInterval(() => {
       const ahora = Date.now();
       const restante = tiempoBloqueo - ahora;
-      
+
       if (restante <= 0) {
         clearInterval(intervalo);
         setTiempoRestante(0);
@@ -404,7 +404,7 @@ export default function LoginPage() {
       const segundosRestantes = tiempoRestante;
       const minutosRestantes = Math.floor(segundosRestantes / 60);
       const segundos = segundosRestantes % 60;
-      
+
       let mensajeTiempo = "";
       if (minutosRestantes > 0) {
         mensajeTiempo = `${minutosRestantes} minuto${minutosRestantes !== 1 ? 's' : ''}`;
@@ -414,7 +414,7 @@ export default function LoginPage() {
       } else {
         mensajeTiempo = `${segundos} segundo${segundos !== 1 ? 's' : ''}`;
       }
-      
+
       setErrorMsg(
         `Cuenta bloqueada. Espera ${mensajeTiempo} para intentar nuevamente.\n\n` +
         `Bloqueo numero ${contadorBloqueos}`
@@ -437,8 +437,8 @@ export default function LoginPage() {
 
       console.log("🔐 [LoginPage] Intentando login con:", { username: usernameSanitizado });
 
-      const response = await usuarioService.login({ 
-        username: usernameSanitizado, 
+      const response = await usuarioService.login({
+        username: usernameSanitizado,
         password: passwordSanitizado
       });
 
@@ -463,7 +463,7 @@ export default function LoginPage() {
 
       // ✅ LOGIN EXITOSO - RESETEAR TODO EL BLOQUEO DEL USUARIO
       await BloqueoUsuarioManager.resetearUsuario(usernameSanitizado);
-      
+
       await apiClient.setToken(response.token);
       await new Promise(resolve => setTimeout(resolve, 100));
       console.log("✅ [LoginPage] Token guardado correctamente");
@@ -477,11 +477,41 @@ export default function LoginPage() {
       }
 
       console.log("🔍 [LoginPage] Procesando roles del usuario...");
-      
+
       const resultadoAuth = await authService.procesarLogin(response.usuario);
 
       if (!resultadoAuth.success) {
         throw new Error("Error procesando roles del usuario");
+      }
+
+      // ✅ GUARDAR DATOS COMPLETOS EN LOCALSTORAGE
+      try {
+        const datosSesion = {
+          usuario: {
+            id_usuario: response.usuario.id_usuario,
+            id_persona: response.usuario.persona?.id_persona || response.usuario.id_persona,
+            username: response.usuario.username,
+            email: response.usuario.email,
+            estado: response.usuario.estado,
+            nombre: response.usuario.persona?.nombre || response.usuario.nombre || '',
+            apellido: response.usuario.persona?.apellido || response.usuario.apellido || '',
+            cedula: response.usuario.persona?.cedula || response.usuario.cedula || '',
+            telefono: response.usuario.persona?.telefono || response.usuario.telefono || '',
+            direccion: response.usuario.persona?.direccion || response.usuario.direccion || '',
+            fecha_nacimiento: response.usuario.persona?.fecha_nacimiento || response.usuario.fecha_nacimiento || null,
+            genero: response.usuario.persona?.genero || response.usuario.genero || '',
+            tipo_persona: response.usuario.persona?.tipo_persona || response.usuario.tipo_persona || '',
+          },
+          roles: response.usuario.roles || [],
+          token: response.token,
+          fecha_login: new Date().toISOString()
+        };
+
+        await storage.setItem('@datos_sesion', JSON.stringify(datosSesion));
+        console.log('✅ [LoginPage] Datos completos guardados en @datos_sesion');
+
+      } catch (errorGuardado) {
+        console.error('⚠️ Error guardando datos completos:', errorGuardado);
       }
 
       console.log("✅ [LoginPage] Autenticacion completada");
@@ -496,8 +526,8 @@ export default function LoginPage() {
         Alert.alert(
           "Bienvenido",
           `Hola ${resultadoAuth.usuario}, has iniciado sesion como ${resultadoAuth.rolPrincipal}`,
-          [{ 
-            text: "Continuar", 
+          [{
+            text: "Continuar",
             onPress: () => {
               redirigiendo.current = true;
               router.replace(resultadoAuth.ruta);
@@ -510,9 +540,9 @@ export default function LoginPage() {
 
     } catch (error) {
       console.error("❌ [LoginPage] Error en login:", error);
-      
+
       redirigiendo.current = false;
-      
+
       // ❌ LOGIN FALLIDO - REGISTRAR INTENTO
       if (error.status === 401 || error.status === 403) {
         const nuevosIntentos = await BloqueoUsuarioManager.registrarIntentoFallido(usernameSanitizado);
@@ -521,27 +551,27 @@ export default function LoginPage() {
         if (nuevosIntentos >= MAX_INTENTOS_LOGIN) {
           // BLOQUEAR USUARIO
           const datosBloqueo = await BloqueoUsuarioManager.bloquearUsuario(usernameSanitizado);
-          
+
           setBloqueadoHasta(datosBloqueo.tiempoBloqueo);
           setContadorBloqueos(datosBloqueo.nuevoContador);
           iniciarTemporizadorBloqueo(datosBloqueo.tiempoBloqueo);
 
           const minutos = Math.ceil(datosBloqueo.duracionBloqueo / (60 * 1000));
           let mensajeTiempo = "";
-          
+
           if (minutos < 60) {
             mensajeTiempo = `${minutos} minutos`;
           } else {
             const horas = Math.floor(minutos / 60);
             mensajeTiempo = `${horas} hora${horas > 1 ? 's' : ''}`;
           }
-          
-          const mensajeBloqueo = 
+
+          const mensajeBloqueo =
             `Demasiados intentos fallidos.\n\n` +
             `Bloqueo numero ${datosBloqueo.nuevoContador}\n` +
             `Duracion: ${mensajeTiempo}\n\n` +
             `Cada bloqueo aumenta el tiempo de espera.`;
-          
+
           setErrorMsg(mensajeBloqueo);
 
           if (!isWeb) {
@@ -592,7 +622,7 @@ export default function LoginPage() {
       } catch (cleanupError) {
         console.error("Error limpiando sesion:", cleanupError);
       }
-      
+
       setPassword("");
       setIsLoading(false);
     }
@@ -601,15 +631,15 @@ export default function LoginPage() {
   // ==================== FORMATEAR TIEMPO RESTANTE ====================
   const formatearTiempoRestante = () => {
     if (tiempoRestante <= 0) return "";
-    
+
     const horas = Math.floor(tiempoRestante / 3600);
     const minutos = Math.floor((tiempoRestante % 3600) / 60);
     const segundos = tiempoRestante % 60;
-    
+
     if (horas > 0) {
       return `${horas}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
     }
-    
+
     return `${minutos}:${segundos.toString().padStart(2, '0')}`;
   };
 

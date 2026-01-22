@@ -8,9 +8,10 @@ import { dashboardStyles } from '../../styles/dashboardSuperAdminStyles';
 // ============================================
 // HEADER CARD
 // ============================================
-export function HeaderCard({ nombre, username, role }) {
+export function HeaderCard({ nombre, username, role, onPress }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(-20)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -27,44 +28,68 @@ export function HeaderCard({ nombre, username, role }) {
     ]).start();
   }, []);
 
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.98,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 3,
+      tension: 40,
+      useNativeDriver: true,
+    }).start();
+  };
+
   return (
     <Animated.View style={[
       dashboardStyles.headerCard,
-      { 
+      {
         opacity: fadeAnim,
-        transform: [{ translateY: slideAnim }]
+        transform: [{ translateY: slideAnim }, { scale: scaleAnim }]
       }
     ]}>
-      <LinearGradient
-        colors={['#667eea', '#764ba2']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={dashboardStyles.headerGradient}
+      <TouchableOpacity
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={0.95}
+        style={{ flex: 1 }}
       >
-        <View style={dashboardStyles.headerLeft}>
-          <View style={dashboardStyles.logoCircle}>
-            <Ionicons name="shield-checkmark" size={28} color="#fff" />
+        <LinearGradient
+          colors={['#667eea', '#764ba2']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={dashboardStyles.headerGradient}
+        >
+          <View style={dashboardStyles.headerLeft}>
+            <View style={dashboardStyles.logoCircle}>
+              <Ionicons name="shield-checkmark" size={28} color="#fff" />
+            </View>
+            <View style={dashboardStyles.headerTextContainer}>
+              <Text style={dashboardStyles.headerTitle}>TEC-AI</Text>
+              <Text style={dashboardStyles.headerSubtitle}>Sistema de Gestión</Text>
+            </View>
           </View>
-          <View style={dashboardStyles.headerTextContainer}>
-            <Text style={dashboardStyles.headerTitle}>TEC-AI</Text>
-            <Text style={dashboardStyles.headerSubtitle}>Sistema de Gestión</Text>
-          </View>
-        </View>
 
-        <View style={dashboardStyles.headerRight}>
-          <View style={dashboardStyles.userBadge}>
-            <View style={dashboardStyles.userAvatar}>
-              <Text style={dashboardStyles.userInitials}>
-                {nombre.split(' ').map(n => n[0]).join('').substring(0, 2)}
-              </Text>
-            </View>
-            <View style={dashboardStyles.userInfo}>
-              <Text style={dashboardStyles.userName}>{nombre}</Text>
-              <Text style={dashboardStyles.userRole}>{role}</Text>
+          <View style={dashboardStyles.headerRight}>
+            <View style={dashboardStyles.userBadge}>
+              <View style={dashboardStyles.userAvatar}>
+                <Text style={dashboardStyles.userInitials}>
+                  {nombre.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                </Text>
+              </View>
+              <View style={dashboardStyles.userInfo}>
+                <Text style={dashboardStyles.userName}>{nombre}</Text>
+                <Text style={dashboardStyles.userRole}>{role}</Text>
+              </View>
             </View>
           </View>
-        </View>
-      </LinearGradient>
+        </LinearGradient>
+      </TouchableOpacity>
     </Animated.View>
   );
 }
@@ -72,14 +97,14 @@ export function HeaderCard({ nombre, username, role }) {
 // ============================================
 // STAT CARD - Rediseñada
 // ============================================
-export function StatCard({ 
-  title, 
-  value, 
-  subtitle, 
-  icon, 
-  color, 
+export function StatCard({
+  title,
+  value,
+  subtitle,
+  icon,
+  color,
   trend,
-  onClick 
+  onClick
 }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -149,7 +174,7 @@ export function StatCard({
 
         {/* Valor principal */}
         <Text style={dashboardStyles.statValue}>{value}</Text>
-        
+
         {/* Textos */}
         <Text style={dashboardStyles.statTitle}>{title}</Text>
         <Text style={dashboardStyles.statSubtitle}>{subtitle}</Text>
@@ -171,12 +196,12 @@ export function StatCard({
 // ============================================
 // QUICK ACTION CARD - Para acciones rápidas
 // ============================================
-export function QuickActionCard({ 
-  title, 
-  icon, 
-  description, 
+export function QuickActionCard({
+  title,
+  icon,
+  description,
   color,
-  onClick 
+  onClick
 }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -220,7 +245,7 @@ export function QuickActionCard({
         <View style={[dashboardStyles.quickActionIcon, { backgroundColor: color + '20' }]}>
           <Ionicons name={icon} size={28} color={color} />
         </View>
-        
+
         <View style={dashboardStyles.quickActionTexts}>
           <Text style={dashboardStyles.quickActionTitle}>{title}</Text>
           <Text style={dashboardStyles.quickActionDescription}>{description}</Text>
@@ -237,8 +262,8 @@ export function QuickActionCard({
 // ============================================
 // INFO CARD - Para información general
 // ============================================
-export function InfoCard({ 
-  title, 
+export function InfoCard({
+  title,
   value,
   icon,
   color,
@@ -274,7 +299,7 @@ export function InfoCard({
         </Animated.View>
         <Text style={dashboardStyles.infoCardTitle}>{title}</Text>
       </View>
-      
+
       <Text style={dashboardStyles.infoCardValue}>{value}</Text>
       {subtitle && <Text style={dashboardStyles.infoCardSubtitle}>{subtitle}</Text>}
     </View>
@@ -298,9 +323,9 @@ export function SectionHeader({ title, subtitle, icon, onActionPress, actionText
           {subtitle && <Text style={dashboardStyles.sectionSubtitle}>{subtitle}</Text>}
         </View>
       </View>
-      
+
       {onActionPress && (
-        <TouchableOpacity 
+        <TouchableOpacity
           style={dashboardStyles.sectionAction}
           onPress={onActionPress}
         >

@@ -35,7 +35,7 @@ export default function DashboardPageSuperAdmin() {
     role: '',
     id_usuario: null
   });
-  
+
   const [stats, setStats] = useState({
     totalUsuarios: 0,
     totalAgentes: 0,
@@ -54,42 +54,42 @@ export default function DashboardPageSuperAdmin() {
     try {
       setLoading(true);
       console.log('🔄 [Dashboard] Iniciando carga de datos...');
-      
+
       // ⭐ ESTRATEGIA 1: Primero intentar desde localStorage (MÁS RÁPIDO)
       console.log('🔄 [Dashboard] Intentando cargar desde localStorage...');
       let usuarioConfigLoaded = false;
-      
+
       try {
         const posiblesClaves = ['@datos_sesion', 'datos_sesion', '@user_session'];
-        
+
         for (const clave of posiblesClaves) {
           const data = localStorage.getItem(clave);
-          
+
           if (data) {
             const parsed = JSON.parse(data);
             console.log(`📦 [Dashboard] Datos en ${clave}:`, parsed);
             console.log(`📦 [Dashboard] parsed.usuario:`, parsed.usuario);
             console.log(`📦 [Dashboard] parsed.rolPrincipal:`, parsed.rolPrincipal);
-            
+
             if (parsed.usuario) {
               const usuarioConfig = {
                 id_usuario: parsed.usuario.id_usuario,
                 // ⭐ Intentar múltiples variantes del nombre
-                nombre_completo: parsed.usuario.nombre_completo || 
-                                parsed.usuario.nombreCompleto || 
-                                parsed.usuario.nombre || 
-                                parsed.usuario.fullName || 
-                                'Usuario',
+                nombre_completo: parsed.usuario.nombre_completo ||
+                  parsed.usuario.nombreCompleto ||
+                  parsed.usuario.nombre ||
+                  parsed.usuario.fullName ||
+                  'Usuario',
                 // ⭐ Intentar múltiples variantes del username
-                username: parsed.usuario.username || 
-                         parsed.usuario.userName || 
-                         parsed.usuario.user_name || 
-                         parsed.usuario.email?.split('@')[0] || 
-                         'usuario',
-                role: parsed.rolPrincipal?.nombre_rol || 
-                     parsed.rolPrincipal?.nombreRol || 
-                     parsed.usuario.role || 
-                     'Super Administrador'
+                username: parsed.usuario.username ||
+                  parsed.usuario.userName ||
+                  parsed.usuario.user_name ||
+                  parsed.usuario.email?.split('@')[0] ||
+                  'usuario',
+                role: parsed.rolPrincipal?.nombre_rol ||
+                  parsed.rolPrincipal?.nombreRol ||
+                  parsed.usuario.role ||
+                  'Super Administrador'
               };
               console.log('✅ [Dashboard] Usuario configurado desde localStorage:', usuarioConfig);
               setUsuario(usuarioConfig);
@@ -101,13 +101,13 @@ export default function DashboardPageSuperAdmin() {
       } catch (localStorageError) {
         console.warn('⚠️ [Dashboard] Error leyendo localStorage:', localStorageError);
       }
-      
+
       // ⭐ ESTRATEGIA 2: Si no se encontró en localStorage, intentar desde authService
       if (!usuarioConfigLoaded) {
         console.log('🔄 [Dashboard] Intentando cargar desde authService...');
         const datosSesion = await authService.obtenerDatosSesion();
         console.log('📦 [Dashboard] Datos de sesión:', datosSesion);
-        
+
         if (datosSesion && datosSesion.usuario) {
           const usuarioConfig = {
             id_usuario: datosSesion.usuario.id_usuario,
@@ -120,35 +120,35 @@ export default function DashboardPageSuperAdmin() {
           usuarioConfigLoaded = true;
         }
       }
-      
+
       if (!usuarioConfigLoaded) {
         console.warn('⚠️ [Dashboard] No se pudo obtener información del usuario');
       }
-      
+
       // Cargar estadísticas en paralelo desde el backend
       console.log('📊 [Dashboard] Iniciando carga de estadísticas...');
-      
+
       console.log('📤 [Dashboard] Llamando a usuarioService.listarCompleto()...');
       const usuarios = await usuarioService.listarCompleto({ limit: 1 }).catch((err) => {
         console.error('❌ [Dashboard] Error al cargar usuarios:', err);
         return { total: 0 };
       });
       console.log('📦 [Dashboard] Usuarios recibidos:', usuarios);
-      
+
       console.log('📤 [Dashboard] Llamando a agenteService.getAll()...');
       const agentes = await agenteService.getAll().catch((err) => {
         console.error('❌ [Dashboard] Error al cargar agentes:', err);
         return [];
       });
       console.log('📦 [Dashboard] Agentes recibidos:', agentes);
-      
+
       console.log('📤 [Dashboard] Llamando a departamentoService.getAll()...');
       const departamentos = await departamentoService.getAll().catch((err) => {
         console.error('❌ [Dashboard] Error al cargar departamentos:', err);
         return [];
       });
       console.log('📦 [Dashboard] Departamentos recibidos:', departamentos);
-      
+
       // Actualizar estadísticas con datos reales
       const newStats = {
         totalUsuarios: usuarios.total || 0,
@@ -159,10 +159,10 @@ export default function DashboardPageSuperAdmin() {
         ticketsAbiertos: 0, // TODO: Implementar endpoint en backend
         satisfaccion: 0 // TODO: Implementar endpoint en backend
       };
-      
+
       console.log('📊 [Dashboard] Actualizando stats:', newStats);
       setStats(newStats);
-      
+
       console.log('✅ [Dashboard] Datos cargados correctamente');
     } catch (error) {
       console.error('❌ [Dashboard] Error CRÍTICO cargando datos:', error);
@@ -188,6 +188,10 @@ export default function DashboardPageSuperAdmin() {
     }
   };
 
+  const handleNavigateToProfile = () => {
+    console.log('📍 Navegando a perfil...');
+    router.push('/superadmin/perfil');
+  };
   // Configuración de tarjetas de estadísticas
   const statsCards = [
     {
@@ -236,13 +240,13 @@ export default function DashboardPageSuperAdmin() {
 
   return (
     <View style={{ flex: 1, flexDirection: 'row', backgroundColor: '#0f172a' }}>
-      
+
       {/* Sidebar */}
       <SuperAdminSidebar isOpen={sidebarOpen} />
 
       {/* Contenido Principal */}
       <View style={{ flex: 1, backgroundColor: '#0f172a' }}>
-        
+
         {/* Header con botón toggle */}
         <View style={{
           flexDirection: 'row',
@@ -264,7 +268,7 @@ export default function DashboardPageSuperAdmin() {
           >
             <Ionicons name={sidebarOpen ? "close" : "menu"} size={24} color="#ffffff" />
           </TouchableOpacity>
-          
+
           <Text style={{
             color: '#ffffff',
             fontSize: 18,
@@ -275,17 +279,18 @@ export default function DashboardPageSuperAdmin() {
           </Text>
         </View>
 
-        <ScrollView 
-          style={dashboardStyles.container} 
+        <ScrollView
+          style={dashboardStyles.container}
           contentContainerStyle={dashboardStyles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          
+
           {/* Header Card */}
           <HeaderCard
             nombre={usuario.nombre_completo}
             username={usuario.username}
             role={usuario.role}
+            onPress={handleNavigateToProfile}
           />
 
           {/* Stats Section */}
