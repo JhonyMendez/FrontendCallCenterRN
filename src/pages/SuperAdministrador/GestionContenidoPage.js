@@ -680,16 +680,13 @@ const GestionContenidoPage = () => {
             <View style={styles.scrollContent}>
               {/* Header */}
               <View style={styles.header}>
-                <Text style={styles.headerTitle}>Gestión de Contenidos</Text>
-                <Text style={styles.headerSubtitle}>
-                  Administra el contenido de conocimiento de los agentes
-                </Text>
+                <Text style={styles.headerTitle}>     Gestión de Contenidos</Text>
               </View>
 
-              {/* Filtros */}
-              {/* ============ FILTROS ============ */}
-              <View style={styles.filtrosContainer}>
-                {/* Filtro por Estado - Ahora con ScrollView horizontal */}
+              {/* ============ FILTROS Y ACCIONES - SIN CARD ============ */}
+              <View style={{ marginBottom: 24 }}>
+
+                {/* 1️⃣ Filtros por Estado */}
                 <ScrollView
                   horizontal={true}
                   showsHorizontalScrollIndicator={false}
@@ -697,6 +694,7 @@ const GestionContenidoPage = () => {
                     paddingHorizontal: 4,
                     paddingVertical: 4,
                     gap: 8,
+                    marginBottom: 16,
                   }}
                 >
                   {[
@@ -732,42 +730,42 @@ const GestionContenidoPage = () => {
                   ))}
                 </ScrollView>
 
-                {/* Filtro por Agente */}
-                <View style={{ marginTop: 12 }}>
-                  {/* 🔍 Búsqueda compacta */}
-                  <View style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 8,
-                    paddingHorizontal: 16,
-                    paddingVertical: 8,
-                    marginBottom: 8,
-                    borderRadius: 8,
-                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                    borderWidth: 1,
-                    borderColor: 'rgba(255, 255, 255, 0.08)',
-                  }}>
-                    <Ionicons name="search" size={16} color="rgba(255, 255, 255, 0.4)" />
-                    <TextInput
-                      style={{
-                        flex: 1,
-                        color: 'white',
-                        fontSize: 13,
-                        paddingVertical: 2,
-                      }}
-                      placeholder="Buscar agente..."
-                      placeholderTextColor="rgba(255, 255, 255, 0.3)"
-                      value={searchAgente}
-                      onChangeText={setSearchAgente}
-                    />
-                    {searchAgente.length > 0 && (
-                      <TouchableOpacity onPress={() => setSearchAgente('')}>
-                        <Ionicons name="close-circle" size={16} color="rgba(255, 255, 255, 0.4)" />
-                      </TouchableOpacity>
-                    )}
-                  </View>
+                {/* 2️⃣ Búsqueda de Agente */}
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  marginBottom: 12,
+                  borderRadius: 8,
+                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.08)',
+                }}>
+                  <Ionicons name="search" size={16} color="rgba(255, 255, 255, 0.4)" />
+                  <TextInput
+                    style={{
+                      flex: 1,
+                      color: 'white',
+                      fontSize: 13,
+                      paddingVertical: 2,
+                    }}
+                    placeholder="Buscar agente..."
+                    placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                    value={searchAgente}
+                    onChangeText={setSearchAgente}
+                  />
+                  {searchAgente.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearchAgente('')}>
+                      <Ionicons name="close-circle" size={16} color="rgba(255, 255, 255, 0.4)" />
+                    </TouchableOpacity>
+                  )}
+                </View>
 
-                  {/* Scroll horizontal de agentes con drag */}
+                {/* 3️⃣ Scroll horizontal de agentes */}
+                {Platform.OS === 'web' ? (
+                  // 🌐 VERSIÓN WEB - Con drag del mouse
                   <View
                     ref={scrollRef}
                     onStartShouldSetResponder={() => true}
@@ -780,8 +778,9 @@ const GestionContenidoPage = () => {
                       paddingHorizontal: 16,
                       paddingVertical: 4,
                       gap: 8,
-                      scrollbarWidth: 'none',  // ← Oculta la barra en Firefox
-                      msOverflowStyle: 'none',  // ← Oculta la barra en IE/Edge
+                      scrollbarWidth: 'none',
+                      msOverflowStyle: 'none',
+                      marginBottom: 16,
                     }}
                     onMouseDown={(e) => {
                       setIsDragging(true);
@@ -845,31 +844,86 @@ const GestionContenidoPage = () => {
                       ))
                     )}
                   </View>
+                ) : (
+                  // 📱 VERSIÓN MÓVIL - ScrollView horizontal nativo
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 4,
+                    }}
+                    style={{ marginBottom: 16 }}
+                  >
+                    {filteredAgentes.length === 0 ? (
+                      <View style={{
+                        padding: 16,
+                        alignItems: 'center',
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        borderRadius: 8,
+                        minWidth: 200,
+                      }}>
+                        <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 13 }}>
+                          No se encontraron agentes
+                        </Text>
+                      </View>
+                    ) : (
+                      filteredAgentes.map((agente) => (
+                        <View key={agente.id_agente} style={{ marginRight: 8 }}>
+                          <TouchableOpacity
+                            style={[
+                              styles.filterButton,
+                              selectedAgente === agente.id_agente && styles.filterButtonActive,
+                            ]}
+                            onPress={() => handleAgenteChange(agente.id_agente)}
+                            activeOpacity={0.7}
+                          >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Ionicons
+                                name="person"
+                                size={14}
+                                color={selectedAgente === agente.id_agente ? 'white' : 'rgba(255, 255, 255, 0.6)'}
+                              />
+                              <Text
+                                style={[
+                                  styles.filterText,
+                                  selectedAgente === agente.id_agente && styles.filterTextActive,
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {agente.nombre_agente}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        </View>
+                      ))
+                    )}
+                  </ScrollView>
+                )}
 
-                  {/* Botón Nuevo */}
+                {/* 4️⃣ Botones de Acción */}
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  {/* Botón Nuevo Contenido */}
                   <TouchableOpacity
                     onPress={() => abrirModal()}
-                    style={styles.btnNuevo}
+                    style={[styles.btnNuevo, { flex: 1 }]}
                   >
                     <Ionicons name="add-circle" size={22} color="white" />
                     <Text style={styles.btnNuevoText}>Nuevo Contenido</Text>
                   </TouchableOpacity>
 
-                  {/* 🔥 NUEVO: Botón Actualizar Vigencias */}
+                  {/* Botón Actualizar Vigencias */}
                   <TouchableOpacity
                     onPress={async () => {
                       try {
                         setLoading(true);
-
                         const result = await contenidoService.actualizarVigencias();
-
                         mostrarNotificacionExito(
-                          `✅ Vigencias actualizadas: ${result.actualizados} de ${result.total_revisados} contenidos`
+                          `✅ ${result.actualizados} de ${result.total_revisados} actualizados`
                         );
                         await cargarContenidos();
-
                       } catch (error) {
-                        console.error('❌ Error actualizando vigencias:', error);
+                        console.error('Error:', error);
                         mostrarNotificacionExito('❌ Error al actualizar vigencias');
                       } finally {
                         setLoading(false);
@@ -886,17 +940,16 @@ const GestionContenidoPage = () => {
                       borderRadius: 12,
                       borderWidth: 1,
                       borderColor: 'rgba(52, 152, 219, 0.4)',
-                      marginTop: 8,
+                      minWidth: 140,
                     }}
                   >
                     <Ionicons name="sync" size={18} color="#3498db" />
-                    <Text style={{ color: '#3498db', fontWeight: '600', fontSize: 14 }}>
-                      🔄 Actualizar Vigencias
+                    <Text style={{ color: '#3498db', fontWeight: '600', fontSize: 13 }}>
+                      Actualizar
                     </Text>
                   </TouchableOpacity>
                 </View>
               </View>
-
 
               {/* Lista de contenidos */}
               <View>

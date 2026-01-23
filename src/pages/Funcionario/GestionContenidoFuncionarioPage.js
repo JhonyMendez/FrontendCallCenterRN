@@ -1024,7 +1024,7 @@ const GestionContenidoPage = () => {
         style={{
           position: 'absolute',
           top: 16,
-          left: 16,
+          left: sidebarOpen ? (isWeb ? 296 : 280) : 16,
           zIndex: 1001,
           backgroundColor: '#1e1b4b',
           padding: 12,
@@ -1034,10 +1034,10 @@ const GestionContenidoPage = () => {
           shadowOpacity: 0.4,
           shadowRadius: 8,
           elevation: 8,
-          // ✅ Transform para mover el botón junto con el sidebar
-          transform: [
-            { translateX: sidebarOpen && !isWeb ? 280 : 0 }
-          ],
+          // ✅ Transición suave en web
+          ...(isWeb && {
+            transition: 'left 0.3s ease-in-out',
+          }),
         }}
         onPress={() => setSidebarOpen(!sidebarOpen)}
       >
@@ -1058,10 +1058,7 @@ const GestionContenidoPage = () => {
             <View style={styles.scrollContent}>
               {/* Header */}
               <View style={styles.header}>
-                <Text style={styles.headerTitle}>Gestión de Contenidos</Text>
-                <Text style={styles.headerSubtitle}>
-                  Administra el contenido de conocimiento de los agentes
-                </Text>
+                <Text style={styles.headerTitle}>     Gestión de Contenidos</Text>
               </View>
 
               {/* Badge informativo cuando solo hay 1 agente */}
@@ -1112,11 +1109,16 @@ const GestionContenidoPage = () => {
                 </View>
               )}
 
-              {/* Filtros */}
-              {/* ============ FILTROS ============ */}
-              <View style={styles.filtrosContainer}>
-                {/* Filtro por Estado */}
-                <View style={styles.filterContainer}>
+              {/* ============ FILTROS Y ACCIONES - SIN CARD ============ */}
+              <View style={{ marginBottom: 24 }}>
+
+                {/* 1️⃣ Filtros por Estado */}
+                <View style={{
+                  flexDirection: 'row',
+                  gap: 10,
+                  marginBottom: 16,
+                  flexWrap: 'wrap',
+                }}>
                   {[
                     { key: '', label: 'Todos', icon: 'apps' },
                     { key: 'activo', label: 'Activo', icon: 'checkmark-circle' },
@@ -1150,21 +1152,20 @@ const GestionContenidoPage = () => {
                   ))}
                 </View>
 
-                {/* Mostrar selector solo si hay más de 1 agente */}
+                {/* 2️⃣ Selector de Agente (solo si hay múltiples) */}
                 {agentes.length > 1 && (
-                  <View style={{ marginTop: 12 }}>
-                    {/* 🔍 Búsqueda compacta */}
+                  <View style={{ marginBottom: 16 }}>
                     <View style={{
                       flexDirection: 'row',
                       alignItems: 'center',
                       gap: 8,
                       paddingHorizontal: 16,
-                      paddingVertical: 8,
-                      marginBottom: 8,
-                      borderRadius: 8,
-                      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                      paddingVertical: 10,
+                      marginBottom: 12,
+                      borderRadius: 12,
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
                       borderWidth: 1,
-                      borderColor: 'rgba(255, 255, 255, 0.08)',
+                      borderColor: 'rgba(255, 255, 255, 0.1)',
                     }}>
                       <Ionicons name="search" size={16} color="rgba(255, 255, 255, 0.4)" />
                       <TextInput
@@ -1172,7 +1173,7 @@ const GestionContenidoPage = () => {
                           flex: 1,
                           color: 'white',
                           fontSize: 13,
-                          paddingVertical: 2,
+                          paddingVertical: 4,
                         }}
                         placeholder="Buscar agente..."
                         placeholderTextColor="rgba(255, 255, 255, 0.3)"
@@ -1185,172 +1186,122 @@ const GestionContenidoPage = () => {
                         </TouchableOpacity>
                       )}
                     </View>
+
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{ gap: 8, paddingHorizontal: 4 }}
+                    >
+                      {filteredAgentes.map((agente) => {
+                        const permisos = agentesPermitidos.find(p => p.id_agente === agente.id_agente);
+                        return (
+                          <TouchableOpacity
+                            key={agente.id_agente}
+                            style={[
+                              styles.filterButton,
+                              selectedAgente === agente.id_agente && styles.filterButtonActive,
+                            ]}
+                            onPress={() => handleAgenteChange(agente.id_agente)}
+                            activeOpacity={0.7}
+                          >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Ionicons
+                                name="person"
+                                size={14}
+                                color={selectedAgente === agente.id_agente ? 'white' : 'rgba(255, 255, 255, 0.6)'}
+                              />
+                              <Text
+                                style={[
+                                  styles.filterText,
+                                  selectedAgente === agente.id_agente && styles.filterTextActive,
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {agente.nombre_agente}
+                              </Text>
+                              {permisos && (
+                                <View style={{
+                                  backgroundColor: permisos.puede_crear_contenido ? '#10b981' : '#fbbf24',
+                                  paddingHorizontal: 6,
+                                  paddingVertical: 2,
+                                  borderRadius: 6,
+                                  marginLeft: 4,
+                                }}>
+                                  <Text style={{ color: 'white', fontSize: 9, fontWeight: '700' }}>
+                                    {permisos.puede_crear_contenido ? '✏️' : '👁️'}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
                   </View>
                 )}
 
-                {/* Scroll horizontal de agentes con drag */}
-                <View
-                  ref={scrollRef}
-                  onStartShouldSetResponder={() => true}
-                  style={{
-                    flexDirection: 'row',
-                    overflowX: 'scroll',
-                    overflowY: 'hidden',
-                    cursor: isDragging ? 'grabbing' : 'grab',
-                    userSelect: 'none',
-                    paddingHorizontal: 16,
-                    paddingVertical: 4,
-                    gap: 8,
-                    scrollbarWidth: 'none',
-                    msOverflowStyle: 'none',
-                  }}
-                  onMouseDown={(e) => {
-                    setIsDragging(true);
-                    setStartX(e.pageX - scrollRef.current.offsetLeft);
-                    setScrollLeft(scrollRef.current.scrollLeft);
-                  }}
-                  onMouseLeave={() => {
-                    setIsDragging(false);
-                  }}
-                  onMouseUp={() => {
-                    setIsDragging(false);
-                  }}
-                  onMouseMove={(e) => {
-                    if (!isDragging) return;
-                    e.preventDefault();
-                    const x = e.pageX - scrollRef.current.offsetLeft;
-                    const walk = (x - startX) * 2;
-                    scrollRef.current.scrollLeft = scrollLeft - walk;
-                  }}
-                >
-                  {filteredAgentes.length === 0 ? (
-                    <View style={{
-                      padding: 16,
-                      alignItems: 'center',
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                      borderRadius: 8,
-                      minWidth: 200,
-                    }}>
-                      <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 13 }}>
-                        No se encontraron agentes
-                      </Text>
-                    </View>
-                  ) : (
-                    filteredAgentes.map((agente) => {
-                      // 🔥 NUEVO: Obtener permisos del agente
-                      const permisos = agentesPermitidos.find(p => p.id_agente === agente.id_agente);
+                {/* 3️⃣ Botones de Acción */}
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  {(() => {
+                    const permisos = agentesPermitidos.find(p => p.id_agente === selectedAgente);
+                    const puedeCrear = permisos?.puede_crear_contenido;
 
-                      return (
-                        <TouchableOpacity
-                          key={agente.id_agente}
-                          style={[
-                            styles.filterButton,
-                            selectedAgente === agente.id_agente && styles.filterButtonActive,
-                          ]}
-                          onPress={() => handleAgenteChange(agente.id_agente)}
-                          activeOpacity={0.7}
-                        >
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <Ionicons
-                              name="person"
-                              size={14}
-                              color={selectedAgente === agente.id_agente ? 'white' : 'rgba(255, 255, 255, 0.6)'}
-                            />
-                            <Text
-                              style={[
-                                styles.filterText,
-                                selectedAgente === agente.id_agente && styles.filterTextActive,
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {agente.nombre_agente}
-                            </Text>
-
-                            {/* 🔥 NUEVO: Badge de permisos */}
-                            {permisos && (
-                              <View style={{
-                                backgroundColor: permisos.puede_crear_contenido ? '#10b981' : '#fbbf24',
-                                paddingHorizontal: 6,
-                                paddingVertical: 2,
-                                borderRadius: 6,
-                                marginLeft: 4,
-                              }}>
-                                <Text style={{ color: 'white', fontSize: 9, fontWeight: '700' }}>
-                                  {permisos.puede_crear_contenido ? '✏️' : '👁️'}
-                                </Text>
-                              </View>
-                            )}
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })
-                  )}
-                </View>
-
-
-
-                {/* Botón Nuevo - CON VALIDACIÓN DE PERMISOS */}
-                {(() => {
-                  const permisos = agentesPermitidos.find(p => p.id_agente === selectedAgente);
-                  const puedeCrear = permisos?.puede_crear_contenido;
-
-                  return (
-                    <>
+                    return (
                       <TouchableOpacity
                         onPress={() => puedeCrear ? abrirModal() : mostrarNotificacionError(
-                          'No tienes permisos para crear contenidos en este agente. Contacta a tu administrador para solicitar acceso.'
+                          'No tienes permisos para crear contenidos.'
                         )}
                         style={[
                           styles.btnNuevo,
-                          !puedeCrear && { opacity: 0.5, backgroundColor: '#6b7280' }
+                          !puedeCrear && { opacity: 0.5, backgroundColor: '#6b7280' },
+                          { flex: 1 }
                         ]}
                         disabled={!puedeCrear}
                       >
-                        <Ionicons name={puedeCrear ? "add-circle" : "lock-closed"} size={22} color="white" />
+                        <Ionicons name={puedeCrear ? "add-circle" : "lock-closed"} size={20} color="white" />
                         <Text style={styles.btnNuevoText}>
-                          {puedeCrear ? 'Nuevo Contenido' : 'Sin permisos para crear'}
+                          {puedeCrear ? 'Nuevo Contenido' : 'Sin permisos'}
                         </Text>
                       </TouchableOpacity>
+                    );
+                  })()}
 
-                      {/* 🔥 NUEVO: Botón Actualizar Vigencias */}
-                      <TouchableOpacity
-                        onPress={async () => {
-                          try {
-                            setLoading(true);
-                            const result = await contenidoService.actualizarVigencias();
-                            mostrarNotificacionExito(
-                              `✅ Vigencias actualizadas: ${result.actualizados} de ${result.total_revisados} contenidos`
-                            );
-                            await cargarContenidos();
-                          } catch (error) {
-                            console.error('❌ Error actualizando vigencias:', error);
-                            mostrarNotificacionError('❌ Error al actualizar vigencias');
-                          } finally {
-                            setLoading(false);
-                          }
-                        }}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 8,
-                          backgroundColor: 'rgba(52, 152, 219, 0.2)',
-                          paddingHorizontal: 16,
-                          paddingVertical: 12,
-                          borderRadius: 12,
-                          borderWidth: 1,
-                          borderColor: 'rgba(52, 152, 219, 0.4)',
-                          marginTop: 8,
-                        }}
-                      >
-                        <Ionicons name="sync" size={18} color="#3498db" />
-                        <Text style={{ color: '#3498db', fontWeight: '600', fontSize: 14 }}>
-                          🔄 Actualizar Vigencias
-                        </Text>
-                      </TouchableOpacity>
-                    </>
-                  );
-                })()}
+                  <TouchableOpacity
+                    onPress={async () => {
+                      try {
+                        setLoading(true);
+                        const result = await contenidoService.actualizarVigencias();
+                        mostrarNotificacionExito(
+                          `✅ ${result.actualizados} de ${result.total_revisados} actualizados`
+                        );
+                        await cargarContenidos();
+                      } catch (error) {
+                        console.error('Error:', error);
+                        mostrarNotificacionError('Error al actualizar');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: 'rgba(52, 152, 219, 0.4)',
+                      minWidth: 140,
+                    }}
+                  >
+                    <Ionicons name="sync" size={18} color="#3498db" />
+                    <Text style={{ color: '#3498db', fontWeight: '600', fontSize: 13 }}>
+                      Actualizar
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
 
               {/* Lista de contenidos */}

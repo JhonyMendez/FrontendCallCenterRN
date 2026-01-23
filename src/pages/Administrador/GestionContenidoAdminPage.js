@@ -723,15 +723,11 @@ const GestionContenidoPage = () => {
             <View style={styles.scrollContent}>
               {/* Header */}
               <View style={styles.header}>
-                <Text style={styles.headerTitle}>      Gestión de Contenidos</Text>
-                <Text style={styles.headerSubtitle}>
-                  Administra el contenido de conocimiento de los agentes
-                </Text>
+                <Text style={styles.headerTitle}>    Gestión de Contenidos</Text>
               </View>
 
-              {/* Filtros */}
-              {/* ============ FILTROS ============ */}
-              <View style={styles.filtrosContainer}>
+              {/* ============ FILTROS (SIN CARD) ============ */}
+              <View style={{ marginBottom: 20 }}>
                 {/* Filtro por Estado */}
                 <View style={styles.filterContainer}>
                   {[
@@ -802,133 +798,191 @@ const GestionContenidoPage = () => {
                     )}
                   </View>
 
-                  {/* Scroll horizontal de agentes con drag */}
-                  <View
-                    ref={scrollRef}
-                    onStartShouldSetResponder={() => true}
-                    style={{
-                      flexDirection: 'row',
-                      overflowX: 'scroll',
-                      overflowY: 'hidden',
-                      cursor: isDragging ? 'grabbing' : 'grab',
-                      userSelect: 'none',
-                      paddingHorizontal: 16,
-                      paddingVertical: 4,
-                      gap: 8,
-                      scrollbarWidth: 'none',
-                      msOverflowStyle: 'none',
-                    }}
-                    onMouseDown={(e) => {
-                      setIsDragging(true);
-                      setStartX(e.pageX - scrollRef.current.offsetLeft);
-                      setScrollLeft(scrollRef.current.scrollLeft);
-                    }}
-                    onMouseLeave={() => {
-                      setIsDragging(false);
-                    }}
-                    onMouseUp={() => {
-                      setIsDragging(false);
-                    }}
-                    onMouseMove={(e) => {
-                      if (!isDragging) return;
-                      e.preventDefault();
-                      const x = e.pageX - scrollRef.current.offsetLeft;
-                      const walk = (x - startX) * 2;
-                      scrollRef.current.scrollLeft = scrollLeft - walk;
-                    }}
-                  >
-                    {filteredAgentes.length === 0 ? (
-                      <View style={{
-                        padding: 16,
-                        alignItems: 'center',
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                        borderRadius: 8,
-                        minWidth: 200,
-                      }}>
-                        <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 13 }}>
-                          No se encontraron agentes
-                        </Text>
-                      </View>
-                    ) : (
-                      filteredAgentes.map((agente) => (
-                        <TouchableOpacity
-                          key={agente.id_agente}
-                          style={[
-                            styles.filterButton,
-                            selectedAgente === agente.id_agente && styles.filterButtonActive,
-                          ]}
-                          onPress={() => handleAgenteChange(agente.id_agente)}
-                          activeOpacity={0.7}
-                        >
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <Ionicons
-                              name="person"
-                              size={14}
-                              color={selectedAgente === agente.id_agente ? 'white' : 'rgba(255, 255, 255, 0.6)'}
-                            />
-                            <Text
+                  {/* Scroll horizontal de agentes */}
+                  {Platform.OS === 'web' ? (
+                    // 🌐 VERSIÓN WEB - Con drag del mouse
+                    <View
+                      ref={scrollRef}
+                      onStartShouldSetResponder={() => true}
+                      style={{
+                        flexDirection: 'row',
+                        overflowX: 'scroll',
+                        overflowY: 'hidden',
+                        cursor: isDragging ? 'grabbing' : 'grab',
+                        userSelect: 'none',
+                        paddingHorizontal: 16,
+                        paddingVertical: 4,
+                        gap: 8,
+                        scrollbarWidth: 'none',
+                        msOverflowStyle: 'none',
+                      }}
+                      onMouseDown={(e) => {
+                        setIsDragging(true);
+                        setStartX(e.pageX - scrollRef.current.offsetLeft);
+                        setScrollLeft(scrollRef.current.scrollLeft);
+                      }}
+                      onMouseLeave={() => {
+                        setIsDragging(false);
+                      }}
+                      onMouseUp={() => {
+                        setIsDragging(false);
+                      }}
+                      onMouseMove={(e) => {
+                        if (!isDragging) return;
+                        e.preventDefault();
+                        const x = e.pageX - scrollRef.current.offsetLeft;
+                        const walk = (x - startX) * 2;
+                        scrollRef.current.scrollLeft = scrollLeft - walk;
+                      }}
+                    >
+                      {filteredAgentes.length === 0 ? (
+                        <View style={{
+                          padding: 16,
+                          alignItems: 'center',
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          borderRadius: 8,
+                          minWidth: 200,
+                        }}>
+                          <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 13 }}>
+                            No se encontraron agentes
+                          </Text>
+                        </View>
+                      ) : (
+                        filteredAgentes.map((agente) => (
+                          <TouchableOpacity
+                            key={agente.id_agente}
+                            style={[
+                              styles.filterButton,
+                              selectedAgente === agente.id_agente && styles.filterButtonActive,
+                            ]}
+                            onPress={() => handleAgenteChange(agente.id_agente)}
+                            activeOpacity={0.7}
+                          >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Ionicons
+                                name="person"
+                                size={14}
+                                color={selectedAgente === agente.id_agente ? 'white' : 'rgba(255, 255, 255, 0.6)'}
+                              />
+                              <Text
+                                style={[
+                                  styles.filterText,
+                                  selectedAgente === agente.id_agente && styles.filterTextActive,
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {agente.nombre_agente}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        ))
+                      )}
+                    </View>
+                  ) : (
+                    // 📱 VERSIÓN MÓVIL - ScrollView horizontal nativo
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{
+                        paddingHorizontal: 16,
+                        paddingVertical: 4,
+                      }}
+                    >
+                      {filteredAgentes.length === 0 ? (
+                        <View style={{
+                          padding: 16,
+                          alignItems: 'center',
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          borderRadius: 8,
+                          minWidth: 200,
+                        }}>
+                          <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 13 }}>
+                            No se encontraron agentes
+                          </Text>
+                        </View>
+                      ) : (
+                        filteredAgentes.map((agente) => (
+                          <View key={agente.id_agente} style={{ marginRight: 8 }}>
+                            <TouchableOpacity
                               style={[
-                                styles.filterText,
-                                selectedAgente === agente.id_agente && styles.filterTextActive,
+                                styles.filterButton,
+                                selectedAgente === agente.id_agente && styles.filterButtonActive,
                               ]}
-                              numberOfLines={1}
+                              onPress={() => handleAgenteChange(agente.id_agente)}
+                              activeOpacity={0.7}
                             >
-                              {agente.nombre_agente}
-                            </Text>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <Ionicons
+                                  name="person"
+                                  size={14}
+                                  color={selectedAgente === agente.id_agente ? 'white' : 'rgba(255, 255, 255, 0.6)'}
+                                />
+                                <Text
+                                  style={[
+                                    styles.filterText,
+                                    selectedAgente === agente.id_agente && styles.filterTextActive,
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {agente.nombre_agente}
+                                </Text>
+                              </View>
+                            </TouchableOpacity>
                           </View>
-                        </TouchableOpacity>
-                      ))
-                    )}
-                  </View>
+                        ))
+                      )}
+                    </ScrollView>
+                  )}
                 </View>
 
-                {/* Botón Nuevo */}
-                <TouchableOpacity
-                  onPress={() => abrirModal()}
-                  style={styles.btnNuevo}
-                >
-                  <Ionicons name="add-circle" size={22} color="white" />
-                  <Text style={styles.btnNuevoText}>Nuevo Contenido</Text>
-                </TouchableOpacity>
-                {/* 🔥 NUEVO: Botón Actualizar Vigencias */}
-                <TouchableOpacity
-                  onPress={async () => {
-                    try {
-                      setLoading(true);
+                {/* Botones de acción */}
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+                  {/* Botón Nuevo */}
+                  <TouchableOpacity
+                    onPress={() => abrirModal()}
+                    style={[styles.btnNuevo, { flex: 1 }]}
+                  >
+                    <Ionicons name="add-circle" size={22} color="white" />
+                    <Text style={styles.btnNuevoText}>Nuevo Contenido</Text>
+                  </TouchableOpacity>
 
-                      const result = await contenidoService.actualizarVigencias();
-
-                      mostrarNotificacionExito(
-                        `✅ Vigencias actualizadas: ${result.actualizados} de ${result.total_revisados} contenidos`
-                      );
-                      await cargarContenidos();
-
-                    } catch (error) {
-                      console.error('❌ Error actualizando vigencias:', error);
-                      mostrarNotificacionExito('❌ Error al actualizar vigencias');
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                    backgroundColor: 'rgba(52, 152, 219, 0.2)',
-                    paddingHorizontal: 16,
-                    paddingVertical: 12,
-                    borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: 'rgba(52, 152, 219, 0.4)',
-                    marginTop: 8,
-                  }}
-                >
-                  <Ionicons name="sync" size={18} color="#3498db" />
-                  <Text style={{ color: '#3498db', fontWeight: '600', fontSize: 14 }}>
-                    🔄 Actualizar Vigencias
-                  </Text>
-                </TouchableOpacity>
+                  {/* Botón Actualizar Vigencias */}
+                  <TouchableOpacity
+                    onPress={async () => {
+                      try {
+                        setLoading(true);
+                        const result = await contenidoService.actualizarVigencias();
+                        mostrarNotificacionExito(
+                          `✅ Vigencias actualizadas: ${result.actualizados} de ${result.total_revisados} contenidos`
+                        );
+                        await cargarContenidos();
+                      } catch (error) {
+                        console.error('❌ Error actualizando vigencias:', error);
+                        mostrarNotificacionExito('❌ Error al actualizar vigencias');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    style={{
+                      flex: 1,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: 'rgba(52, 152, 219, 0.4)',
+                    }}
+                  >
+                    <Ionicons name="sync" size={18} color="#3498db" />
+                    <Text style={{ color: '#3498db', fontWeight: '600', fontSize: 14 }}>
+                      Actualizar Vigencias
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
 
               {/* Lista de contenidos */}
