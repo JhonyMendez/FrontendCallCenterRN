@@ -1,3 +1,8 @@
+import { Dimensions } from 'react-native';
+
+const { width } = Dimensions.get('window');
+const isMobile = width < 768;
+
 export const styles = {
   // ============================================
   // LAYOUT PRINCIPAL
@@ -25,37 +30,46 @@ export const styles = {
   },
   container: {
     flex: 1,
-    padding: 24
+    padding: isMobile ? 16 : 24
   },
 
   // ============================================
   // HEADER
   // ============================================
   header: {
-    flexDirection: 'row',
+    flexDirection: isMobile ? 'column' : 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24
+    alignItems: isMobile ? 'flex-start' : 'center',
+    marginBottom: 24,
+    gap: isMobile ? 16 : 0
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16
+    gap: isMobile ? 12 : 16,
+    flex: 1
+  },
+  headerTextContainer: {
+    flex: 1,
+    minWidth: 0,
+    maxWidth: isMobile ? '85%' : undefined
   },
   iconContainer: {
     backgroundColor: '#dbeafe',
-    padding: 16,
+    padding: isMobile ? 12 : 16,
     borderRadius: 16
   },
   title: {
-    fontSize: 28,
+    fontSize: isMobile ? 18 : 28,
     fontWeight: '700',
-    color: '#1e293b'
+    color: '#1e293b',
+    lineHeight: isMobile ? 22 : undefined
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: isMobile ? 10 : 14,
     color: '#64748b',
-    marginTop: 4
+    marginTop: 4,
+    lineHeight: isMobile ? 14 : undefined
   },
   resetButton: {
     flexDirection: 'row',
@@ -66,7 +80,8 @@ export const styles = {
     borderRadius: 12,
     gap: 8,
     borderWidth: 1,
-    borderColor: '#fecaca'
+    borderColor: '#fecaca',
+    alignSelf: isMobile ? 'flex-start' : 'auto'
   },
   resetButtonText: {
     color: '#ef4444',
@@ -84,7 +99,8 @@ export const styles = {
     marginBottom: 24,
     backgroundColor: '#ffffff',
     padding: 12,
-    borderRadius: 12
+    borderRadius: 12,
+    flexWrap: 'wrap'
   },
   breadcrumbItem: {
     flexDirection: 'row',
@@ -92,23 +108,23 @@ export const styles = {
     gap: 6
   },
   breadcrumbText: {
-    fontSize: 14,
+    fontSize: isMobile ? 13 : 14,
     color: '#3b82f6',
     fontWeight: '500'
   },
   breadcrumbTextActive: {
-    fontSize: 14,
+    fontSize: isMobile ? 13 : 14,
     color: '#1e293b',
-    fontWeight: '600'
+    fontWeight: '600',
+    flexShrink: 1
   },
-
   // ============================================
   // SECCIONES
   // ============================================
   section: {
     backgroundColor: '#ffffff',
     borderRadius: 16,
-    padding: 24,
+    padding: isMobile ? 16 : 24,
     marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -136,9 +152,10 @@ export const styles = {
     fontWeight: '700'
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: isMobile ? 16 : 18,
     fontWeight: '700',
-    color: '#1e293b'
+    color: '#1e293b',
+    flex: 1
   },
   sectionTitleContainer: {
     flex: 1
@@ -210,10 +227,12 @@ export const styles = {
     gap: 16
   },
   deptCard: {
-    width: '31%',
+    flex: 1,
+    minWidth: isMobile ? '100%' : 280,
+    maxWidth: isMobile ? '100%' : 400,
     backgroundColor: '#f8fafc',
     borderRadius: 12,
-    padding: 20,
+    padding: isMobile ? 16 : 20,
     borderWidth: 2,
     borderColor: '#e2e8f0',
     minHeight: 160
@@ -268,7 +287,7 @@ export const styles = {
   // BOTONES DE ACCIÓN
   // ============================================
   actionButtonsContainer: {
-    flexDirection: 'row',
+    flexDirection: isMobile ? 'column' : 'row',
     gap: 12,
     marginBottom: 20
   },
@@ -290,9 +309,11 @@ export const styles = {
     borderColor: '#3b82f6'
   },
   actionToggleText: {
-    fontSize: 13,
+    fontSize: isMobile ? 12 : 13,
     fontWeight: '600',
-    color: '#3b82f6'
+    color: '#3b82f6',
+    textAlign: 'center',
+    flex: 1
   },
   actionToggleTextActive: {
     color: '#ffffff'
@@ -761,7 +782,7 @@ export const styles = {
     padding: 12,
     borderRadius: 8
   },
-notasText: {
+  notasText: {
     fontSize: 13,
     color: '#78716c',
     lineHeight: 20

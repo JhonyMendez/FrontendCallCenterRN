@@ -760,29 +760,30 @@ const GestionConversacionesPage = () => {
       )}
 
       {/* ============ BOTÓN TOGGLE SIDEBAR ============ */}
-      <TouchableOpacity
-        style={{
-          position: 'absolute',
-          top: 16,
-          left: 16,
-          zIndex: 1001,
-          backgroundColor: '#1e1b4b',
-          padding: 12,
-          borderRadius: 12,
-          shadowColor: '#667eea',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.4,
-          shadowRadius: 8,
-          elevation: 8,
-          // ✅ Transform para mover el botón junto con el sidebar
-          transform: [
-            { translateX: sidebarOpen && !isWeb ? 280 : 0 }
-          ],
-        }}
-        onPress={() => setSidebarOpen(!sidebarOpen)}
-      >
-        <Ionicons name={sidebarOpen ? "close" : "menu"} size={24} color="#ffffff" />
-      </TouchableOpacity>
+      {!conversacionSeleccionada && (
+        <TouchableOpacity
+          style={{
+            position: 'absolute',
+            top: 16,
+            left: isWeb ? (sidebarOpen ? 296 : 16) : 16,
+            zIndex: 1001,
+            backgroundColor: '#1e1b4b',
+            padding: 12,
+            borderRadius: 12,
+            shadowColor: '#667eea',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.4,
+            shadowRadius: 8,
+            elevation: 8,
+            transform: [
+              { translateX: sidebarOpen && !isWeb ? 280 : 0 }
+            ],
+          }}
+          onPress={() => setSidebarOpen(!sidebarOpen)}
+        >
+          <Ionicons name={sidebarOpen ? "close" : "menu"} size={24} color="#ffffff" />
+        </TouchableOpacity>
+      )}
 
       <View style={[
         contentStyles.mainContent,
@@ -958,6 +959,8 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#FFF',
     padding: 16,
+    paddingTop: Platform.OS === 'web' ? 16 : 80,
+    paddingLeft: Platform.OS === 'web' ? 80 : 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB'
   },

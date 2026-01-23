@@ -1,30 +1,30 @@
 // ============================================
 // 3. GestionConversacionesStyles.js
 // ============================================
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F7FA',
   },
-  
+
   // Header
   header: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    backgroundColor: '#FFF',
+    padding: 16,
+    paddingTop: Platform.OS === 'web' ? 16 : 80,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#E5E7EB'
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: Platform.OS === 'web' ? 24 : 16,
     fontWeight: '700',
     color: '#1F2937',
-    marginBottom: 4,
+    marginTop: Platform.OS === 'web' ? 0 : 8,
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: Platform.OS === 'web' ? 14 : 12,
     color: '#6B7280',
   },
 
@@ -72,10 +72,10 @@ export const styles = StyleSheet.create({
     marginTop: 8,
   },
 
-    // ============================================
+  // ============================================
   // NUEVOS ESTILOS PARA NOTIFICACIONES Y FILTROS
   // ============================================
-  
+
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',

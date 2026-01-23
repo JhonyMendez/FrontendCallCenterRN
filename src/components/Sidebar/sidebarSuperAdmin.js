@@ -78,16 +78,6 @@ export default function SuperAdminSidebar({ isOpen }) {
         { label: 'Exportar Métricas', route: '/(superadmin)/exportar/metricas' },
       ]
     },
-    {
-      id: 'api-keys',
-      label: 'API Keys',
-      icon: 'key-outline',
-      submenu: [
-        { label: 'Todas las Keys', route: '/(superadmin)/api-keys' },
-        { label: 'Crear Nueva Key', route: '/(superadmin)/api-keys/crear' },
-        { label: 'Logs de Uso', route: '/(superadmin)/api-keys/logs' },
-      ]
-    },
   ];
 
   const toggleMenu = (menuId) => {
