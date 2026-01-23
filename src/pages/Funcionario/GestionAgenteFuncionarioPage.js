@@ -7,6 +7,7 @@ import {
     Alert,
     Image,
     Modal,
+    Platform,
     ScrollView,
     Switch,
     Text,
@@ -40,7 +41,7 @@ export default function GestionAgentePage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterTipo, setFilterTipo] = useState('todos');
     const [filterEstado, setFilterEstado] = useState('todos');
-    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
     const [showSuccessMessage, setShowSuccessMessage] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [showColorPicker, setShowColorPicker] = useState(false);
@@ -113,7 +114,8 @@ export default function GestionAgentePage() {
 
     // ============ CONSTANTES ============
     const iconos = ['🤖', '🧠', '💼', '📊', '🎯', '🔧', '📚', '💡', '🌟', '⚡', '🎨', '🔬'];
-
+    // ✅ Detectar plataforma
+    const isWeb = Platform.OS === 'web';
 
     // ============ VERIFICAR PERMISOS ============
     const verificarPermisoGestionUsuarios = async () => {
@@ -1034,10 +1036,52 @@ export default function GestionAgentePage() {
         <View style={contentStyles.wrapper}>
 
             {/* ============ SIDEBAR ============ */}
-            <FuncionarioSidebar
-                isOpen={sidebarOpen}
-                onToggle={() => setSidebarOpen(!sidebarOpen)}
-            />
+            {/* ============ SIDEBAR SOLO EN WEB ============ */}
+            {isWeb && (
+                <FuncionarioSidebar
+                    isOpen={sidebarOpen}
+                    onToggle={() => setSidebarOpen(!sidebarOpen)}
+                    onNavigate={() => setSidebarOpen(false)}
+                />
+            )}
+
+            {/* ============ SIDEBAR MÓVIL CON OVERLAY ============ */}
+            {!isWeb && sidebarOpen && (
+                <>
+                    {/* Overlay oscuro */}
+                    <TouchableOpacity
+                        style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                            zIndex: 998,
+                        }}
+                        onPress={() => setSidebarOpen(false)}
+                        activeOpacity={1}
+                    />
+
+                    {/* Sidebar deslizante */}
+                    <View
+                        style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            bottom: 0,
+                            width: '80%',
+                            maxWidth: 320,
+                            zIndex: 999,
+                        }}
+                    >
+                        <FuncionarioSidebar
+                            isOpen={sidebarOpen}
+                            onNavigate={() => setSidebarOpen(false)}
+                        />
+                    </View>
+                </>
+            )}
 
             {/* ============ CONTENIDO PRINCIPAL ============ */}
             <View style={[
@@ -1060,6 +1104,10 @@ export default function GestionAgentePage() {
                         shadowOpacity: 0.4,
                         shadowRadius: 8,
                         elevation: 8,
+                        // ✅ AJUSTE: Aumentar la distancia del movimiento
+                        transform: [
+                            { translateX: sidebarOpen && !isWeb ? 280 : 0 } // Aumentado de 260 a 280px
+                        ],
                     }}
                     onPress={() => setSidebarOpen(!sidebarOpen)}
                 >

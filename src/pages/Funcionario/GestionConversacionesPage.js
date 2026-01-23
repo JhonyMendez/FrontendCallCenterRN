@@ -31,8 +31,8 @@ const GestionConversacionesPage = () => {
   const [loading, setLoading] = useState(true);
   const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [vistaActual, setVistaActual] = useState('mis'); // 'mis' o 'todas'
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [vistaActual, setVistaActual] = useState('mis');
   const [filtroEstado, setFiltroEstado] = useState('todas');
   const [mensajeTexto, setMensajeTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -45,6 +45,7 @@ const GestionConversacionesPage = () => {
   const [userName, setUserName] = useState('Usuario');
   const [userDepartment, setUserDepartment] = useState(null);
 
+  const isWeb = Platform.OS === 'web';
   const flatListRef = useRef(null);
 
   // ============================================
@@ -57,7 +58,7 @@ const GestionConversacionesPage = () => {
         if (id) {
           setUserId(id);
           console.log('✅ Usuario autenticado:', id);
-          
+
           // TODO: Aquí podrías hacer un request adicional para obtener nombre y departamento
           // const userData = await usuarioService.getMiPerfil();
           // setUserName(userData.nombre);
@@ -101,9 +102,9 @@ const GestionConversacionesPage = () => {
 
     try {
       setLoading(true);
-      
+
       let response;
-      
+
       if (vistaActual === 'mis') {
         // 🔥 NUEVO: Cargar solo MIS conversaciones asignadas
         response = await escalamientoService.getMisConversaciones(userId, {
@@ -126,13 +127,13 @@ const GestionConversacionesPage = () => {
           id_departamento: userDepartment
         });
 
-          console.log('============ DIAGNÓSTICO TODAS LAS CONVERSACIONES ============');
-          console.log('🔍 Total conversaciones:', response.conversaciones?.length);
-          console.log('🔍 Conversaciones con escalado_a_usuario_id:', 
-            response.conversaciones?.filter(c => c.escalado_a_usuario_id === userId).length
-          );
-          console.log('🔍 Ejemplo de conversación:', response.conversaciones?.[0]);
-          console.log('================================================================');
+        console.log('============ DIAGNÓSTICO TODAS LAS CONVERSACIONES ============');
+        console.log('🔍 Total conversaciones:', response.conversaciones?.length);
+        console.log('🔍 Conversaciones con escalado_a_usuario_id:',
+          response.conversaciones?.filter(c => c.escalado_a_usuario_id === userId).length
+        );
+        console.log('🔍 Ejemplo de conversación:', response.conversaciones?.[0]);
+        console.log('================================================================');
       }
 
       if (response.success) {
@@ -166,7 +167,7 @@ const GestionConversacionesPage = () => {
 
         // Filtrar adicional si es necesario
         let conversacionesFiltradas = conversacionesFormateadas;
-        
+
         if (filtroEstado === 'resueltas') {
           conversacionesFiltradas = conversacionesFormateadas.filter(c => c.estado === 'cerrada');
         } else if (filtroEstado === 'pendientes') {
@@ -182,7 +183,7 @@ const GestionConversacionesPage = () => {
 
         // Ordenar por prioridad
         const conversacionesOrdenadas = escalamientoService.ordenarPorPrioridad(conversacionesFiltradas);
-        
+
         setConversaciones(conversacionesOrdenadas);
       }
     } catch (error) {
@@ -208,16 +209,16 @@ const GestionConversacionesPage = () => {
             hour: '2-digit',
             minute: '2-digit'
           }),
-          autor: msg.role === 'assistant' 
-            ? '🤖 Bot' 
-            : msg.role === 'human_agent' 
-              ? `🧑‍💼 ${msg.user_name || 'Humano'}` 
+          autor: msg.role === 'assistant'
+            ? '🤖 Bot'
+            : msg.role === 'human_agent'
+              ? `🧑‍💼 ${msg.user_name || 'Humano'}`
               : '👤 Visitante',
           role: msg.role
         }));
 
         setMensajesDetalle(mensajesFormateados);
-        
+
         if (!silencioso) {
           setTimeout(() => scrollToEnd(), 100);
         }
@@ -251,7 +252,7 @@ const GestionConversacionesPage = () => {
       if (response.success) {
         Alert.alert('✅ Éxito', 'Conversación asignada a ti');
         cargarConversaciones();
-        
+
         // Si estamos viendo el detalle, refrescar
         if (conversacionSeleccionada?.sessionId === conversacion.sessionId) {
           cargarDetalleConversacion(conversacion.sessionId);
@@ -301,7 +302,7 @@ const GestionConversacionesPage = () => {
 
       setMensajeTexto('');
       await cargarDetalleConversacion(conversacionSeleccionada.sessionId, true);
-      
+
       // Scroll al final después de enviar
       setTimeout(() => scrollToEnd(), 200);
     } catch (error) {
@@ -357,7 +358,7 @@ const GestionConversacionesPage = () => {
 
   const formatearFecha = (fechaStr) => {
     if (!fechaStr) return 'Sin fecha';
-    
+
     const fecha = new Date(fechaStr);
     const ahora = new Date();
     const diffMs = ahora - fecha;
@@ -366,18 +367,18 @@ const GestionConversacionesPage = () => {
 
     if (diffHoras < 1) return 'Hace unos minutos';
     if (diffHoras < 24) {
-      const hora = fecha.toLocaleTimeString('es-ES', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      const hora = fecha.toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit'
       });
       return `${hora} - Hoy`;
     }
     if (diffDias === 1) return 'Ayer';
     if (diffDias < 7) return `${diffDias} días`;
-    
-    return fecha.toLocaleDateString('es-ES', { 
-      day: '2-digit', 
-      month: '2-digit' 
+
+    return fecha.toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: '2-digit'
     });
   };
 
@@ -440,9 +441,9 @@ const GestionConversacionesPage = () => {
               {conversaciones.length} conversación{conversaciones.length !== 1 ? 'es' : ''}
             </Text>
           </View>
-          <NotificacionesBadge 
+          <NotificacionesBadge
             userId={userId}
-            onNotificacionPress={handleNotificacionPress} 
+            onNotificacionPress={handleNotificacionPress}
           />
         </View>
 
@@ -452,13 +453,13 @@ const GestionConversacionesPage = () => {
             style={[styles.vistaButton, vistaActual === 'mis' && styles.vistaButtonActive]}
             onPress={() => setVistaActual('mis')}
           >
-            <Ionicons 
-              name="person" 
-              size={18} 
-              color={vistaActual === 'mis' ? '#FFF' : '#6B7280'} 
+            <Ionicons
+              name="person"
+              size={18}
+              color={vistaActual === 'mis' ? '#FFF' : '#6B7280'}
             />
             <Text style={[
-              styles.vistaButtonText, 
+              styles.vistaButtonText,
               vistaActual === 'mis' && styles.vistaButtonTextActive
             ]}>
               Mis Conversaciones
@@ -469,13 +470,13 @@ const GestionConversacionesPage = () => {
             style={[styles.vistaButton, vistaActual === 'todas' && styles.vistaButtonActive]}
             onPress={() => setVistaActual('todas')}
           >
-            <Ionicons 
-              name="people" 
-              size={18} 
-              color={vistaActual === 'todas' ? '#FFF' : '#6B7280'} 
+            <Ionicons
+              name="people"
+              size={18}
+              color={vistaActual === 'todas' ? '#FFF' : '#6B7280'}
             />
             <Text style={[
-              styles.vistaButtonText, 
+              styles.vistaButtonText,
               vistaActual === 'todas' && styles.vistaButtonTextActive
             ]}>
               Todas
@@ -490,7 +491,7 @@ const GestionConversacionesPage = () => {
             onPress={() => setFiltroEstado('todas')}
           >
             <Text style={[
-              styles.filtroButtonText, 
+              styles.filtroButtonText,
               filtroEstado === 'todas' && styles.filtroButtonTextActive
             ]}>
               Todas
@@ -502,7 +503,7 @@ const GestionConversacionesPage = () => {
             onPress={() => setFiltroEstado('pendientes')}
           >
             <Text style={[
-              styles.filtroButtonText, 
+              styles.filtroButtonText,
               filtroEstado === 'pendientes' && styles.filtroButtonTextActive
             ]}>
               Pendientes
@@ -514,7 +515,7 @@ const GestionConversacionesPage = () => {
             onPress={() => setFiltroEstado('resueltas')}
           >
             <Text style={[
-              styles.filtroButtonText, 
+              styles.filtroButtonText,
               filtroEstado === 'resueltas' && styles.filtroButtonTextActive
             ]}>
               Resueltas
@@ -528,8 +529,8 @@ const GestionConversacionesPage = () => {
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyIcon}>📭</Text>
         <Text style={styles.emptyText}>
-          {vistaActual === 'mis' 
-            ? 'No tienes conversaciones asignadas' 
+          {vistaActual === 'mis'
+            ? 'No tienes conversaciones asignadas'
             : 'No hay conversaciones escaladas'}
         </Text>
         <Text style={styles.emptySubtext}>
@@ -543,7 +544,7 @@ const GestionConversacionesPage = () => {
     return (
       <View style={styles.container}>
         {renderHeader()}
-        
+
         <FlatList
           data={conversaciones}
           keyExtractor={(item) => item.id}
@@ -553,8 +554,8 @@ const GestionConversacionesPage = () => {
               onPress={() => handleVerConversacion(item)}
               onTomar={() => handleTomarConversacion(item)}
               puedeTomarConversacion={
-                vistaActual === 'todas' && 
-                !item.escaladoAId && 
+                vistaActual === 'todas' &&
+                !item.escaladoAId &&
                 item.estado !== 'cerrada'
               }
               esPropia={item.escaladoAId === userId}
@@ -588,14 +589,14 @@ const GestionConversacionesPage = () => {
           <TouchableOpacity onPress={handleVolverLista} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#1F2937" />
           </TouchableOpacity>
-          
+
           <View style={styles.detalleHeaderInfo}>
             <Text style={styles.detalleHeaderTitle}>
               {conversacionSeleccionada.visitante}
             </Text>
             <Text style={styles.detalleHeaderSubtitle}>
               ID: {conversacionSeleccionada.codigo}
-              {conversacionSeleccionada.escaladoA && 
+              {conversacionSeleccionada.escaladoA &&
                 ` • Atendido por: ${conversacionSeleccionada.escaladoA}`
               }
             </Text>
@@ -627,13 +628,13 @@ const GestionConversacionesPage = () => {
         {/* Indicador de prioridad */}
         {conversacionSeleccionada.tiempoEspera && (
           <View style={[
-            styles.prioridadBanner, 
+            styles.prioridadBanner,
             { backgroundColor: escalamientoService.getColorPrioridad(conversacionSeleccionada.prioridad) + '20' }
           ]}>
-            <Ionicons 
-              name="time" 
-              size={16} 
-              color={escalamientoService.getColorPrioridad(conversacionSeleccionada.prioridad)} 
+            <Ionicons
+              name="time"
+              size={16}
+              color={escalamientoService.getColorPrioridad(conversacionSeleccionada.prioridad)}
             />
             <Text style={[
               styles.prioridadText,
@@ -710,17 +711,60 @@ const GestionConversacionesPage = () => {
 
   return (
     <View style={contentStyles.wrapper}>
-      
-      <FuncionarioSidebar 
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-      />
 
+      {/* ============ SIDEBAR SOLO EN WEB ============ */}
+      {isWeb && (
+        <FuncionarioSidebar
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
+          onNavigate={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* ============ SIDEBAR MÓVIL CON OVERLAY ============ */}
+      {!isWeb && sidebarOpen && (
+        <>
+          {/* Overlay oscuro */}
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              zIndex: 998,
+            }}
+            onPress={() => setSidebarOpen(false)}
+            activeOpacity={1}
+          />
+
+          {/* Sidebar deslizante */}
+          <View
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: '80%',
+              maxWidth: 320,
+              zIndex: 999,
+            }}
+          >
+            <FuncionarioSidebar
+              isOpen={sidebarOpen}
+              onNavigate={() => setSidebarOpen(false)}
+            />
+          </View>
+        </>
+      )}
+
+      {/* ============ BOTÓN TOGGLE SIDEBAR ============ */}
       <TouchableOpacity
         style={{
           position: 'absolute',
           top: 16,
-          left: sidebarOpen ? 296 : 16,
+          left: 16,
           zIndex: 1001,
           backgroundColor: '#1e1b4b',
           padding: 12,
@@ -730,6 +774,10 @@ const GestionConversacionesPage = () => {
           shadowOpacity: 0.4,
           shadowRadius: 8,
           elevation: 8,
+          // ✅ Transform para mover el botón junto con el sidebar
+          transform: [
+            { translateX: sidebarOpen && !isWeb ? 280 : 0 }
+          ],
         }}
         onPress={() => setSidebarOpen(!sidebarOpen)}
       >
@@ -737,7 +785,7 @@ const GestionConversacionesPage = () => {
       </TouchableOpacity>
 
       <View style={[
-        contentStyles.mainContent, 
+        contentStyles.mainContent,
         sidebarOpen && contentStyles.mainContentWithSidebar
       ]}>
         {conversacionSeleccionada ? renderDetalle() : renderLista()}
@@ -1010,7 +1058,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280'
   },
-  
+
   // Estilos Detalle
   detalleContainer: {
     flex: 1,

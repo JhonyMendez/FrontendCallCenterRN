@@ -5,6 +5,7 @@ import {
     Alert,
     FlatList,
     Modal,
+    Platform,
     ScrollView,
     Text,
     TextInput,
@@ -32,7 +33,7 @@ export default function GestionCategoriaPage() {
     const [filterAgente, setFilterAgente] = useState('all');
     const [showModal, setShowModal] = useState(false);
     const [editingCategoria, setEditingCategoria] = useState(null);
-    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
     const [errors, setErrors] = useState({});
     const [showSuccessMessage, setShowSuccessMessage] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
@@ -56,7 +57,7 @@ export default function GestionCategoriaPage() {
     const [showErrorModal, setShowErrorModal] = useState(false);
     const [errorModalMessage, setErrorModalMessage] = useState('');
 
-
+    const isWeb = Platform.OS === 'web';
     const verificarPermisoCategoria = async () => {
         try {
             setVerificandoPermiso(true);
@@ -662,11 +663,76 @@ export default function GestionCategoriaPage() {
     return (
         <View style={contentStyles.wrapper}>
 
-            {/* Sidebar */}
-            <FuncionarioSidebar
-                isOpen={sidebarOpen}
-                onToggle={() => setSidebarOpen(!sidebarOpen)}
-            />
+            {/* ============ SIDEBAR SOLO EN WEB ============ */}
+            {isWeb && (
+                <FuncionarioSidebar
+                    isOpen={sidebarOpen}
+                    onToggle={() => setSidebarOpen(!sidebarOpen)}
+                    onNavigate={() => setSidebarOpen(false)}
+                />
+            )}
+
+            {/* ============ SIDEBAR MÓVIL CON OVERLAY ============ */}
+            {!isWeb && sidebarOpen && (
+                <>
+                    {/* Overlay oscuro */}
+                    <TouchableOpacity
+                        style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                            zIndex: 998,
+                        }}
+                        onPress={() => setSidebarOpen(false)}
+                        activeOpacity={1}
+                    />
+
+                    {/* Sidebar deslizante */}
+                    <View
+                        style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            bottom: 0,
+                            width: '80%',
+                            maxWidth: 320,
+                            zIndex: 999,
+                        }}
+                    >
+                        <FuncionarioSidebar
+                            isOpen={sidebarOpen}
+                            onNavigate={() => setSidebarOpen(false)}
+                        />
+                    </View>
+                </>
+            )}
+
+            {/* ============ BOTÓN TOGGLE SIDEBAR ============ */}
+            <TouchableOpacity
+                style={{
+                    position: 'absolute',
+                    top: 16,
+                    left: 16,
+                    zIndex: 1001,
+                    backgroundColor: '#1e1b4b',
+                    padding: 12,
+                    borderRadius: 12,
+                    shadowColor: '#667eea',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.4,
+                    shadowRadius: 8,
+                    elevation: 8,
+                    transform: [
+                        { translateX: sidebarOpen && !isWeb ? 280 : 0 }
+                    ],
+                }}
+                onPress={() => setSidebarOpen(!sidebarOpen)}
+            >
+                <Ionicons name={sidebarOpen ? "close" : "menu"} size={24} color="#ffffff" />
+            </TouchableOpacity>
 
             {/* Botón Toggle */}
             <TouchableOpacity
