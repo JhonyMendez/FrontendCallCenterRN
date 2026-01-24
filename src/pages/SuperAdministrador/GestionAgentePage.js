@@ -1,10 +1,12 @@
 // UBICACIÓN: src/pages/SuperAdministrador/GestionAgentePage.js
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  Dimensions,
   Image,
   Modal,
   Platform,
@@ -26,8 +28,185 @@ import SecurityValidator from '../../components/utils/SecurityValidator';
 import { contentStyles } from '../../styles/contentStyles';
 import { getStatIconColor, modalStyles, styles } from '../../styles/gestionAgenteStyles';
 
+function TooltipIcon({ text }) {
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  return (
+    <View style={{ position: 'relative', marginLeft: 6 }}>
+      <TouchableOpacity
+        onPress={() => setShowTooltip(!showTooltip)}
+        onMouseEnter={() => !isMobile && setShowTooltip(true)}
+        onMouseLeave={() => !isMobile && setShowTooltip(false)}
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: 9,
+          backgroundColor: 'rgba(102, 126, 234, 0.2)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderWidth: 1,
+          borderColor: 'rgba(102, 126, 234, 0.4)',
+        }}
+      >
+        <Text style={{ color: '#667eea', fontSize: 12, fontWeight: 'bold' }}>?</Text>
+      </TouchableOpacity>
+
+      {/* Tooltip para WEB */}
+      {showTooltip && !isMobile && (
+        <View style={{
+          position: 'absolute',
+          top: -5,
+          left: 25,
+          minWidth: 200,
+          maxWidth: 280,
+          backgroundColor: '#1a1a2e',
+          padding: 12,
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: 'rgba(102, 126, 234, 0.3)',
+          zIndex: 1000,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 8,
+        }}>
+          {/* Flecha */}
+          <View style={{
+            position: 'absolute',
+            top: 8,
+            left: -6,
+            width: 12,
+            height: 12,
+            backgroundColor: '#1a1a2e',
+            borderTopWidth: 1,
+            borderLeftWidth: 1,
+            borderColor: 'rgba(102, 126, 234, 0.3)',
+            transform: [{ rotate: '-45deg' }],
+          }} />
+
+          <Text style={{
+            color: 'rgba(255, 255, 255, 0.9)',
+            fontSize: 12,
+            lineHeight: 18,
+          }}>
+            {text}
+          </Text>
+        </View>
+      )}
+
+      {/* Modal para MÓVIL */}
+      {isMobile && (
+        <Modal
+          visible={showTooltip}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowTooltip(false)}
+        >
+          <View style={{
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 20,
+          }}>
+            <View style={{
+              backgroundColor: '#1a1a2e',
+              padding: 20,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: 'rgba(102, 126, 234, 0.3)',
+              width: '90%',
+              maxWidth: 340,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.4,
+              shadowRadius: 16,
+              elevation: 16,
+            }}>
+              {/* Header */}
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+                marginBottom: 12,
+                paddingBottom: 12,
+                borderBottomWidth: 1,
+                borderBottomColor: 'rgba(102, 126, 234, 0.2)',
+              }}>
+                <View style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                  <Text style={{ fontSize: 18 }}>💡</Text>
+                </View>
+                <Text style={{
+                  color: '#667eea',
+                  fontSize: 15,
+                  fontWeight: '700',
+                  flex: 1,
+                }}>
+                  Información
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowTooltip(false)}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
+                    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Ionicons name="close" size={16} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Contenido */}
+              <Text style={{
+                color: 'rgba(255, 255, 255, 0.9)',
+                fontSize: 14,
+                lineHeight: 22,
+                marginBottom: 16,
+              }}>
+                {text}
+              </Text>
+
+              {/* Botón */}
+              <TouchableOpacity
+                onPress={() => setShowTooltip(false)}
+                style={{
+                  backgroundColor: '#667eea',
+                  paddingVertical: 12,
+                  paddingHorizontal: 20,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{
+                  color: '#ffffff',
+                  fontSize: 14,
+                  fontWeight: '600',
+                }}>
+                  Entendido
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+    </View>
+  );
+}
 
 const isWeb = Platform.OS === 'web';
+const { width } = Dimensions.get('window');
+const isMobile = width < 768;
 
 export default function GestionAgentePage() {
   // ============ STATE ============
@@ -42,6 +221,8 @@ export default function GestionAgentePage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [showColorPicker, setShowColorPicker] = useState(false);
 
+
+  const slideAnim = useRef(new Animated.Value(-320)).current;
   // Modales
   const [showFormModal, setShowFormModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -113,6 +294,17 @@ export default function GestionAgentePage() {
     cargarAgentes();
     cargarEstadisticas();
   }, [filterTipo, filterEstado]);
+
+  // Animación del sidebar móvil
+  useEffect(() => {
+    if (!isWeb) {
+      Animated.timing(slideAnim, {
+        toValue: sidebarOpen ? 0 : -320,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [sidebarOpen, isWeb]);
 
   useEffect(() => {
     cargarDepartamentos();
@@ -865,8 +1057,8 @@ export default function GestionAgentePage() {
           style={{
             position: 'absolute',
             top: 16,
-            left: sidebarOpen ? 296 : 16,
-            zIndex: 1001,
+            left: sidebarOpen ? 10 : 16,
+            zIndex: isWeb ? 1001 : (sidebarOpen ? 1002 : 1001),
             backgroundColor: '#1e1b4b',
             padding: 12,
             borderRadius: 12,
@@ -874,7 +1066,7 @@ export default function GestionAgentePage() {
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.4,
             shadowRadius: 8,
-            elevation: 8,
+            elevation: isWeb ? 8 : (sidebarOpen ? 10 : 8),
           }}
           onPress={() => setSidebarOpen(!sidebarOpen)}
         >
@@ -888,11 +1080,16 @@ export default function GestionAgentePage() {
         >
 
           {/* ============ HEADER ============ */}
-          <View style={styles.header}>
+          <View style={[
+            styles.header,
+            isMobile && { paddingTop: 60 }
+          ]}>
             <View style={styles.headerLeft}>
-              <Text style={styles.title}>🤖 Gestión de Agentes</Text>
-              <Text style={styles.subtitle}>
-                {agentes.length} {agentes.length === 1 ? 'agente registrado' : 'agentes registrados'}
+              <Text style={[
+                styles.title,
+                isMobile && { fontSize: 20 }
+              ]}>
+                🤖 Gestión de Agentes
               </Text>
             </View>
             <TouchableOpacity
@@ -1129,13 +1326,39 @@ export default function GestionAgentePage() {
         transparent={true}
         onRequestClose={() => setShowFormModal(false)}
       >
-        <View style={modalStyles.overlay}>
-          <View style={modalStyles.container}>
-            <View style={modalStyles.header}>
-              <Text style={modalStyles.title}>
-                {formMode === 'create' ? '✨ Crear Nuevo Agente' : '✏️ Editar Agente'}
-              </Text>
-              <TouchableOpacity onPress={() => setShowFormModal(false)}>
+        <View style={[
+          modalStyles.overlay,
+          isMobile && {
+            backgroundColor: '#0f172a',
+          }
+        ]}>
+          <View style={[
+            modalStyles.container,
+            isMobile && {
+              width: '100%',
+              height: '100%',
+              maxWidth: '100%',
+              maxHeight: '100%',
+              margin: 0,
+              borderRadius: 0,
+            }
+          ]}>
+            <View style={[
+              modalStyles.header,
+              isMobile && { paddingVertical: 16 }
+            ]}>
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 }}>
+                <Text style={[
+                  modalStyles.title,
+                  isMobile && { fontSize: 18 }
+                ]}>
+                  {formMode === 'create' ? '✨ Crear Nuevo Agente' : '✏️ Editar Agente'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowFormModal(false)}
+                style={{ position: 'absolute', right: 16, top: isMobile ? 12 : 16 }}
+              >
                 <Ionicons name="close" size={24} color="#ffffff" />
               </TouchableOpacity>
             </View>
@@ -1147,7 +1370,10 @@ export default function GestionAgentePage() {
                 <Text style={modalStyles.sectionTitle}>📋 Información Básica</Text>
 
                 <View style={modalStyles.formGroup}>
-                  <Text style={modalStyles.label}>Nombre del Agente *</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={modalStyles.label}>Nombre del Agente *</Text>
+                    <TooltipIcon text="Nombre que identificará a tu agente. Debe ser descriptivo. Ejemplos: 'Asistente de Ventas', 'Soporte Técnico'." />
+                  </View>
                   <TextInput
                     style={[modalStyles.input, formErrors.nombre_agente && modalStyles.inputError]}
                     placeholder="Ej: Asistente de Ventas"
@@ -1159,10 +1385,21 @@ export default function GestionAgentePage() {
                   {formErrors.nombre_agente && (
                     <Text style={modalStyles.errorText}>{formErrors.nombre_agente}</Text>
                   )}
+                  <Text style={{
+                    color: formData.nombre_agente.length >= 80 ? '#fb923c' : 'rgba(255, 255, 255, 0.5)',
+                    fontSize: 11,
+                    marginTop: 4,
+                    textAlign: 'right',
+                  }}>
+                    {formData.nombre_agente.length}/100 caracteres
+                  </Text>
                 </View>
 
                 <View style={modalStyles.formGroup}>
-                  <Text style={modalStyles.label}>Área de Especialidad *</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={modalStyles.label}>Área de Especialidad *</Text>
+                    <TooltipIcon text="Departamento o área en la que se especializa. Ejemplos: 'Ventas', 'RRHH', 'Soporte IT'." />
+                  </View>
                   <TextInput
                     style={[modalStyles.input, formErrors.area_especialidad && modalStyles.inputError]}
                     placeholder="Ej: Ventas, Soporte, RRHH"
@@ -1174,10 +1411,21 @@ export default function GestionAgentePage() {
                   {formErrors.area_especialidad && (
                     <Text style={modalStyles.errorText}>{formErrors.area_especialidad}</Text>
                   )}
+                  <Text style={{
+                    color: formData.area_especialidad.length >= 80 ? '#fb923c' : 'rgba(255, 255, 255, 0.5)',
+                    fontSize: 11,
+                    marginTop: 4,
+                    textAlign: 'right',
+                  }}>
+                    {formData.area_especialidad.length}/100 caracteres
+                  </Text>
                 </View>
 
                 <View style={modalStyles.formGroup}>
-                  <Text style={modalStyles.label}>Descripción *</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={modalStyles.label}>Descripción *</Text>
+                    <TooltipIcon text="Describe el propósito del agente, sus funciones y qué consultas puede resolver." />
+                  </View>
                   <TextInput
                     style={[modalStyles.textArea, formErrors.descripcion && modalStyles.inputError]}
                     placeholder="Describe el propósito y funciones del agente..."
@@ -1191,10 +1439,19 @@ export default function GestionAgentePage() {
                   {formErrors.descripcion && (
                     <Text style={modalStyles.errorText}>{formErrors.descripcion}</Text>
                   )}
+                  <Text style={{
+                    color: formData.descripcion.length >= 450 ? '#fb923c' : 'rgba(255, 255, 255, 0.5)',
+                    fontSize: 11,
+                    marginTop: 4,
+                    textAlign: 'right',
+                  }}>
+                    {formData.descripcion.length}/500 caracteres
+                  </Text>
                 </View>
 
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Departamento Responsable</Text>
+                  <TooltipIcon text="Asocia el agente a un departamento específico. Cada departamento solo puede tener un agente asignado." />
                   {formErrors.id_departamento && (
                     <View style={{
                       flexDirection: 'row',
@@ -1995,7 +2252,10 @@ export default function GestionAgentePage() {
                 <Text style={modalStyles.sectionTitle}>💬 Mensajes Predefinidos</Text>
 
                 <View style={modalStyles.formGroup}>
-                  <Text style={modalStyles.label}>Mensaje de Bienvenida *</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={modalStyles.label}>Mensaje de Bienvenida *</Text>
+                    <TooltipIcon text="Primer mensaje que verá el usuario. Debe ser amigable y orientador." />
+                  </View>
                   <TextInput
                     style={[modalStyles.textArea, formErrors.mensaje_bienvenida && modalStyles.inputError]}
                     placeholder="¡Hola! Soy tu asistente virtual. ¿En qué puedo ayudarte?"
@@ -2009,13 +2269,21 @@ export default function GestionAgentePage() {
                   {formErrors.mensaje_bienvenida && (
                     <Text style={modalStyles.errorText}>{formErrors.mensaje_bienvenida}</Text>
                   )}
-                  <Text style={modalStyles.helperText}>
-                    Primer mensaje que verá el usuario al iniciar conversación
+                  <Text style={{
+                    color: formData.mensaje_bienvenida.length >= 450 ? '#fb923c' : 'rgba(255, 255, 255, 0.5)',
+                    fontSize: 11,
+                    marginTop: 4,
+                    textAlign: 'right',
+                  }}>
+                    {formData.mensaje_bienvenida.length}/500 caracteres
                   </Text>
                 </View>
 
                 <View style={modalStyles.formGroup}>
-                  <Text style={modalStyles.label}>Mensaje de Despedida *</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={modalStyles.label}>Mensaje de Despedida *</Text>
+                    <TooltipIcon text="Mensaje final cuando el usuario termina la conversación. Debe ser cordial y agradecer la interacción." />
+                  </View>
                   <TextInput
                     style={[modalStyles.textArea, formErrors.mensaje_despedida && modalStyles.inputError]}
                     placeholder="¡Hasta pronto! Fue un gusto ayudarte."
@@ -2029,13 +2297,21 @@ export default function GestionAgentePage() {
                   {formErrors.mensaje_despedida && (
                     <Text style={modalStyles.errorText}>{formErrors.mensaje_despedida}</Text>
                   )}
-                  <Text style={modalStyles.helperText}>
-                    Mensaje cuando el usuario finaliza la conversación
+                  <Text style={{
+                    color: formData.mensaje_despedida.length >= 450 ? '#fb923c' : 'rgba(255, 255, 255, 0.5)',
+                    fontSize: 11,
+                    marginTop: 4,
+                    textAlign: 'right',
+                  }}>
+                    {formData.mensaje_despedida.length}/500 caracteres
                   </Text>
                 </View>
 
                 <View style={modalStyles.formGroup}>
-                  <Text style={modalStyles.label}>Mensaje de Derivación *</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={modalStyles.label}>Mensaje de Derivación *</Text>
+                    <TooltipIcon text="Se muestra cuando el agente necesita transferir la consulta a un especialista humano u otro agente." />
+                  </View>
                   <TextInput
                     style={[modalStyles.textArea, formErrors.mensaje_derivacion && modalStyles.inputError]}
                     placeholder="Voy a transferir tu consulta a un especialista humano..."
@@ -2049,13 +2325,21 @@ export default function GestionAgentePage() {
                   {formErrors.mensaje_derivacion && (
                     <Text style={modalStyles.errorText}>{formErrors.mensaje_derivacion}</Text>
                   )}
-                  <Text style={modalStyles.helperText}>
-                    Mensaje cuando se deriva a otro agente o humano
+                  <Text style={{
+                    color: formData.mensaje_derivacion.length >= 450 ? '#fb923c' : 'rgba(255, 255, 255, 0.5)',
+                    fontSize: 11,
+                    marginTop: 4,
+                    textAlign: 'right',
+                  }}>
+                    {formData.mensaje_derivacion.length}/500 caracteres
                   </Text>
                 </View>
 
                 <View style={modalStyles.formGroup}>
-                  <Text style={modalStyles.label}>Mensaje Fuera de Horario *</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={modalStyles.label}>Mensaje Fuera de Horario *</Text>
+                    <TooltipIcon text="Respuesta automática cuando el usuario escribe fuera del horario configurado. Debe informar el horario disponible." />
+                  </View>
                   <TextInput
                     style={[modalStyles.textArea, formErrors.mensaje_fuera_horario && modalStyles.inputError]}
                     placeholder="Gracias por escribir. Nuestro horario es Lunes-Viernes 8am-5pm..."
@@ -2069,8 +2353,13 @@ export default function GestionAgentePage() {
                   {formErrors.mensaje_fuera_horario && (
                     <Text style={modalStyles.errorText}>{formErrors.mensaje_fuera_horario}</Text>
                   )}
-                  <Text style={modalStyles.helperText}>
-                    Mensaje automático cuando se escribe fuera del horario
+                  <Text style={{
+                    color: formData.mensaje_fuera_horario.length >= 450 ? '#fb923c' : 'rgba(255, 255, 255, 0.5)',
+                    fontSize: 11,
+                    marginTop: 4,
+                    textAlign: 'right',
+                  }}>
+                    {formData.mensaje_fuera_horario.length}/500 caracteres
                   </Text>
                 </View>
               </View>
@@ -2127,6 +2416,7 @@ export default function GestionAgentePage() {
                 {/* Temperatura (Creatividad) */}
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Temperatura (Creatividad) *</Text>
+                  <TooltipIcon text="Controla creatividad: 0.6=Preciso, 0.9=Creativo, 1.2=Muy creativo pero impredecible." />
 
                   {/* Opciones de Temperatura */}
                   <View style={{ gap: 12 }}>
@@ -2149,7 +2439,7 @@ export default function GestionAgentePage() {
                       onPress={() => setFormData({ ...formData, temperatura: '0.6' })}
                       activeOpacity={0.7}
                     >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <View style={isMobile ? { marginBottom: 8 } : { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                           <View style={{
                             width: 24,
@@ -2169,11 +2459,17 @@ export default function GestionAgentePage() {
                             color: formData.temperatura === '0.6' ? '#ffffff' : '#94a3b8',
                             fontSize: 16,
                             fontWeight: '600',
+                            ...(isMobile && { flex: 1 }),
                           }}>
                             ⚖️ Balanceado (0.6)
                           </Text>
                         </View>
                         <View style={{
+                          ...(isMobile ? {
+                            alignSelf: 'flex-start',
+                            marginLeft: 34,
+                            marginTop: 6,
+                          } : {}),
                           backgroundColor: 'rgba(34, 197, 94, 0.2)',
                           paddingHorizontal: 8,
                           paddingVertical: 4,
@@ -2400,7 +2696,7 @@ export default function GestionAgentePage() {
                 {/*MAXIMO DE TOKENS*/}
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Tokens Máximos</Text>
-
+                  <TooltipIcon text="Longitud de respuestas: 500=Cortas, 1000=Normales, 2000=Detalladas. Más tokens=más lento." />
                   {/* Opciones de Tokens */}
                   <View style={{ gap: 12 }}>
                     {/* OPCIÓN 1: Respuestas Cortas (500) */}
@@ -2578,7 +2874,7 @@ export default function GestionAgentePage() {
                       onPress={() => setFormData({ ...formData, max_tokens: '1000' })}
                       activeOpacity={0.7}
                     >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <View style={isMobile ? { marginBottom: 8 } : { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                           <View style={{
                             width: 24,
@@ -2598,11 +2894,17 @@ export default function GestionAgentePage() {
                             color: formData.max_tokens === '1000' ? '#ffffff' : '#94a3b8',
                             fontSize: 16,
                             fontWeight: '600',
+                            ...(isMobile && { flex: 1 }),
                           }}>
                             ⚖️ Normal (1000 tokens)
                           </Text>
                         </View>
                         <View style={{
+                          ...(isMobile ? {
+                            alignSelf: 'flex-start',
+                            marginLeft: 34,
+                            marginTop: 6,
+                          } : {}),
                           backgroundColor: 'rgba(34, 197, 94, 0.2)',
                           paddingHorizontal: 8,
                           paddingVertical: 4,
@@ -2753,10 +3055,13 @@ export default function GestionAgentePage() {
                 {/* PROMPT SISTEMA */}
                 {/* ⭐ CAMPO 1: MISIÓN */}
                 <View style={modalStyles.formGroup}>
-                  <Text style={modalStyles.label}>Misión del Agente *</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={modalStyles.label}>Misión del Agente *</Text>
+                    <TooltipIcon text="Objetivo principal del agente. ¿Qué problema debe resolver? ¿A quién ayuda?" />
+                  </View>
                   <TextInput
                     style={[modalStyles.textArea, formErrors.prompt_mision && modalStyles.inputError]}
-                    placeholder="Ej: Ayudar a estudiantes a resolver problemas con sus cuentas y acceso a sistemas"
+                    placeholder="Ej: Ayudar a estudiantes a resolver problemas con sus cuentas"
                     placeholderTextColor="rgba(255, 255, 255, 0.4)"
                     value={formData.prompt_mision}
                     onChangeText={(text) => setFormData({ ...formData, prompt_mision: text })}
@@ -2767,14 +3072,20 @@ export default function GestionAgentePage() {
                   {formErrors.prompt_mision && (
                     <Text style={modalStyles.errorText}>{formErrors.prompt_mision}</Text>
                   )}
-                  <Text style={modalStyles.helperText}>
-                    Define el objetivo principal del agente
+                  <Text style={{
+                    color: formData.prompt_mision.length >= 270 ? '#fb923c' : 'rgba(255, 255, 255, 0.5)',
+                    fontSize: 11,
+                    marginTop: 4,
+                    textAlign: 'right',
+                  }}>
+                    {formData.prompt_mision.length}/300 caracteres
                   </Text>
                 </View>
 
                 {/* ⭐ CAMPO 2: REGLAS (Mínimo 2) */}
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Reglas de Comportamiento * (Mínimo 2)</Text>
+                  <TooltipIcon text="Normas específicas que el agente debe seguir. Ej: 'Responder en español', 'Ser breve'." />
 
                   {formData.prompt_reglas.map((regla, index) => (
                     <View key={index} style={{ marginBottom: 12 }}>
@@ -2862,7 +3173,7 @@ export default function GestionAgentePage() {
                 {/* ⭐ CAMPO 3: TONO (Selector) */}
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Tono de Comunicación *</Text>
-
+                  <TooltipIcon text="Formal=Profesional, Amigable=Cercano y empático, Técnico=Preciso y especializado." />
                   <View style={{ gap: 12 }}>
                     {/* Opción: Formal */}
                     <TouchableOpacity
@@ -2928,7 +3239,7 @@ export default function GestionAgentePage() {
                       onPress={() => setFormData({ ...formData, prompt_tono: 'amigable' })}
                       activeOpacity={0.7}
                     >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <View style={isMobile ? { marginBottom: 8 } : { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                           <View style={{
                             width: 24,
@@ -2948,11 +3259,17 @@ export default function GestionAgentePage() {
                             color: formData.prompt_tono === 'amigable' ? '#ffffff' : '#94a3b8',
                             fontSize: 16,
                             fontWeight: '600',
+                            ...(isMobile && { flex: 1 }),
                           }}>
                             😊 Amigable
                           </Text>
                         </View>
                         <View style={{
+                          ...(isMobile ? {
+                            alignSelf: 'flex-start',
+                            marginLeft: 34,
+                            marginTop: 6,
+                          } : {}),
                           backgroundColor: 'rgba(34, 197, 94, 0.2)',
                           paddingHorizontal: 8,
                           paddingVertical: 4,
@@ -3034,16 +3351,16 @@ export default function GestionAgentePage() {
 
               {/* ⭐ NUEVO CAMPO: Especialización */}
               <View style={modalStyles.formGroup}>
-                <Text style={modalStyles.label}>
-                  Especialización del Agente
-                  <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 13 }}> (Opcional)</Text>
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={modalStyles.label}>
+                    Especialización del Agente
+                    <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 13 }}> (Opcional)</Text>
+                  </Text>
+                  <TooltipIcon text="Describe temas específicos en los que el agente es experto. Ayuda a mejorar respuestas especializadas." />
+                </View>
                 <TextInput
-                  style={[
-                    modalStyles.textArea,
-                    formErrors.prompt_especializado && modalStyles.inputError
-                  ]}
-                  placeholder="Ej: Ayuda con requisitos de prácticas, formatos, horas necesarias, instituciones aliadas, procesos de vinculación..."
+                  style={[modalStyles.textArea, formErrors.prompt_especializado && modalStyles.inputError]}
+                  placeholder="Ej: Ayuda con requisitos de prácticas, formatos..."
                   placeholderTextColor="rgba(255, 255, 255, 0.4)"
                   value={formData.prompt_especializado}
                   onChangeText={(text) => setFormData({ ...formData, prompt_especializado: text })}
@@ -3054,42 +3371,14 @@ export default function GestionAgentePage() {
                 {formErrors.prompt_especializado && (
                   <Text style={modalStyles.errorText}>{formErrors.prompt_especializado}</Text>
                 )}
-                <Text style={modalStyles.helperText}>
-                  💡 Describe temas específicos, servicios o áreas de ayuda del agente
+                <Text style={{
+                  color: formData.prompt_especializado.length >= 450 ? '#fb923c' : 'rgba(255, 255, 255, 0.5)',
+                  fontSize: 11,
+                  marginTop: 4,
+                  textAlign: 'right',
+                }}>
+                  {formData.prompt_especializado.length}/500 caracteres
                 </Text>
-
-                {/* Preview del texto */}
-                {formData.prompt_especializado && formData.prompt_especializado.length > 0 && (
-                  <View style={{
-                    marginTop: 12,
-                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                    borderRadius: 8,
-                    padding: 12,
-                    borderLeftWidth: 3,
-                    borderLeftColor: '#667eea',
-                  }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                      <Ionicons name="information-circle" size={16} color="#667eea" />
-                      <Text style={{ color: '#667eea', fontSize: 12, fontWeight: '600' }}>
-                        Vista previa de especialización
-                      </Text>
-                    </View>
-                    <Text style={{
-                      color: 'rgba(255, 255, 255, 0.8)',
-                      fontSize: 13,
-                      lineHeight: 20,
-                    }}>
-                      {formData.prompt_especializado}
-                    </Text>
-                    <Text style={{
-                      color: 'rgba(255, 255, 255, 0.5)',
-                      fontSize: 11,
-                      marginTop: 8,
-                    }}>
-                      {formData.prompt_especializado.length} / 500 caracteres
-                    </Text>
-                  </View>
-                )}
               </View>
 
               {/* Configuración Regional */}
@@ -3350,9 +3639,11 @@ export default function GestionAgentePage() {
                     borderColor: 'rgba(148, 163, 184, 0.3)',
                     borderRadius: 12,
                     padding: 16,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
+                    ...(isMobile ? {} : {
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }),
                   }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                       <Ionicons name="time-outline" size={20} color="#94a3b8" />
@@ -3360,6 +3651,7 @@ export default function GestionAgentePage() {
                         color: '#94a3b8',
                         fontSize: 15,
                         fontWeight: '500',
+                        flex: 1,
                       }}>
                         America/Guayaquil (GMT-5)
                       </Text>
@@ -3369,6 +3661,11 @@ export default function GestionAgentePage() {
                       paddingHorizontal: 10,
                       paddingVertical: 4,
                       borderRadius: 6,
+                      ...(isMobile ? {
+                        alignSelf: 'flex-start',
+                        marginTop: 8,
+                        marginLeft: 32,
+                      } : {}),
                     }}>
                       <Text style={{
                         color: '#94a3b8',
@@ -3555,8 +3852,10 @@ export default function GestionAgentePage() {
                         <View style={{ flex: 1 }}>
                           <Text style={modalStyles.detailLabel}>Departamento</Text>
                           <Text style={modalStyles.detailValue}>
-                            {selectedAgente.departamento_nombre || 'Sin asignar'}
-                          </Text>
+                            {selectedAgente.id_departamento
+                              ? (departamentos.find(d => d.id_departamento?.toString() === selectedAgente.id_departamento?.toString())?.nombre || 'Sin asignar')
+                              : 'Sin asignar'
+                            }                          </Text>
                         </View>
                       </View>
                       <View style={modalStyles.detailItem}>
@@ -3702,6 +4001,76 @@ export default function GestionAgentePage() {
                     </View>
                   </View>
 
+                  {/* HORARIOS DE ATENCIÓN */}
+                  {selectedAgente.horarios && (
+                    <View style={modalStyles.detailSection}>
+                      <Text style={modalStyles.detailSectionTitle}>🕐 Horarios de Atención</Text>
+                      <View style={{ gap: 12 }}>
+                        {Object.entries(
+                          typeof selectedAgente.horarios === 'string'
+                            ? JSON.parse(selectedAgente.horarios)
+                            : selectedAgente.horarios
+                        ).map(([dia, bloques]) => {
+                          const diaLabel = dia.charAt(0).toUpperCase() + dia.slice(1);
+                          const estaActivo = Array.isArray(bloques) && bloques.length > 0;
+
+                          return (
+                            <View key={dia} style={{
+                              backgroundColor: estaActivo
+                                ? 'rgba(102, 126, 234, 0.1)'
+                                : 'rgba(71, 85, 105, 0.2)',
+                              borderRadius: 10,
+                              padding: 14,
+                              borderWidth: 1,
+                              borderColor: estaActivo
+                                ? 'rgba(102, 126, 234, 0.3)'
+                                : 'rgba(148, 163, 184, 0.2)'
+                            }}>
+                              <View style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 10,
+                                marginBottom: estaActivo ? 8 : 0
+                              }}>
+                                <Ionicons
+                                  name={estaActivo ? "checkmark-circle" : "close-circle"}
+                                  size={18}
+                                  color={estaActivo ? '#22c55e' : '#94a3b8'}
+                                />
+                                <Text style={{
+                                  color: estaActivo ? '#ffffff' : '#94a3b8',
+                                  fontSize: 15,
+                                  fontWeight: '600',
+                                  flex: 1
+                                }}>
+                                  {diaLabel}
+                                </Text>
+                                {!estaActivo && (
+                                  <Text style={{ color: '#94a3b8', fontSize: 12 }}>
+                                    No disponible
+                                  </Text>
+                                )}
+                              </View>
+
+                              {estaActivo && (
+                                <View style={{ gap: 6, marginLeft: 28 }}>
+                                  {bloques.map((bloque, index) => (
+                                    <View key={index} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                      <Ionicons name="time-outline" size={14} color="#667eea" />
+                                      <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 13 }}>
+                                        {bloque.inicio} - {bloque.fin}
+                                      </Text>
+                                    </View>
+                                  ))}
+                                </View>
+                              )}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
+
                   {/* Estadísticas */}
                   <View style={modalStyles.detailSection}>
                     <Text style={modalStyles.detailSectionTitle}>📊 Estadísticas y Auditoría</Text>
@@ -3712,17 +4081,6 @@ export default function GestionAgentePage() {
                           <Text style={modalStyles.detailLabel}>Conversaciones</Text>
                           <Text style={modalStyles.detailValue}>
                             {selectedAgente.total_conversaciones || 0}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* ⭐ NUEVO: Creado por */}
-                      <View style={modalStyles.detailItem}>
-                        <Ionicons name="person-add" size={16} color="#22c55e" />
-                        <View style={{ flex: 1 }}>
-                          <Text style={modalStyles.detailLabel}>Creado por</Text>
-                          <Text style={modalStyles.detailValue}>
-                            {selectedAgente.creador_nombre || 'N/A'}
                           </Text>
                         </View>
                       </View>
@@ -3796,70 +4154,6 @@ export default function GestionAgentePage() {
                         }}>
                           {selectedAgente.prompt_especializado}
                         </Text>
-                      </View>
-                    </View>
-                  )}
-
-                  {/* HORARIOS DE ATENCIÓN */}
-                  {selectedAgente.horarios && (
-                    <View style={modalStyles.detailSection}>
-                      <Text style={modalStyles.detailSectionTitle}>🕐 Horarios de Atención</Text>
-                      <View style={{ gap: 12 }}>
-                        {Object.entries(
-                          typeof selectedAgente.horarios === 'string'
-                            ? JSON.parse(selectedAgente.horarios)
-                            : selectedAgente.horarios
-                        ).map(([dia, config]) => {
-                          const diaLabel = dia.charAt(0).toUpperCase() + dia.slice(1);
-
-                          return (
-                            <View key={dia} style={{
-                              backgroundColor: config.activo
-                                ? 'rgba(102, 126, 234, 0.1)'
-                                : 'rgba(71, 85, 105, 0.2)',
-                              borderRadius: 10,
-                              padding: 14,
-                              borderWidth: 1,
-                              borderColor: config.activo
-                                ? 'rgba(102, 126, 234, 0.3)'
-                                : 'rgba(148, 163, 184, 0.2)'
-                            }}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: config.activo && config.bloques?.length > 0 ? 8 : 0 }}>
-                                <Ionicons
-                                  name={config.activo ? "checkmark-circle" : "close-circle"}
-                                  size={18}
-                                  color={config.activo ? '#22c55e' : '#94a3b8'}
-                                />
-                                <Text style={{
-                                  color: config.activo ? '#ffffff' : '#94a3b8',
-                                  fontSize: 15,
-                                  fontWeight: '600',
-                                  flex: 1
-                                }}>
-                                  {diaLabel}
-                                </Text>
-                                {!config.activo && (
-                                  <Text style={{ color: '#94a3b8', fontSize: 12 }}>
-                                    No disponible
-                                  </Text>
-                                )}
-                              </View>
-
-                              {config.activo && config.bloques?.length > 0 && (
-                                <View style={{ gap: 6, marginLeft: 28 }}>
-                                  {config.bloques.map((bloque, index) => (
-                                    <View key={index} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                      <Ionicons name="time-outline" size={14} color="#667eea" />
-                                      <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 13 }}>
-                                        {bloque.inicio} - {bloque.fin}
-                                      </Text>
-                                    </View>
-                                  ))}
-                                </View>
-                              )}
-                            </View>
-                          );
-                        })}
                       </View>
                     </View>
                   )}
@@ -4623,27 +4917,28 @@ export default function GestionAgentePage() {
           </View>
         </View>
       </Modal>
-
       {/* ============ SIDEBAR MÓVIL ============ */}
-      {!isWeb && sidebarOpen && (
+      {!isWeb && (
         <>
-          {/* Overlay oscuro */}
-          <TouchableOpacity
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              zIndex: 998,
-            }}
-            onPress={() => setSidebarOpen(false)}
-            activeOpacity={1}
-          />
+          {/* Overlay oscuro - solo visible cuando está abierto */}
+          {sidebarOpen && (
+            <TouchableOpacity
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                zIndex: 998,
+              }}
+              onPress={() => setSidebarOpen(false)}
+              activeOpacity={1}
+            />
+          )}
 
-          {/* Sidebar deslizante */}
-          <View style={{
+          {/* Sidebar deslizante - SIEMPRE renderizado pero animado */}
+          <Animated.View style={{
             position: 'absolute',
             top: 0,
             left: 0,
@@ -4651,12 +4946,13 @@ export default function GestionAgentePage() {
             width: '80%',
             maxWidth: 320,
             zIndex: 999,
+            transform: [{ translateX: slideAnim }],
           }}>
             <SuperAdminSidebar
               isOpen={sidebarOpen}
               onNavigate={() => setSidebarOpen(false)}
             />
-          </View>
+          </Animated.View>
         </>
       )}
     </View>

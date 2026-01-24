@@ -1,18 +1,21 @@
 // GestionAgenteCard.js
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Text, TouchableOpacity, View } from 'react-native';
 import { getInitials, getTipoBadgeStyles, getTipoColor, styles } from '../../styles/gestionAgenteStyles';
 
+const { width } = Dimensions.get('window');
+const isMobile = width < 768;
+
 const GestionAgenteCard = ({ agente, onEdit, onDelete, onView, onToggleStatus }) => {
-  
+
   const tipoBadgeStyles = getTipoBadgeStyles(agente.tipo_agente);
   const tipoColor = getTipoColor(agente.tipo_agente);
 
   // Función para formatear el nombre del modelo
   const formatModelName = (modelo) => {
     if (!modelo) return 'N/A';
-    
+
     // Extraer el nombre legible del modelo
     if (modelo.includes('claude')) {
       const parts = modelo.split('-');
@@ -30,7 +33,7 @@ const GestionAgenteCard = ({ agente, onEdit, onDelete, onView, onToggleStatus })
       const parts = modelo.split('-');
       return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
     }
-    
+
     // Si no coincide con ningún patrón conocido, devolver el nombre original capitalizado
     return modelo.split('-').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
   };
@@ -51,12 +54,15 @@ const GestionAgenteCard = ({ agente, onEdit, onDelete, onView, onToggleStatus })
             {agente.icono || getInitials(agente.nombre_agente)}
           </Text>
         </View>
-        
+
         <View style={styles.cardHeaderContent}>
-          <Text style={styles.cardTitle} numberOfLines={1}>
+          <Text
+            style={styles.cardTitle}
+            numberOfLines={isMobile ? undefined : 1}
+          >
             {agente.nombre_agente}
           </Text>
-          
+
           <View style={styles.badgeContainer}>
             {/* Badge de tipo */}
             <View style={[styles.badge, { backgroundColor: tipoBadgeStyles.bg }]}>
@@ -64,7 +70,7 @@ const GestionAgenteCard = ({ agente, onEdit, onDelete, onView, onToggleStatus })
                 {agente.tipo_agente}
               </Text>
             </View>
-            
+
             {/* Status indicator */}
             <View style={styles.statusContainer}>
               <View style={[
@@ -95,7 +101,7 @@ const GestionAgenteCard = ({ agente, onEdit, onDelete, onView, onToggleStatus })
             </Text>
           </View>
         </View>
-        
+
         <View style={styles.infoItem}>
           <Ionicons name="people" size={14} color="rgba(255, 255, 255, 0.6)" />
           <View style={styles.infoItemContent}>
@@ -105,7 +111,7 @@ const GestionAgenteCard = ({ agente, onEdit, onDelete, onView, onToggleStatus })
             </Text>
           </View>
         </View>
-        
+
         <View style={styles.infoItem}>
           <Ionicons name="trending-up" size={14} color="rgba(255, 255, 255, 0.6)" />
           <View style={styles.infoItemContent}>
@@ -115,7 +121,7 @@ const GestionAgenteCard = ({ agente, onEdit, onDelete, onView, onToggleStatus })
             </Text>
           </View>
         </View>
-        
+
         <View style={styles.infoItem}>
           <Ionicons name="time" size={14} color="rgba(255, 255, 255, 0.6)" />
           <View style={styles.infoItemContent}>
@@ -128,35 +134,70 @@ const GestionAgenteCard = ({ agente, onEdit, onDelete, onView, onToggleStatus })
       </View>
 
       {/* Footer con acciones */}
-      <View style={styles.cardFooter}>
+      <View style={[
+        styles.cardFooter,
+        isMobile && { justifyContent: 'space-between' },
+        !isMobile && { justifyContent: 'flex-end', gap: 10 }
+      ]}>
         <TouchableOpacity
-          style={styles.iconButton}
+          style={[
+            styles.iconButton,
+            isMobile && { flex: 1 },
+            !isMobile && {
+              flex: 0,
+              paddingHorizontal: 14,
+              paddingVertical: 9,
+              minWidth: 70,
+            }
+          ]}
           onPress={(e) => {
             e?.stopPropagation?.();
             onView(agente);
           }}
           activeOpacity={0.7}
         >
-          <Ionicons name="eye-outline" size={16} color="#ffffff" />
-          <Text style={styles.iconButtonText}>Ver</Text>
+          <Ionicons name="eye-outline" size={isMobile ? 16 : 15} color="#ffffff" />
+          <Text style={[
+            styles.iconButtonText,
+            !isMobile && { fontSize: 12 }
+          ]}>Ver</Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity
-          style={styles.iconButton}
+          style={[
+            styles.iconButton,
+            isMobile && { flex: 1 },
+            !isMobile && {
+              flex: 0,
+              paddingHorizontal: 14,
+              paddingVertical: 9,
+              minWidth: 80,
+            }
+          ]}
           onPress={(e) => {
             e?.stopPropagation?.();
             onEdit(agente);
           }}
           activeOpacity={0.7}
         >
-          <Ionicons name="create-outline" size={16} color="#ffffff" />
-          <Text style={styles.iconButtonText}>Editar</Text>
+          <Ionicons name="create-outline" size={isMobile ? 16 : 15} color="#ffffff" />
+          <Text style={[
+            styles.iconButtonText,
+            !isMobile && { fontSize: 12 }
+          ]}>Editar</Text>
         </TouchableOpacity>
-        
         <TouchableOpacity
           style={[
             styles.iconButton,
-            agente.activo ? styles.iconButtonDanger : styles.iconButtonSuccess
+            agente.activo ? styles.iconButtonDanger : styles.iconButtonSuccess,
+            isMobile && { flex: 1 },
+            !isMobile && {
+              flex: 0,
+              width: 60,
+              height: 38,
+              paddingHorizontal: 0,
+              paddingVertical: 0,
+            }
           ]}
           onPress={(e) => {
             e?.stopPropagation?.();
@@ -164,10 +205,10 @@ const GestionAgenteCard = ({ agente, onEdit, onDelete, onView, onToggleStatus })
           }}
           activeOpacity={0.7}
         >
-          <Ionicons 
-            name="power" 
-            size={16} 
-            color={agente.activo ? '#ef4444' : '#22c55e'} 
+          <Ionicons
+            name="power"
+            size={isMobile ? 16 : 20}
+            color={agente.activo ? '#ef4444' : '#22c55e'}
           />
         </TouchableOpacity>
       </View>

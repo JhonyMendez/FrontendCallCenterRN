@@ -339,31 +339,31 @@ export const styles = StyleSheet.create({
     color: '#ffffff',
   },
 
-  // Card Footer (MEJORADO: más padding y elevación en botones)
+  // Card Footer (MEJORADO: más compacto)
   cardFooter: {
     flexDirection: 'row',
-    gap: 10, // era 8
-    paddingTop: 14, // era 12
+    gap: 8,
+    paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(102, 126, 234, 0.25)', // era 0.2
+    borderTopColor: 'rgba(102, 126, 234, 0.25)',
+    justifyContent: 'flex-end',
   },
   iconButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 7, // era 6
-    paddingVertical: 11, // era 10
-    paddingHorizontal: 14, // era 12
-    borderRadius: 11, // era 10
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
     backgroundColor: 'rgba(102, 126, 234, 0.2)',
-    borderWidth: 1.5, // era 1
-    borderColor: 'rgba(102, 126, 234, 0.35)', // era 0.3
-    shadowColor: '#667eea', // NUEVO
-    shadowOffset: { width: 0, height: 2 }, // NUEVO
-    shadowOpacity: 0.15, // NUEVO
-    shadowRadius: 6, // NUEVO
-    elevation: 2, // NUEVO
+    borderWidth: 1.5,
+    borderColor: 'rgba(102, 126, 234, 0.35)',
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 2,
   },
   iconButtonText: {
     color: '#ffffff',
@@ -373,11 +373,15 @@ export const styles = StyleSheet.create({
   },
   iconButtonDanger: {
     backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    borderColor: 'rgba(239, 68, 68, 0.4)', // era 0.3
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    minWidth: 60,
+    minHeight: 38,
   },
   iconButtonSuccess: {
     backgroundColor: 'rgba(34, 197, 94, 0.2)',
-    borderColor: 'rgba(34, 197, 94, 0.4)', // era 0.3
+    borderColor: 'rgba(34, 197, 94, 0.4)',
+    minWidth: 60,
+    minHeight: 38,
   },
 
   // Loading
@@ -569,7 +573,7 @@ export const modalStyles = StyleSheet.create({
     borderWidth: 1.5, // NUEVO
     borderColor: 'rgba(102, 126, 234, 0.25)', // NUEVO
   },
-footer: {
+  footer: {
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: 'rgba(102, 126, 234, 0.2)',
@@ -578,20 +582,20 @@ footer: {
     borderBottomRightRadius: 26,
   },
   cancelButton: {
-      paddingHorizontal: 18,
-      paddingVertical: 12,
-      borderRadius: 14,
-      backgroundColor: 'rgba(255, 255, 255, 0.08)',
-      borderWidth: 1.5,
-      borderColor: 'rgba(255, 255, 255, 0.15)',
-    },
-cancelButtonText: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  cancelButtonText: {
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
-saveButton: {
+  saveButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -605,7 +609,7 @@ saveButton: {
     shadowRadius: 12, // NUEVO
     elevation: 8, // NUEVO
   },
-saveButtonText: {
+  saveButtonText: {
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '800',
@@ -685,7 +689,7 @@ saveButtonText: {
     lineHeight: 22, // era 20
     fontWeight: '500', // NUEVO
   },
-actionButton: {
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -699,7 +703,7 @@ actionButton: {
     shadowRadius: 10, // NUEVO
     elevation: 6, // NUEVO
   },
-actionButtonText: {
+  actionButtonText: {
     color: '#ffffff',
     fontSize: 12,
     fontWeight: '800',
@@ -719,24 +723,24 @@ export const getTipoColor = (tipo) => {
 
 export const getTipoBadgeStyles = (tipo) => {
   const styles = {
-    router: { 
-      bg: 'rgba(139, 92, 246, 0.2)', 
+    router: {
+      bg: 'rgba(139, 92, 246, 0.2)',
       text: '#a78bfa',
       border: 'rgba(139, 92, 246, 0.4)' // NUEVO
     },
-    especializado: { 
-      bg: 'rgba(59, 130, 246, 0.2)', 
+    especializado: {
+      bg: 'rgba(59, 130, 246, 0.2)',
       text: '#60a5fa',
       border: 'rgba(59, 130, 246, 0.4)' // NUEVO
     },
-    hibrido: { 
-      bg: 'rgba(6, 182, 212, 0.2)', 
+    hibrido: {
+      bg: 'rgba(6, 182, 212, 0.2)',
       text: '#22d3ee',
       border: 'rgba(6, 182, 212, 0.4)' // NUEVO
     },
   };
-  return styles[tipo] || { 
-    bg: 'rgba(100, 116, 139, 0.2)', 
+  return styles[tipo] || {
+    bg: 'rgba(100, 116, 139, 0.2)',
     text: '#94a3b8',
     border: 'rgba(100, 116, 139, 0.4)' // NUEVO
   };

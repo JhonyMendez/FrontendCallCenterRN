@@ -1,7 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+
+const { width } = Dimensions.get('window');
+const isMobile = width < 768;
 export default function GestionDepartamentosCard({ departamento, onEdit, onDelete }) {
   // Formatear fecha de manera segura
   const formatDate = (dateString) => {
@@ -29,7 +32,10 @@ export default function GestionDepartamentosCard({ departamento, onEdit, onDelet
       {/* Header con badge */}
       <View style={styles.header}>
         <View style={styles.titleSection}>
-          <Text style={styles.nombre} numberOfLines={1}>
+          <Text
+            style={styles.nombre}
+            numberOfLines={isMobile ? undefined : 1}
+          >
             {departamento?.nombre || 'Sin nombre'}
           </Text>
           <View style={styles.codigoContainer}>
@@ -37,7 +43,7 @@ export default function GestionDepartamentosCard({ departamento, onEdit, onDelet
             <Text style={styles.codigo}>#{departamento?.codigo || 'N/A'}</Text>
           </View>
         </View>
-        
+
         <View
           style={[
             styles.badge,
@@ -120,7 +126,7 @@ export default function GestionDepartamentosCard({ departamento, onEdit, onDelet
           <Ionicons name="calendar" size={14} color="rgba(255, 255, 255, 0.4)" />
           <Text style={styles.dateText}>{formatDate(departamento?.fecha_creacion)}</Text>
         </View>
-        
+
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.actionButton, styles.editButton]}
@@ -129,7 +135,7 @@ export default function GestionDepartamentosCard({ departamento, onEdit, onDelet
           >
             <Ionicons name="create" size={18} color="#667eea" />
           </TouchableOpacity>
-          
+
           <TouchableOpacity
             style={[styles.actionButton, styles.deleteButton]}
             onPress={() => onDelete(departamento?.id_departamento)}

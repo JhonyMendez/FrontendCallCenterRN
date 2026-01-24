@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   FlatList,
   Modal,
   Platform,
@@ -21,6 +22,118 @@ import GestionDepartamentosCard from '../../components/SuperAdministrador/Gestio
 import { styles } from '../../styles/gestionDepartamentosStyles';
 
 const isWeb = Platform.OS === 'web';
+const { width } = Dimensions.get('window');
+const isMobile = width < 768;
+
+// Componente Tooltip para Web y Móvil
+function TooltipIcon({ text }) {
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  return (
+    <View style={{ position: 'relative' }}>
+      <TouchableOpacity
+        onPress={() => setShowTooltip(!showTooltip)} // Para móvil (tap)
+        onMouseEnter={() => !isMobile && setShowTooltip(true)} // Para web (hover)
+        onMouseLeave={() => !isMobile && setShowTooltip(false)} // Para web
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: 9,
+          backgroundColor: 'rgba(102, 126, 234, 0.2)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderWidth: 1,
+          borderColor: 'rgba(102, 126, 234, 0.4)',
+        }}
+      >
+        <Text style={{ color: '#667eea', fontSize: 12, fontWeight: 'bold' }}>?</Text>
+      </TouchableOpacity>
+
+      {showTooltip && (
+        <>
+          {/* Overlay para cerrar al tocar fuera (solo móvil) */}
+          {isMobile && (
+            <TouchableOpacity
+              onPress={() => setShowTooltip(false)}
+              style={{
+                position: 'absolute',
+                top: -1000,
+                left: -1000,
+                right: -1000,
+                bottom: -1000,
+                zIndex: 999,
+              }}
+              activeOpacity={1}
+            />
+          )}
+
+          {/* Tooltip */}
+          <View style={{
+            position: 'absolute',
+            top: isMobile ? 25 : -5,
+            left: isMobile ? -100 : 25,
+            backgroundColor: '#1a1a2e',
+            padding: 12,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: 'rgba(102, 126, 234, 0.3)',
+            minWidth: isMobile ? 250 : 200,
+            maxWidth: isMobile ? 300 : 280,
+            zIndex: 1000,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 8,
+          }}>
+            {/* Flecha indicadora */}
+            <View style={{
+              position: 'absolute',
+              top: isMobile ? -6 : 8,
+              left: isMobile ? '50%' : -6,
+              marginLeft: isMobile ? -6 : 0,
+              width: 12,
+              height: 12,
+              backgroundColor: '#1a1a2e',
+              borderTopWidth: 1,
+              borderLeftWidth: 1,
+              borderColor: 'rgba(102, 126, 234, 0.3)',
+              transform: [{ rotate: isMobile ? '45deg' : '-45deg' }],
+            }} />
+
+            <Text style={{
+              color: 'rgba(255, 255, 255, 0.9)',
+              fontSize: 12,
+              lineHeight: 18,
+            }}>
+              {text}
+            </Text>
+
+            {/* Botón cerrar solo en móvil */}
+            {isMobile && (
+              <TouchableOpacity
+                onPress={() => setShowTooltip(false)}
+                style={{
+                  position: 'absolute',
+                  top: 4,
+                  right: 4,
+                  width: 20,
+                  height: 20,
+                  borderRadius: 10,
+                  backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <Ionicons name="close" size={14} color="#ef4444" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </>
+      )}
+    </View>
+  );
+}
 
 export default function GestionDepartamentosPage() {
   // ============ STATE ============
@@ -419,12 +532,22 @@ export default function GestionDepartamentosPage() {
         sidebarOpen && contentStyles.mainContentWithSidebar
       ]}>
         <View style={styles.container}>
-
           {/* ============ HEADER ============ */}
-          <View style={styles.header}>
+          <View style={[
+            styles.header,
+            isMobile && { paddingTop: 60 }
+          ]}>
             <View style={styles.headerLeft}>
-              <Text style={styles.title}>🏢 Departamentos</Text>
-              <Text style={styles.subtitle}>
+              <Text style={[
+                styles.title,
+                isMobile && { fontSize: 20 }
+              ]}>
+                🏢 Departamentos
+              </Text>
+              <Text style={[
+                styles.subtitle,
+                isMobile && { fontSize: 13 }
+              ]}>
                 {departamentos.length} {departamentos.length === 1 ? 'departamento registrado' : 'departamentos registrados'}
               </Text>
             </View>
@@ -536,10 +659,15 @@ export default function GestionDepartamentosPage() {
 
                 {/* Header del Modal */}
                 <View style={styles.modalHeader}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: isMobile ? 8 : 12,
+                    flex: 1
+                  }}>
                     <View style={{
-                      width: 48,
-                      height: 48,
+                      width: isMobile ? 40 : 48,
+                      height: isMobile ? 40 : 48,
                       borderRadius: 14,
                       backgroundColor: 'rgba(102, 126, 234, 0.3)',
                       justifyContent: 'center',
@@ -552,16 +680,23 @@ export default function GestionDepartamentosPage() {
                     }}>
                       <Ionicons
                         name={editingDepartamento ? "create-outline" : "add-circle-outline"}
-                        size={28}
+                        size={isMobile ? 24 : 28}
                         color="#667eea"
                       />
                     </View>
-                    <View>
-                      <Text style={styles.modalTitle}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[
+                        styles.modalTitle,
+                        isMobile && { fontSize: 16 }
+                      ]}>
                         {editingDepartamento ? 'Editar Departamento' : 'Nuevo Departamento'}
                       </Text>
-                      <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}>
-                        {editingDepartamento ? 'Modifica la información del departamento' : 'Completa los campos requeridos'}
+                      <Text style={{
+                        color: 'rgba(255, 255, 255, 0.5)',
+                        fontSize: isMobile ? 11 : 12,
+                        marginTop: 2
+                      }}>
+                        {editingDepartamento ? 'Modifica la información' : 'Completa los campos'}
                       </Text>
                     </View>
                   </View>
@@ -571,17 +706,18 @@ export default function GestionDepartamentosPage() {
                       resetForm();
                     }}
                     style={{
-                      width: 40,
-                      height: 40,
+                      width: isMobile ? 36 : 40,
+                      height: isMobile ? 36 : 40,
                       borderRadius: 12,
                       backgroundColor: 'rgba(239, 68, 68, 0.15)',
                       justifyContent: 'center',
                       alignItems: 'center',
                       borderWidth: 1,
                       borderColor: 'rgba(239, 68, 68, 0.3)',
+                      marginLeft: isMobile ? 8 : 0,
                     }}
                   >
-                    <Ionicons name="close" size={22} color="#ef4444" />
+                    <Ionicons name="close" size={isMobile ? 20 : 22} color="#ef4444" />
                   </TouchableOpacity>
                 </View>
 
@@ -594,10 +730,8 @@ export default function GestionDepartamentosPage() {
                       <Ionicons name="text" size={16} color="#667eea" />
                       <Text style={styles.label}>
                         Nombre <Text style={styles.required}>*</Text>
-                        <Text style={{ fontSize: 11, fontWeight: '400', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'none' }}>
-                          {' '}(5-100 caracteres)
-                        </Text>
                       </Text>
+                      <TooltipIcon text="Ingresa el nombre completo del departamento. Debe tener entre 5 y 100 caracteres. Ejemplo: Departamento de Sistemas y Tecnología" />
                     </View>
                     <TextInput
                       style={[styles.input, errors.nombre && { borderColor: '#ef4444', borderWidth: 2 }]}
@@ -634,10 +768,8 @@ export default function GestionDepartamentosPage() {
                       <Ionicons name="pricetag" size={16} color="#667eea" />
                       <Text style={styles.label}>
                         Código <Text style={styles.required}>*</Text>
-                        <Text style={{ fontSize: 11, fontWeight: '400', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'none' }}>
-                          {' '}(3-50 caracteres, solo letras, números, - y _)
-                        </Text>
                       </Text>
+                      <TooltipIcon text="Código único para identificar el departamento. Solo usa letras, números, guiones (-) y guiones bajos (_). Entre 3 y 50 caracteres. Ejemplo: DEPT-SIS-001" />
                     </View>
                     <TextInput
                       style={[styles.input, errors.codigo && { borderColor: '#ef4444', borderWidth: 2 }]}
@@ -665,12 +797,8 @@ export default function GestionDepartamentosPage() {
                   <View style={styles.formGroup}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                       <Ionicons name="business" size={16} color="#667eea" />
-                      <Text style={styles.label}>
-                        Facultad
-                        <Text style={{ fontSize: 11, fontWeight: '400', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'none' }}>
-                          {' '}(opcional, máx. 100 caracteres)
-                        </Text>
-                      </Text>
+                      <Text style={styles.label}>Facultad</Text>
+                      <TooltipIcon text="Facultad a la que pertenece el departamento (opcional). Máximo 100 caracteres. Ejemplo: Ingeniería y Tecnología" />
                     </View>
                     <TextInput
                       style={[styles.input, errors.facultad && { borderColor: '#ef4444', borderWidth: 2 }]}
@@ -694,12 +822,8 @@ export default function GestionDepartamentosPage() {
                   <View style={styles.formGroup}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                       <Ionicons name="mail" size={16} color="#667eea" />
-                      <Text style={styles.label}>
-                        Email
-                        <Text style={{ fontSize: 11, fontWeight: '400', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'none' }}>
-                          {' '}(opcional, formato válido)
-                        </Text>
-                      </Text>
+                      <Text style={styles.label}>Email</Text>
+                      <TooltipIcon text="Correo electrónico de contacto del departamento (opcional). Debe tener formato válido. Ejemplo: sistemas@institucion.edu.ec" />
                     </View>
                     <TextInput
                       style={[styles.input, errors.email && { borderColor: '#ef4444', borderWidth: 2 }]}
@@ -719,18 +843,20 @@ export default function GestionDepartamentosPage() {
                         </Text>
                       </View>
                     )}
+                    {formData.email.length > 0 && !errors.email && validateEmail(formData.email) && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
+                        <Ionicons name="checkmark-circle" size={14} color="#10b981" />
+                        <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '600' }}>Válido</Text>
+                      </View>
+                    )}
                   </View>
 
                   {/* Teléfono */}
                   <View style={styles.formGroup}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                       <Ionicons name="call" size={16} color="#667eea" />
-                      <Text style={styles.label}>
-                        Teléfono
-                        <Text style={{ fontSize: 11, fontWeight: '400', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'none' }}>
-                          {' '}(opcional, 7-15 caracteres)
-                        </Text>
-                      </Text>
+                      <Text style={styles.label}>Teléfono</Text>
+                      <TooltipIcon text="Número de teléfono del departamento (opcional). Entre 7 y 15 caracteres. Ejemplo: 0991234567 o +593 99 123 4567" />
                     </View>
                     <TextInput
                       style={[styles.input, errors.telefono && { borderColor: '#ef4444', borderWidth: 2 }]}
@@ -755,12 +881,8 @@ export default function GestionDepartamentosPage() {
                   <View style={styles.formGroup}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                       <Ionicons name="location" size={16} color="#667eea" />
-                      <Text style={styles.label}>
-                        Ubicación
-                        <Text style={{ fontSize: 11, fontWeight: '400', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'none' }}>
-                          {' '}(opcional, máx. 200 caracteres)
-                        </Text>
-                      </Text>
+                      <Text style={styles.label}>Ubicación</Text>
+                      <TooltipIcon text="Ubicación física del departamento (opcional). Máximo 200 caracteres. Ejemplo: Edificio A, Piso 2, Oficina 205" />
                     </View>
                     <TextInput
                       style={[styles.input, errors.ubicacion && { borderColor: '#ef4444', borderWidth: 2 }]}
@@ -778,18 +900,17 @@ export default function GestionDepartamentosPage() {
                         </Text>
                       </View>
                     )}
+                    <Text style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 11, marginTop: 6 }}>
+                      {formData.ubicacion.length}/200 caracteres
+                    </Text>
                   </View>
 
                   {/* Descripción */}
                   <View style={styles.formGroup}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                       <Ionicons name="document-text" size={16} color="#667eea" />
-                      <Text style={styles.label}>
-                        Descripción
-                        <Text style={{ fontSize: 11, fontWeight: '400', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'none' }}>
-                          {' '}(opcional, máx. 500 caracteres)
-                        </Text>
-                      </Text>
+                      <Text style={styles.label}>Descripción</Text>
+                      <TooltipIcon text="Descripción detallada del departamento, sus funciones y responsabilidades (opcional). Máximo 500 caracteres." />
                     </View>
                     <TextInput
                       style={[styles.input, styles.textArea, errors.descripcion && { borderColor: '#ef4444', borderWidth: 2 }]}
