@@ -554,7 +554,7 @@ const GestionUsuarioPage = () => {
       <TouchableOpacity
         style={{
           position: 'absolute',
-          top: 16,
+          top: Platform.OS === 'ios' ? 50 : 40,  // ← NUEVA LÍNEA
           left: sidebarOpen ? 296 : 16,
           zIndex: 1001,
           backgroundColor: '#1e1b4b',
@@ -1185,7 +1185,7 @@ const modalStyles = StyleSheet.create({
   },
   notificationOverlay: {
     position: 'absolute',
-    top: 0,
+    top: Platform.OS === 'ios' ? 50 : 40,  // ← NUEVA LÍNEA
     left: 0,
     right: 0,
     alignItems: 'center',

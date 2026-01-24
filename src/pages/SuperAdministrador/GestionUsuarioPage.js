@@ -13,6 +13,7 @@ import {
   Animated,
   Modal,
   Platform,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -543,7 +544,7 @@ const GestionUsuarioPage = () => {
 
   // ==================== RENDER ====================
   return (
-    <View style={contentStyles.wrapper}>
+    <SafeAreaView style={[contentStyles.wrapper, { flex: 1 }]}>
       {/* Sidebar WEB - Fijo al lado */}
       {isWeb && (
         <SuperAdminSidebar
@@ -557,7 +558,7 @@ const GestionUsuarioPage = () => {
       <TouchableOpacity
         style={{
           position: 'absolute',
-          top: 16,
+          top: Platform.OS === 'ios' ? 50 : 40,  // ← NUEVA LÍNEA
           left: sidebarOpen ? 296 : 16,
           zIndex: 1001,
           backgroundColor: '#1e1b4b',
@@ -818,7 +819,7 @@ const GestionUsuarioPage = () => {
         departamento={modalDepartamentoAsignado.departamento}
         onClose={() => setModalDepartamentoAsignado({ visible: false, usuario: null, departamento: null })}
       />
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -1190,7 +1191,7 @@ const modalStyles = StyleSheet.create({
   },
   notificationOverlay: {
     position: 'absolute',
-    top: 0,
+    top: Platform.OS === 'ios' ? 50 : 40, 
     left: 0,
     right: 0,
     alignItems: 'center',

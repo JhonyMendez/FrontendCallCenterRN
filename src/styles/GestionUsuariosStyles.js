@@ -467,6 +467,7 @@ export const styles = StyleSheet.create({
   cardContainer: {
     flex: 1,
     backgroundColor: '#0f0f23',
+    paddingTop: Platform.OS === 'ios' ? 0 : 0,
   },
 
   cardHeader: {
@@ -474,9 +475,10 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 24,
-    paddingTop: Platform.OS === 'ios' ? 60 : 24,
+    paddingTop: Platform.OS === 'ios' ? 50 : 40,
     backgroundColor: 'rgba(26, 26, 46, 0.98)',
     borderBottomWidth: 1,
+
     borderBottomColor: 'rgba(102, 126, 234, 0.3)',
   },
 
@@ -502,7 +504,9 @@ export const styles = StyleSheet.create({
   },
 
   cardContent: {
+    flex: 1,
     padding: 24,
+    paddingBottom: 20,
   },
 
   sectionTitle: {
@@ -724,29 +728,34 @@ export const styles = StyleSheet.create({
   actionsContainer: {
     flexDirection: 'row',
     gap: 16,
-    padding: 24,
+    padding: 16,
+    paddingBottom: 16,
     backgroundColor: 'rgba(26, 26, 46, 0.98)',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(102, 126, 234, 0.3)',
+    borderTopColor: 'rgba(102, 126, 234, 0.3)',                                // ← Reducido de 72 a 64
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-
   btnGuardar: {
     flex: 1,
-    padding: 20,
-    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 40,            // ← Reducido de 48 a 40
     ...Platform.select({
       ios: {
         shadowColor: '#10B981',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.5,
-        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 10,
+        elevation: 6,
       },
       web: {
-        boxShadow: '0 10px 40px rgba(16, 185, 129, 0.5)',
+        boxShadow: '0 4px 16px rgba(16, 185, 129, 0.3)',
         cursor: 'pointer',
         transition: 'all 0.2s ease',
       }
@@ -755,26 +764,28 @@ export const styles = StyleSheet.create({
 
   btnGuardarText: {
     color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '900',
-    letterSpacing: 1.2,
+    fontSize: 12,             // ← Reducido de 13 a 12
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
-
   btnCancelar: {
-    flex: 1,
     backgroundColor: 'rgba(102, 126, 234, 0.15)',
-    padding: 20,
-    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(102, 126, 234, 0.4)',
+    minHeight: 48,
+    minWidth: 110,
   },
 
   btnCancelarText: {
     color: '#c7d2fe',
-    fontSize: 17,
-    fontWeight: '800',
-    letterSpacing: 1.2,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 
   btnGuardarDisabled: {
@@ -894,185 +905,205 @@ export const styles = StyleSheet.create({
     marginTop: 2,
   },
   pickerContainer: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  backgroundColor: '#FFFFFF',
-  borderRadius: 12,
-  borderWidth: 1,
-  borderColor: '#E5E7EB',
-  paddingHorizontal: 16,
-  paddingVertical: 4,
-  height: 52,
-},
-pickerWrapper: {
-  flex: 1,
-},
-pickerButton: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  paddingVertical: 8,
-},
-pickerButtonText: {
-  fontSize: 15,
-  color: '#374151',
-  flex: 1,
-},
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    height: 52,
+  },
+  pickerWrapper: {
+    flex: 1,
+  },
+  pickerButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  pickerButtonText: {
+    fontSize: 15,
+    color: '#374151',
+    flex: 1,
+  },
 
-pickerContainer: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  backgroundColor: '#FFFFFF',
-  borderRadius: 12,
-  borderWidth: 1,
-  borderColor: '#E5E7EB',
-  paddingHorizontal: 16,
-  paddingVertical: 4,
-  height: 52,
-},
-pickerWrapper: {
-  flex: 1,
-},
-pickerButton: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  paddingVertical: 8,
-},
-pickerButtonText: {
-  fontSize: 15,
-  color: '#374151',
-  flex: 1,
-},
+  pickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    height: 52,
+  },
+  pickerWrapper: {
+    flex: 1,
+  },
+  pickerButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  pickerButtonText: {
+    fontSize: 15,
+    color: '#374151',
+    flex: 1,
+  },
 
 
   // ==================== BOTÓN ANTERIOR ====================
   btnAnterior: {
-    flex: 1,
-    paddingVertical: 20,
-    paddingHorizontal: 28,
-    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     backgroundColor: 'rgba(102, 126, 234, 0.15)',
     borderWidth: 1,
     borderColor: 'rgba(102, 126, 234, 0.4)',
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
   },
 
   btnAnteriorText: {
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '700',
     color: '#c7d2fe',
-    letterSpacing: 1.2,
+    letterSpacing: 0.5,
+  },
+  pickerContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  genderBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  genderBtnActive: {
+    backgroundColor: '#667eea',
+    borderColor: '#667eea',
+  },
+  genderBtnText: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  tipoBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  tipoBtnActive: {
+    backgroundColor: '#667eea',
+    borderColor: '#667eea',
+  },
+  tipoBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
   },
 
 
 
 
-  
+  // ✅ REEMPLAZA limitContainer con estos estilos más compactos
 
+  limitSeparator: {
+    width: 1,
+    height: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    marginHorizontal: 12,
+  },
+  limitContainerCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  limitBtnCompact: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    minWidth: 32,
+    alignItems: 'center',
+  },
+  limitBtnCompactActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  limitBtnTextCompact: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  limitBtnTextCompactActive: {
+    color: '#667eea',
+  },
 
+  // Mantén los estilos de paginación
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 20,
+    paddingVertical: 20,
+    marginTop: 20,
+  },
+  paginationBtn: {
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+  },
+  paginationBtnDisabled: {
+    opacity: 0.5,
+  },
+  paginationText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
 
-  pickerContainer: {
-  flex: 1,
-  flexDirection: 'row',
-  flexWrap: 'wrap',
-  gap: 8,
-},
-genderBtn: {
-  paddingHorizontal: 12,
-  paddingVertical: 6,
-  borderRadius: 8,
-  backgroundColor: '#F3F4F6',
-  borderWidth: 1,
-  borderColor: '#E5E7EB',
-},
-genderBtnActive: {
-  backgroundColor: '#667eea',
-  borderColor: '#667eea',
-},
-genderBtnText: {
-  fontSize: 12,
-  color: '#6B7280',
-},
-tipoBtn: {
-  paddingHorizontal: 16,
-  paddingVertical: 8,
-  borderRadius: 8,
-  backgroundColor: '#F3F4F6',
-  borderWidth: 1,
-  borderColor: '#E5E7EB',
-},
-tipoBtnActive: {
-  backgroundColor: '#667eea',
-  borderColor: '#667eea',
-},
-tipoBtnText: {
-  fontSize: 13,
-  fontWeight: '600',
-  color: '#6B7280',
-},
-
-
-
-
-// ✅ REEMPLAZA limitContainer con estos estilos más compactos
-
-limitSeparator: {
-  width: 1,
-  height: 30,
-  backgroundColor: 'rgba(255, 255, 255, 0.3)',
-  marginHorizontal: 12,
-},
-limitContainerCompact: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  gap: 4,
-},
-limitBtnCompact: {
-  paddingHorizontal: 8,
-  paddingVertical: 4,
-  borderRadius: 6,
-  backgroundColor: 'rgba(255, 255, 255, 0.15)',
-  minWidth: 32,
-  alignItems: 'center',
-},
-limitBtnCompactActive: {
-  backgroundColor: '#FFFFFF',
-},
-limitBtnTextCompact: {
-  color: 'rgba(255, 255, 255, 0.8)',
-  fontSize: 12,
-  fontWeight: '600',
-},
-limitBtnTextCompactActive: {
-  color: '#667eea',
-},
-
-// Mantén los estilos de paginación
-paginationContainer: {
-  flexDirection: 'row',
-  justifyContent: 'center',
-  alignItems: 'center',
-  gap: 20,
-  paddingVertical: 20,
-  marginTop: 20,
-},
-paginationBtn: {
-  padding: 10,
-  borderRadius: 8,
-  backgroundColor: '#F3F4F6',
-},
-paginationBtnDisabled: {
-  opacity: 0.5,
-},
-paginationText: {
-  fontSize: 14,
-  fontWeight: '600',
-  color: '#374151',
-},
-
-
-
+  pickerContainerVertical: {
+    gap: 12,
+  },
+  tipoBtnFull: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+    borderWidth: 2,
+    borderColor: 'rgba(102, 126, 234, 0.3)',
+  },
+  tipoBtnTextFull: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#667eea',
+    letterSpacing: 0.5,
+  },
+  genderBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  tipoBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
 });
 
 

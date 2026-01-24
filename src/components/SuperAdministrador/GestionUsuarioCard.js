@@ -4,6 +4,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
   ScrollView,
   Text,
   TextInput,
@@ -682,224 +685,216 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
     <View>
       <Text style={styles.sectionTitle}>📋 Información Personal Básica</Text>
 
-      <View style={styles.formRow}>
-
-
-
-        <View style={styles.formColumn}>
-          <Text style={styles.label}>
-            CÉDULA <Text style={styles.labelRequired}>*</Text>
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <View style={[
-              styles.inputContainer,
-              errors.cedula && styles.inputError,
-              { flex: 1 }
-            ]}>
-              <Ionicons name="card-outline" size={20} color="#667eea" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="10 dígitos (ej: 0102417144)"
-                placeholderTextColor="#9CA3AF"
-                value={cedula}
-                onChangeText={(text) => {
-                  const limpio = SecurityValidator.sanitizeText(text).replace(/[^0-9]/g, '');
-                  setCedula(limpio);
-                  setCedulaConsultada(false);
-
-                  // ✅ Validar en tiempo real cuando tenga 10 dígitos
-                  if (limpio.length === 10) {
-                    const resultado = validarCedulaEcuatoriana(limpio);
-                    if (!resultado.valida) {
-                      setErrors({ ...errors, cedula: resultado.mensaje });
-                    } else {
-                      setErrors({ ...errors, cedula: undefined });
-                    }
-                  } else if (errors.cedula) {
-                    setErrors({ ...errors, cedula: undefined });
-                  }
-                }}
-                keyboardType="numeric"
-                maxLength={10}
-                editable={!usuario}
-              />
-            </View>
-
-            {/* ✅ BOTÓN DE CONSULTA */}
-            {!usuario && cedula.length === 10 && !cedulaConsultada && (
-              <TouchableOpacity
-                style={{
-                  backgroundColor: '#667eea',
-                  paddingHorizontal: 16,
-                  paddingVertical: 12,
-                  borderRadius: 8,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  minWidth: 100,
-                }}
-                onPress={consultarCedula}
-                disabled={consultandoCedula}
-                activeOpacity={0.7}
-              >
-                {consultandoCedula ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 14 }}>
-                    CONSULTAR
-                  </Text>
-                )}
-              </TouchableOpacity>
-            )}
-
-            {/* ✅ INDICADOR DE CONSULTADO */}
-            {cedulaConsultada && (
-              <View style={{
-                backgroundColor: '#10b981',
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                borderRadius: 8,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}>
-                <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
-              </View>
-            )}
-          </View>
-
-          {/* ✅ INDICADOR DE VALIDEZ */}
-          {!usuario && cedula.length === 10 && !errors.cedula && (
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginTop: 8,
-              padding: 8,
-              backgroundColor: '#f0fdf4',
-              borderRadius: 8,
-              borderWidth: 1,
-              borderColor: '#10b981',
-            }}>
-              <Ionicons name="checkmark-circle" size={16} color="#10b981" />
-              <Text style={{ marginLeft: 6, fontSize: 12, color: '#059669', fontWeight: '600' }}>
-                ✓ Cédula ecuatoriana válida
-              </Text>
-            </View>
-          )}
-
-          {errors.cedula && <Text style={styles.errorText}>{errors.cedula}</Text>}
-
-          {/* ✅ MENSAJE INFORMATIVO */}
-          {!usuario && !cedulaConsultada && cedula.length === 10 && (
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginTop: 8,
-              padding: 8,
-              backgroundColor: '#EFF6FF',
-              borderRadius: 8,
-            }}>
-              <Ionicons name="information-circle" size={16} color="#667eea" />
-              <Text style={{ marginLeft: 6, fontSize: 12, color: '#667eea' }}>
-                Presiona CONSULTAR para cargar datos automáticamente
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.formColumn}>
-          <Text style={styles.label}>FECHA NACIMIENTO</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons name="calendar-outline" size={20} color="#667eea" style={styles.inputIcon} />
-            <DateInput
-              value={fechaNacimiento}
-              onChangeText={setFechaNacimiento}
-              placeholder="Seleccionar fecha"
-              style={styles.input}
-              containerStyle={styles.inputContainer}
-            />
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.formRow}>
-        <View style={styles.formColumn}>
-          <Text style={styles.label}>
-            NOMBRE <Text style={styles.labelRequired}>*</Text>
-          </Text>
-          <View style={[styles.inputContainer, errors.nombre && styles.inputError]}>
-            <Ionicons name="person-outline" size={20} color="#667eea" style={styles.inputIcon} />
+      {/* CÉDULA - ANCHO COMPLETO EN MÓVIL */}
+      <View style={{ marginBottom: 20 }}>
+        <Text style={styles.label}>
+          CÉDULA <Text style={styles.labelRequired}>*</Text>
+        </Text>
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
+          <View style={[
+            styles.inputContainer,
+            errors.cedula && styles.inputError,
+            { flex: 1 }
+          ]}>
+            <Ionicons name="card-outline" size={20} color="#667eea" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
-              placeholder="Solo letras (ej: María)"
+              placeholder="10 dígitos"
               placeholderTextColor="#9CA3AF"
-              value={nombre}
-              onChangeText={(text) => {
-                const limpio = SecurityValidator.sanitizeText(text).replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
-
-                setNombre(limpio);
-                if (errors.nombre) setErrors({ ...errors, nombre: undefined });
-              }}
-            />
-          </View>
-          {errors.nombre && <Text style={styles.errorText}>{errors.nombre}</Text>}
-        </View>
-
-        <View style={styles.formColumn}>
-          <Text style={styles.label}>
-            APELLIDO <Text style={styles.labelRequired}>*</Text>
-          </Text>
-          <View style={[styles.inputContainer, errors.apellido && styles.inputError]}>
-            <Ionicons name="person-outline" size={20} color="#667eea" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Solo letras (ej: Pérez)"
-              placeholderTextColor="#9CA3AF"
-              value={apellido}
-              onChangeText={(text) => {
-                const limpio = SecurityValidator.sanitizeText(text).replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
-
-                setApellido(limpio);
-                if (errors.apellido) setErrors({ ...errors, apellido: undefined });
-              }}
-            />
-          </View>
-          {errors.apellido && <Text style={styles.errorText}>{errors.apellido}</Text>}
-        </View>
-      </View>
-
-      <View style={styles.formRow}>
-        <View style={styles.formColumn}>
-          <Text style={styles.label}>TELÉFONO</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons name="call-outline" size={20} color="#667eea" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="7-15 dígitos (ej: 0987654321)"
-              placeholderTextColor="#9CA3AF"
-              value={telefono}
+              value={cedula}
               onChangeText={(text) => {
                 const limpio = SecurityValidator.sanitizeText(text).replace(/[^0-9]/g, '');
-                setTelefono(limpio);
+                setCedula(limpio);
+                setCedulaConsultada(false);
+
+                if (limpio.length === 10) {
+                  const resultado = validarCedulaEcuatoriana(limpio);
+                  if (!resultado.valida) {
+                    setErrors({ ...errors, cedula: resultado.mensaje });
+                  } else {
+                    setErrors({ ...errors, cedula: undefined });
+                  }
+                } else if (errors.cedula) {
+                  setErrors({ ...errors, cedula: undefined });
+                }
               }}
-              keyboardType="phone-pad"
-              maxLength={15}
+              keyboardType="numeric"
+              maxLength={10}
+              editable={!usuario}
             />
           </View>
+
+          {/* BOTÓN DE CONSULTA */}
+          {!usuario && cedula.length === 10 && !cedulaConsultada && (
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#667eea',
+                paddingHorizontal: 16,
+                paddingVertical: 16,
+                borderRadius: 12,
+                justifyContent: 'center',
+                alignItems: 'center',
+                minWidth: 80,
+              }}
+              onPress={consultarCedula}
+              disabled={consultandoCedula}
+              activeOpacity={0.7}
+            >
+              {consultandoCedula ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="search" size={20} color="#FFFFFF" />
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* INDICADOR DE CONSULTADO */}
+          {cedulaConsultada && (
+            <View style={{
+              backgroundColor: '#10b981',
+              paddingHorizontal: 16,
+              paddingVertical: 16,
+              borderRadius: 12,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}>
+              <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+            </View>
+          )}
         </View>
 
-        <View style={styles.formColumn}>
-          <Text style={styles.label}>DIRECCIÓN</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons name="location-outline" size={20} color="#667eea" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Calle principal #123"
-              placeholderTextColor="#9CA3AF"
-              value={direccion}
-              onChangeText={(text) => {
-                setDireccion(SecurityValidator.sanitizeText(text));
-              }}
-            />
+        {/* INDICADOR DE VALIDEZ */}
+        {!usuario && cedula.length === 10 && !errors.cedula && (
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginTop: 8,
+            padding: 8,
+            backgroundColor: '#f0fdf4',
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: '#10b981',
+          }}>
+            <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+            <Text style={{ marginLeft: 6, fontSize: 12, color: '#059669', fontWeight: '600' }}>
+              Cédula ecuatoriana válida
+            </Text>
           </View>
+        )}
+
+        {errors.cedula && <Text style={styles.errorText}>{errors.cedula}</Text>}
+
+        {/* MENSAJE INFORMATIVO */}
+        {!usuario && !cedulaConsultada && cedula.length === 10 && (
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginTop: 8,
+            padding: 8,
+            backgroundColor: '#EFF6FF',
+            borderRadius: 8,
+          }}>
+            <Ionicons name="information-circle" size={16} color="#667eea" />
+            <Text style={{ marginLeft: 6, fontSize: 12, color: '#667eea', flex: 1 }}>
+              Presiona el botón de búsqueda para cargar datos automáticamente
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* FECHA DE NACIMIENTO - ANCHO COMPLETO */}
+      <View style={{ marginBottom: 20 }}>
+        <Text style={styles.label}>FECHA NACIMIENTO</Text>
+        <View style={styles.inputContainer}>
+          <Ionicons name="calendar-outline" size={20} color="#667eea" style={styles.inputIcon} />
+          <DateInput
+            value={fechaNacimiento}
+            onChangeText={setFechaNacimiento}
+            placeholder="Seleccionar fecha"
+            style={styles.input}
+            containerStyle={styles.inputContainer}
+          />
+        </View>
+      </View>
+
+      {/* NOMBRE - ANCHO COMPLETO */}
+      <View style={{ marginBottom: 20 }}>
+        <Text style={styles.label}>
+          NOMBRE <Text style={styles.labelRequired}>*</Text>
+        </Text>
+        <View style={[styles.inputContainer, errors.nombre && styles.inputError]}>
+          <Ionicons name="person-outline" size={20} color="#667eea" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Solo letras"
+            placeholderTextColor="#9CA3AF"
+            value={nombre}
+            onChangeText={(text) => {
+              const limpio = SecurityValidator.sanitizeText(text).replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+              setNombre(limpio);
+              if (errors.nombre) setErrors({ ...errors, nombre: undefined });
+            }}
+          />
+        </View>
+        {errors.nombre && <Text style={styles.errorText}>{errors.nombre}</Text>}
+      </View>
+
+      {/* APELLIDO - ANCHO COMPLETO */}
+      <View style={{ marginBottom: 20 }}>
+        <Text style={styles.label}>
+          APELLIDO <Text style={styles.labelRequired}>*</Text>
+        </Text>
+        <View style={[styles.inputContainer, errors.apellido && styles.inputError]}>
+          <Ionicons name="person-outline" size={20} color="#667eea" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Solo letras"
+            placeholderTextColor="#9CA3AF"
+            value={apellido}
+            onChangeText={(text) => {
+              const limpio = SecurityValidator.sanitizeText(text).replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+              setApellido(limpio);
+              if (errors.apellido) setErrors({ ...errors, apellido: undefined });
+            }}
+          />
+        </View>
+        {errors.apellido && <Text style={styles.errorText}>{errors.apellido}</Text>}
+      </View>
+
+      {/* TELÉFONO - ANCHO COMPLETO */}
+      <View style={{ marginBottom: 20 }}>
+        <Text style={styles.label}>TELÉFONO</Text>
+        <View style={styles.inputContainer}>
+          <Ionicons name="call-outline" size={20} color="#667eea" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="7-15 dígitos"
+            placeholderTextColor="#9CA3AF"
+            value={telefono}
+            onChangeText={(text) => {
+              const limpio = SecurityValidator.sanitizeText(text).replace(/[^0-9]/g, '');
+              setTelefono(limpio);
+            }}
+            keyboardType="phone-pad"
+            maxLength={15}
+          />
+        </View>
+      </View>
+
+      {/* DIRECCIÓN - ANCHO COMPLETO */}
+      <View style={{ marginBottom: 0 }}>
+        <Text style={styles.label}>DIRECCIÓN</Text>
+        <View style={styles.inputContainer}>
+          <Ionicons name="location-outline" size={20} color="#667eea" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Calle principal #123"
+            placeholderTextColor="#9CA3AF"
+            value={direccion}
+            onChangeText={(text) => {
+              setDireccion(SecurityValidator.sanitizeText(text));
+            }}
+          />
         </View>
       </View>
     </View>
@@ -909,52 +904,56 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
     <View>
       <Text style={styles.sectionTitle}>ℹ️ Información Adicional</Text>
 
-      <View style={styles.formRow}>
-        <View style={styles.formColumn}>
-          <Text style={styles.label}>GÉNERO</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons name="transgender-outline" size={20} color="#667eea" style={styles.inputIcon} />
-            <View style={styles.pickerContainer}>
-              {['masculino', 'femenino', 'otro', 'prefiero_no_decir'].map(g => (
-                <TouchableOpacity
-                  key={g}
-                  style={[styles.genderBtn, genero === g && styles.genderBtnActive]}
-                  onPress={() => setGenero(g)}
-                >
-                  <Text style={[styles.genderBtnText, genero === g && styles.genderBtnTextActive]}>
-                    {g.replace('_', ' ').toUpperCase()}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+      {/* GÉNERO - ANCHO COMPLETO */}
+      <View style={{ marginBottom: 20 }}>
+        <Text style={styles.label}>GÉNERO</Text>
+        <View style={styles.pickerContainer}>
+          {['masculino', 'femenino', 'otro', 'prefiero_no_decir'].map(g => (
+            <TouchableOpacity
+              key={g}
+              style={[styles.genderBtn, genero === g && styles.genderBtnActive]}
+              onPress={() => setGenero(g)}
+            >
+              <Text style={[styles.genderBtnText, genero === g && styles.genderBtnTextActive]}>
+                {g === 'masculino' ? 'M' : g === 'femenino' ? 'F' : g === 'otro' ? 'OTRO' : 'N/A'}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
+      </View>
 
-        <View style={styles.formColumn}>
-          <Text style={styles.label}>
-            TIPO PERSONA <Text style={styles.labelRequired}>*</Text>
-          </Text>
-          <View style={[styles.inputContainer, errors.tipoPersona && styles.inputError]}>
-            <Ionicons name="briefcase-outline" size={20} color="#667eea" style={styles.inputIcon} />
-            <View style={styles.pickerContainer}>
-              {['docente', 'administrativo', 'estudiante', 'externo'].map(tipo => (
-                <TouchableOpacity
-                  key={tipo}
-                  style={[styles.tipoBtn, tipoPersona === tipo && styles.tipoBtnActive]}
-                  onPress={() => {
-                    setTipoPersona(tipo);
-                    if (errors.tipoPersona) setErrors({ ...errors, tipoPersona: undefined });
-                  }}
-                >
-                  <Text style={[styles.tipoBtnText, tipoPersona === tipo && styles.tipoBtnTextActive]}>
-                    {tipo.toUpperCase()}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-          {errors.tipoPersona && <Text style={styles.errorText}>{errors.tipoPersona}</Text>}
+      {/* TIPO PERSONA - ANCHO COMPLETO */}
+      <View style={{ marginBottom: 20 }}>
+        <Text style={styles.label}>
+          TIPO PERSONA <Text style={styles.labelRequired}>*</Text>
+        </Text>
+        <View style={[styles.pickerContainerVertical, errors.tipoPersona && styles.inputError]}>
+          {['docente', 'administrativo', 'estudiante', 'externo'].map(tipo => (
+            <TouchableOpacity
+              key={tipo}
+              style={[styles.tipoBtnFull, tipoPersona === tipo && styles.tipoBtnActive]}
+              onPress={() => {
+                setTipoPersona(tipo);
+                if (errors.tipoPersona) setErrors({ ...errors, tipoPersona: undefined });
+              }}
+            >
+              <Ionicons
+                name={
+                  tipo === 'docente' ? 'school' :
+                    tipo === 'administrativo' ? 'briefcase' :
+                      tipo === 'estudiante' ? 'person' :
+                        'people'
+                }
+                size={20}
+                color={tipoPersona === tipo ? '#FFFFFF' : '#667eea'}
+              />
+              <Text style={[styles.tipoBtnTextFull, tipoPersona === tipo && styles.tipoBtnTextActive]}>
+                {tipo.toUpperCase()}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
+        {errors.tipoPersona && <Text style={styles.errorText}>{errors.tipoPersona}</Text>}
       </View>
 
       {!esEdicion && (
@@ -972,151 +971,150 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
     <View>
       <Text style={styles.sectionTitle}>🔐 Credenciales de Acceso</Text>
 
-      <View style={styles.formRow}>
-        <View style={styles.formColumn}>
-          <Text style={styles.label}>
-            USUARIO <Text style={styles.labelRequired}>*</Text>
-          </Text>
-          <View style={[styles.inputContainer, errors.username && styles.inputError]}>
-            <Ionicons name="at-outline" size={20} color="#667eea" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="4-50 caracteres (ej: juan_perez)"
-              placeholderTextColor="#9CA3AF"
-              value={username}
-              onChangeText={(text) => {
-                const limpio = text.toLowerCase().replace(/[^a-z0-9_-]/g, '');
-                setUsername(limpio);
-                if (errors.username) setErrors({ ...errors, username: undefined });
-              }}
-              autoCapitalize="none"
-              maxLength={50}
-            />
-          </View>
-          {errors.username && <Text style={styles.errorText}>{errors.username}</Text>}
+      {/* USUARIO - ANCHO COMPLETO */}
+      <View style={{ marginBottom: 20 }}>
+        <Text style={styles.label}>
+          USUARIO <Text style={styles.labelRequired}>*</Text>
+        </Text>
+        <View style={[styles.inputContainer, errors.username && styles.inputError]}>
+          <Ionicons name="at-outline" size={20} color="#667eea" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="4-50 caracteres"
+            placeholderTextColor="#9CA3AF"
+            value={username}
+            onChangeText={(text) => {
+              const limpio = text.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+              setUsername(limpio);
+              if (errors.username) setErrors({ ...errors, username: undefined });
+            }}
+            autoCapitalize="none"
+            maxLength={50}
+          />
         </View>
-
-        <View style={styles.formColumn}>
-          <Text style={styles.label}>
-            EMAIL <Text style={styles.labelRequired}>*</Text>
-          </Text>
-          <View style={[styles.inputContainer, errors.email && styles.inputError]}>
-            <Ionicons name="mail-outline" size={20} color="#667eea" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="correo@ejemplo.com"
-              placeholderTextColor="#9CA3AF"
-              value={email}
-              onChangeText={(text) => {
-                setEmail(text.toLowerCase().trim());
-                if (errors.email) setErrors({ ...errors, email: undefined });
-              }}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
-          {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
-        </View>
+        {errors.username && <Text style={styles.errorText}>{errors.username}</Text>}
       </View>
 
-      <View style={styles.formRow}>
-        <View style={styles.formColumn}>
-          <Text style={styles.label}>
-            CONTRASEÑA {!esEdicion && <Text style={styles.labelRequired}>*</Text>}
-          </Text>
+      {/* EMAIL - ANCHO COMPLETO */}
+      <View style={{ marginBottom: 20 }}>
+        <Text style={styles.label}>
+          EMAIL <Text style={styles.labelRequired}>*</Text>
+        </Text>
+        <View style={[styles.inputContainer, errors.email && styles.inputError]}>
+          <Ionicons name="mail-outline" size={20} color="#667eea" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="correo@ejemplo.com"
+            placeholderTextColor="#9CA3AF"
+            value={email}
+            onChangeText={(text) => {
+              setEmail(text.toLowerCase().trim());
+              if (errors.email) setErrors({ ...errors, email: undefined });
+            }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+        </View>
+        {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+      </View>
 
-          {/* ✅ MOSTRAR INDICADOR SI ES EDICIÓN */}
-          {esEdicion && !password && (
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: '#f0fdf4',
-              padding: 12,
-              borderRadius: 8,
-              marginBottom: 8,
-              borderWidth: 1,
-              borderColor: '#10b981',
+      {/* CONTRASEÑA - ANCHO COMPLETO */}
+      <View style={{ marginBottom: 20 }}>
+        <Text style={styles.label}>
+          CONTRASEÑA {!esEdicion && <Text style={styles.labelRequired}>*</Text>}
+        </Text>
+
+        {/* MOSTRAR INDICADOR SI ES EDICIÓN */}
+        {esEdicion && !password && (
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#f0fdf4',
+            padding: 12,
+            borderRadius: 8,
+            marginBottom: 8,
+            borderWidth: 1,
+            borderColor: '#10b981',
+          }}>
+            <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+            <Text style={{
+              marginLeft: 8,
+              fontSize: 13,
+              color: '#059669',
+              fontWeight: '600',
+              flex: 1,
             }}>
-              <Ionicons name="checkmark-circle" size={20} color="#10b981" />
-              <Text style={{
-                marginLeft: 8,
-                fontSize: 14,
-                color: '#059669',
-                fontWeight: '600',
-              }}>
-                ✓ Contraseña actual establecida (encriptada)
-              </Text>
-            </View>
-          )}
-
-          <View style={[styles.inputContainer, errors.password && styles.inputError]}>
-            <Ionicons name="lock-closed-outline" size={20} color="#667eea" style={styles.inputIcon} />
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              placeholder={esEdicion ? "Nueva contraseña (dejar vacío para mantener actual)" : "Mínimo 8 caracteres *"}
-              placeholderTextColor="#9CA3AF"
-              value={password}
-              onChangeText={(text) => {
-                setPassword(text);
-                if (errors.password) setErrors({ ...errors, password: undefined });
-              }}
-              secureTextEntry={!mostrarPassword}
-            />
-            {/* ✅ BOTÓN PARA MOSTRAR/OCULTAR */}
-            <TouchableOpacity
-              onPress={() => setMostrarPassword(!mostrarPassword)}
-              style={{ padding: 8 }}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={mostrarPassword ? "eye-off-outline" : "eye-outline"}
-                size={20}
-                color="#667eea"
-              />
-            </TouchableOpacity>
+              Contraseña actual establecida
+            </Text>
           </View>
-          {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
-        </View>
+        )}
 
-        <View style={styles.formColumn}>
-          <Text style={styles.label}>
-            CONFIRMAR {!esEdicion && <Text style={styles.labelRequired}>*</Text>}
-          </Text>
-          <View style={[styles.inputContainer, errors.confirmPassword && styles.inputError]}>
-            <Ionicons name="lock-closed-outline" size={20} color="#667eea" style={styles.inputIcon} />
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              placeholder={esEdicion ? "Confirmar nueva (opcional)" : "Repetir contraseña"}
-              placeholderTextColor="#9CA3AF"
-              value={confirmPassword}
-              onChangeText={(text) => {
-                setConfirmPassword(text);
-                if (errors.confirmPassword) setErrors({ ...errors, confirmPassword: undefined });
-              }}
-              secureTextEntry={!mostrarConfirmPassword}
+        <View style={[styles.inputContainer, errors.password && styles.inputError]}>
+          <Ionicons name="lock-closed-outline" size={20} color="#667eea" style={styles.inputIcon} />
+          <TextInput
+            style={[styles.input, { flex: 1 }]}
+            placeholder={esEdicion ? "Nueva contraseña (opcional)" : "Mínimo 8 caracteres"}
+            placeholderTextColor="#9CA3AF"
+            value={password}
+            onChangeText={(text) => {
+              setPassword(text);
+              if (errors.password) setErrors({ ...errors, password: undefined });
+            }}
+            secureTextEntry={!mostrarPassword}
+          />
+          <TouchableOpacity
+            onPress={() => setMostrarPassword(!mostrarPassword)}
+            style={{ padding: 8 }}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={mostrarPassword ? "eye-off-outline" : "eye-outline"}
+              size={20}
+              color="#667eea"
             />
-            {/* ✅ BOTÓN PARA MOSTRAR/OCULTAR */}
-            <TouchableOpacity
-              onPress={() => setMostrarConfirmPassword(!mostrarConfirmPassword)}
-              style={{ padding: 8 }}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={mostrarConfirmPassword ? "eye-off-outline" : "eye-outline"}
-                size={20}
-                color="#667eea"
-              />
-            </TouchableOpacity>
-          </View>
-          {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+          </TouchableOpacity>
         </View>
+        {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+      </View>
+
+      {/* CONFIRMAR CONTRASEÑA - ANCHO COMPLETO */}
+      <View style={{ marginBottom: 20 }}>
+        <Text style={styles.label}>
+          CONFIRMAR {!esEdicion && <Text style={styles.labelRequired}>*</Text>}
+        </Text>
+        <View style={[styles.inputContainer, errors.confirmPassword && styles.inputError]}>
+          <Ionicons name="lock-closed-outline" size={20} color="#667eea" style={styles.inputIcon} />
+          <TextInput
+            style={[styles.input, { flex: 1 }]}
+            placeholder={esEdicion ? "Confirmar nueva (opcional)" : "Repetir contraseña"}
+            placeholderTextColor="#9CA3AF"
+            value={confirmPassword}
+            onChangeText={(text) => {
+              setConfirmPassword(text);
+              if (errors.confirmPassword) setErrors({ ...errors, confirmPassword: undefined });
+            }}
+            secureTextEntry={!mostrarConfirmPassword}
+          />
+          <TouchableOpacity
+            onPress={() => setMostrarConfirmPassword(!mostrarConfirmPassword)}
+            style={{ padding: 8 }}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={mostrarConfirmPassword ? "eye-off-outline" : "eye-outline"}
+              size={20}
+              color="#667eea"
+            />
+          </TouchableOpacity>
+        </View>
+        {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
       </View>
 
       {esEdicion && (
         <View style={styles.infoCard}>
           <Ionicons name="information-circle" size={20} color="#10b981" />
           <Text style={styles.infoCardText}>
-            💡 Deja los campos de contraseña vacíos si no deseas cambiarla
+            Deja los campos de contraseña vacíos si no deseas cambiarla
           </Text>
         </View>
       )}
@@ -1168,148 +1166,153 @@ const GestionUsuarioCard = ({ usuario, roles, onCerrar, onGuardado }) => {
 
   // ==================== RENDER PRINCIPAL ====================
   return (
-    <Animated.View
-      style={[
-        styles.cardContainer,
-        { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
-      ]}
-    >
-      {/* Toast de notificaciones */}
-      <Toast
-        visible={toast.visible}
-        message={toast.message}
-        type={toast.type}
-        onHide={ocultarToast}
-      />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0f0f23' }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        {/* Toast de notificaciones */}
+        <Toast
+          visible={toast.visible}
+          message={toast.message}
+          type={toast.type}
+          onHide={ocultarToast}
+        />
 
+        {/* Header con Stepper */}
+        <View style={styles.cardHeader}>
+          <View style={styles.cardHeaderTitle}>
+            <LinearGradient
+              colors={usuario ? ['#667eea', '#764ba2'] : ['#10B981', '#059669']}
+              style={{ borderRadius: 14, padding: 10 }}
+            >
+              <Ionicons
+                name={usuario ? "create-outline" : "person-add-outline"}
+                size={24}
+                color="#FFFFFF"
+              />
+            </LinearGradient>
+            <View>
+              <Text style={styles.cardTitle}>
+                {usuario ? 'Editar Usuario' : 'Nuevo Usuario'}
+              </Text>
+              <Text style={styles.pasoIndicador}>Paso {pasoActual} de 4</Text>
+            </View>
+          </View>
+          <TouchableOpacity style={styles.btnCerrar} onPress={onCerrar}>
+            <Ionicons name="close" size={24} color="#c7d2fe" />
+          </TouchableOpacity>
+        </View>
 
+        {/* Stepper Visual */}
+        <View style={styles.stepperContainer}>
+          {[1, 2, 3, 4].map((paso, index) => (
+            <React.Fragment key={paso}>
+              <View style={styles.stepWrapper}>
+                <View style={[
+                  styles.stepCircle,
+                  pasoActual === paso && styles.stepCircleActive,
+                  pasoActual > paso && styles.stepCircleCompleted
+                ]}>
+                  <Text style={[
+                    styles.stepNumber,
+                    (pasoActual === paso || pasoActual > paso) && styles.stepNumberActive
+                  ]}>
+                    {pasoActual > paso ? '✓' : paso}
+                  </Text>
+                </View>
+              </View>
+              {index < 3 && <View style={styles.stepLine} />}
+            </React.Fragment>
+          ))}
+        </View>
 
-      {/* Header con Stepper */}
-      <View style={styles.cardHeader}>
-        <View style={styles.cardHeaderTitle}>
-          <LinearGradient
-            colors={usuario ? ['#667eea', '#764ba2'] : ['#10B981', '#059669']}
-            style={{ borderRadius: 14, padding: 10 }}
-          >
-            <Ionicons
-              name={usuario ? "create-outline" : "person-add-outline"}
-              size={24}
-              color="#FFFFFF"
-            />
-          </LinearGradient>
-          <View>
-            <Text style={styles.cardTitle}>
-              {usuario ? 'Editar Usuario' : 'Nuevo Usuario'}
-            </Text>
-            <Text style={styles.pasoIndicador}>Paso {pasoActual} de 4</Text>
+        {/* Contenido del Paso Actual */}
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingHorizontal: 24,
+            paddingTop: 24,
+            paddingBottom: 0  // ← CERO para todos los pasos
+          }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
+          <View style={{ padding: 24, paddingBottom: 0 }}>
+            {pasoActual === 1 && renderPaso1()}
+            {pasoActual === 2 && renderPaso2()}
+            {pasoActual === 3 && renderPaso3()}
+            {pasoActual === 4 && renderPaso4()}
+          </View>
+        </ScrollView>
+
+        {/* Botones de Navegación */}
+        <View style={{
+          backgroundColor: 'rgba(26, 26, 46, 0.98)',
+          borderTopWidth: 1,
+          borderTopColor: 'rgba(102, 126, 234, 0.3)',
+        }}>
+          <View style={styles.actionsContainer}>
+            <TouchableOpacity
+              style={styles.btnCancelar}
+              onPress={onCerrar}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.btnCancelarText}>CANCELAR</Text>
+            </TouchableOpacity>
+
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              {pasoActual > 1 && (
+                <TouchableOpacity
+                  style={styles.btnAnterior}
+                  onPress={handleAnterior}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.btnAnteriorText}>ANTERIOR</Text>
+                </TouchableOpacity>
+              )}
+
+              {pasoActual < 4 ? (
+                <TouchableOpacity
+                  onPress={handleSiguiente}
+                  activeOpacity={0.85}
+                  style={{ minWidth: 120, maxWidth: 180 }}
+                >
+                  <LinearGradient
+                    colors={['#667eea', '#764ba2']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.btnGuardar}
+                  >
+                    <Text style={styles.btnGuardarText}>SIGUIENTE</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={handleGuardar}
+                  disabled={guardando}
+                  activeOpacity={0.85}
+                  style={{ minWidth: 120, maxWidth: 140 }}
+                >
+                  <LinearGradient
+                    colors={guardando ? ['#6B7280', '#4B5563'] : ['#10B981', '#059669']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.btnGuardar, guardando && styles.btnGuardarDisabled]}
+                  >
+                    <Text style={styles.btnGuardarText}>
+                      {guardando ? 'GUARDANDO...' : 'GUARDAR'}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
-        <TouchableOpacity style={styles.btnCerrar} onPress={onCerrar}>
-          <Ionicons name="close" size={24} color="#c7d2fe" />
-        </TouchableOpacity>
-      </View>
-
-
-      {/* Stepper Visual */}
-      <View style={styles.stepperContainer}>
-        {[1, 2, 3, 4].map((paso, index) => (
-          <React.Fragment key={paso}>
-            <View style={styles.stepWrapper}>
-              <View style={[
-                styles.stepCircle,
-                pasoActual === paso && styles.stepCircleActive,
-                pasoActual > paso && styles.stepCircleCompleted
-              ]}>
-                <Text style={[
-                  styles.stepNumber,
-                  (pasoActual === paso || pasoActual > paso) && styles.stepNumberActive
-                ]}>
-                  {pasoActual > paso ? '✓' : paso}
-                </Text>
-              </View>
-            </View>
-            {index < 3 && <View style={styles.stepLine} />}
-          </React.Fragment>
-        ))}
-      </View>
-
-      {/* Contenido del Paso Actual */}
-      <ScrollView
-        style={styles.cardContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {pasoActual === 1 && renderPaso1()}
-        {pasoActual === 2 && renderPaso2()}
-        {pasoActual === 3 && renderPaso3()}
-        {pasoActual === 4 && renderPaso4()}
-      </ScrollView>
-
-      {/* Botones de Navegación */}
-      <View style={styles.actionsContainer}>
-        <TouchableOpacity
-          style={styles.btnCancelar}
-          onPress={onCerrar}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.btnCancelarText}>CANCELAR</Text>
-        </TouchableOpacity>
-
-
-
-
-
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          {pasoActual > 1 && (
-            <TouchableOpacity
-              style={styles.btnAnterior}
-              onPress={handleAnterior}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.btnAnteriorText}>ANTERIOR</Text>
-            </TouchableOpacity>
-          )}
-
-          {pasoActual < 4 ? (
-            <TouchableOpacity
-              onPress={handleSiguiente}
-              activeOpacity={0.85}
-            >
-              <LinearGradient
-                colors={['#667eea', '#764ba2']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.btnGuardar}
-              >
-                <Text style={styles.btnGuardarText}>SIGUIENTE</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
-
-
-
-
-          ) : (
-            <TouchableOpacity
-              onPress={handleGuardar}
-              disabled={guardando}
-              activeOpacity={0.85}
-            >
-              <LinearGradient
-                colors={guardando ? ['#6B7280', '#4B5563'] : ['#10B981', '#059669']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.btnGuardar, guardando && styles.btnGuardarDisabled]}
-              >
-                <Text style={styles.btnGuardarText}>
-                  {guardando ? 'GUARDANDO...' : 'GUARDAR USUARIO'}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-    </Animated.View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
