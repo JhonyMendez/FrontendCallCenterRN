@@ -30,11 +30,25 @@ import { getStatIconColor, modalStyles, styles } from '../../styles/gestionAgent
 
 function TooltipIcon({ text }) {
   const [showTooltip, setShowTooltip] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const buttonRef = useRef(null);
+
+  const handlePress = () => {
+    if (isMobile && buttonRef.current) {
+      buttonRef.current.measure((fx, fy, width, height, px, py) => {
+        setPosition({ x: px, y: py });
+        setShowTooltip(true);
+      });
+    } else {
+      setShowTooltip(!showTooltip);
+    }
+  };
 
   return (
     <View style={{ position: 'relative', marginLeft: 6 }}>
       <TouchableOpacity
-        onPress={() => setShowTooltip(!showTooltip)}
+        ref={buttonRef}
+        onPress={handlePress}
         onMouseEnter={() => !isMobile && setShowTooltip(true)}
         onMouseLeave={() => !isMobile && setShowTooltip(false)}
         style={{
@@ -71,7 +85,6 @@ function TooltipIcon({ text }) {
           shadowRadius: 8,
           elevation: 8,
         }}>
-          {/* Flecha */}
           <View style={{
             position: 'absolute',
             top: 8,
@@ -95,58 +108,75 @@ function TooltipIcon({ text }) {
         </View>
       )}
 
-      {/* Modal para MÓVIL */}
-      {isMobile && (
+      {/* Tooltip para MÓVIL - Posicionado */}
+      {showTooltip && isMobile && (
         <Modal
-          visible={showTooltip}
+          visible={true}
           transparent={true}
           animationType="fade"
           onRequestClose={() => setShowTooltip(false)}
         >
-          <View style={{
-            flex: 1,
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 20,
-          }}>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            }}
+            activeOpacity={1}
+            onPress={() => setShowTooltip(false)}
+          >
             <View style={{
+              position: 'absolute',
+              top: position.y + 25,
+              left: Math.min(position.x - 50, width - 270),
+              width: 250,
               backgroundColor: '#1a1a2e',
-              padding: 20,
-              borderRadius: 16,
+              padding: 16,
+              borderRadius: 12,
               borderWidth: 1,
               borderColor: 'rgba(102, 126, 234, 0.3)',
-              width: '90%',
-              maxWidth: 340,
               shadowColor: '#000',
-              shadowOffset: { width: 0, height: 8 },
+              shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.4,
-              shadowRadius: 16,
-              elevation: 16,
+              shadowRadius: 8,
+              elevation: 10,
             }}>
+              {/* Flecha */}
+              <View style={{
+                position: 'absolute',
+                top: -6,
+                left: Math.max(50, position.x - Math.min(position.x - 50, width - 270)),
+                width: 12,
+                height: 12,
+                backgroundColor: '#1a1a2e',
+                borderTopWidth: 1,
+                borderLeftWidth: 1,
+                borderColor: 'rgba(102, 126, 234, 0.3)',
+                transform: [{ rotate: '45deg' }],
+              }} />
+
               {/* Header */}
               <View style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                gap: 10,
-                marginBottom: 12,
-                paddingBottom: 12,
+                gap: 8,
+                marginBottom: 10,
+                paddingBottom: 10,
                 borderBottomWidth: 1,
                 borderBottomColor: 'rgba(102, 126, 234, 0.2)',
               }}>
                 <View style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 16,
+                  width: 24,
+                  height: 24,
+                  borderRadius: 12,
                   backgroundColor: 'rgba(102, 126, 234, 0.2)',
                   justifyContent: 'center',
                   alignItems: 'center',
                 }}>
-                  <Text style={{ fontSize: 18 }}>💡</Text>
+                  <Text style={{ fontSize: 14 }}>💡</Text>
                 </View>
                 <Text style={{
                   color: '#667eea',
-                  fontSize: 15,
+                  fontSize: 13,
                   fontWeight: '700',
                   flex: 1,
                 }}>
@@ -155,49 +185,28 @@ function TooltipIcon({ text }) {
                 <TouchableOpacity
                   onPress={() => setShowTooltip(false)}
                   style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: 14,
+                    width: 22,
+                    height: 22,
+                    borderRadius: 11,
                     backgroundColor: 'rgba(239, 68, 68, 0.2)',
                     justifyContent: 'center',
                     alignItems: 'center',
                   }}
                 >
-                  <Ionicons name="close" size={16} color="#ef4444" />
+                  <Ionicons name="close" size={14} color="#ef4444" />
                 </TouchableOpacity>
               </View>
 
               {/* Contenido */}
               <Text style={{
                 color: 'rgba(255, 255, 255, 0.9)',
-                fontSize: 14,
-                lineHeight: 22,
-                marginBottom: 16,
+                fontSize: 12,
+                lineHeight: 18,
               }}>
                 {text}
               </Text>
-
-              {/* Botón */}
-              <TouchableOpacity
-                onPress={() => setShowTooltip(false)}
-                style={{
-                  backgroundColor: '#667eea',
-                  paddingVertical: 12,
-                  paddingHorizontal: 20,
-                  borderRadius: 10,
-                  alignItems: 'center',
-                }}
-              >
-                <Text style={{
-                  color: '#ffffff',
-                  fontSize: 14,
-                  fontWeight: '600',
-                }}>
-                  Entendido
-                </Text>
-              </TouchableOpacity>
             </View>
-          </View>
+          </TouchableOpacity>
         </Modal>
       )}
     </View>
