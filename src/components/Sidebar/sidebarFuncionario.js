@@ -70,27 +70,11 @@ export default function SidebarFuncionario({ isOpen }) {
       icon: 'analytics-outline',
       submenu: [
         {
-          label: 'Estadísticas',
+          label: 'Dashboard de Metricas',
           icon: 'bar-chart-outline',
-          route: '/funcionario/estadisticas',
+          route: '/funcionario/metricasfuncionario',
         },
-        {
-          label: 'Reportes',
-          icon: 'document-attach-outline',
-          route: '/funcionario/reportes',
-        },
-      ],
-    },
-    {
-      id: 'exportar',
-      label: 'Exportar Datos',
-      icon: 'download-outline',
-      submenu: [
-        {
-          label: 'Exportar conversaciones',
-          icon: 'cloud-download-outline',
-          route: '/funcionario/exportar/conversaciones',
-        },
+
       ],
     },
   ];

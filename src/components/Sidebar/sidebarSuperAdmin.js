@@ -68,16 +68,6 @@ export default function SuperAdminSidebar({ isOpen }) {
         { label: 'Dashboard de Métricas', route: '/superadmin/metricas' },
       ]
     },
-    {
-      id: 'exportar',
-      label: 'Exportar Datos',
-      icon: 'download-outline',
-      submenu: [
-        { label: 'Exportar Usuarios', route: '/(superadmin)/exportar/usuarios' },
-        { label: 'Exportar Departamentos', route: '/(superadmin)/exportar/departamentos' },
-        { label: 'Exportar Métricas', route: '/(superadmin)/exportar/metricas' },
-      ]
-    },
   ];
 
   const toggleMenu = (menuId) => {

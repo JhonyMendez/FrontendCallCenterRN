@@ -2,6 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
+  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -9,6 +11,8 @@ import {
 } from 'react-native';
 import { styles } from '../../styles/GestionAsignacionUsStyles';
 
+const { width, height } = Dimensions.get('window');
+const isWeb = Platform.OS === 'web';
 // ============================================
 // DEPARTAMENTO CARD
 // ============================================
@@ -306,44 +310,198 @@ export const ResumenCard = ({
 // USUARIO DETALLE MODAL
 // ============================================
 export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos, onRevocarAsignacion }) => {
-  return (
-    <View style={styles.modalOverlay}>
-      <View style={styles.modalContent}>
-        <ScrollView style={styles.modalScroll}>
+  const [permisos, setPermisos] = React.useState(null);
+  const [loadingPermisos, setLoadingPermisos] = React.useState(true);
 
+  React.useEffect(() => {
+    cargarPermisosReales();
+  }, [usuario]);
+
+  const cargarPermisosReales = async () => {
+    try {
+      setLoadingPermisos(true);
+
+      // Importar el servicio (añade esto al inicio del archivo si no está)
+      const { usuarioAgenteService } = require('../../api/services/usuarioAgenteService');
+      const { agenteService } = require('../../api/services/agenteService');
+
+      // Obtener agentes del departamento del usuario
+      const idDepartamento = usuario.departamento?.id_departamento || usuario.id_departamento;
+
+      if (!idDepartamento) {
+        setPermisos(null);
+        setLoadingPermisos(false);
+        return;
+      }
+
+      const agentesResponse = await agenteService.getAll({ id_departamento: idDepartamento });
+
+      let agentes = [];
+      if (Array.isArray(agentesResponse)) {
+        agentes = agentesResponse;
+      } else if (agentesResponse?.agentes) {
+        agentes = agentesResponse.agentes;
+      } else if (agentesResponse?.data) {
+        agentes = agentesResponse.data;
+      }
+
+      const agentesFiltrados = agentes.filter(a =>
+        a.id_departamento === idDepartamento ||
+        a.id_departamento === Number(idDepartamento)
+      );
+
+      if (agentesFiltrados.length === 0) {
+        setPermisos(null);
+        setLoadingPermisos(false);
+        return;
+      }
+
+      // Tomar el primer agente para obtener permisos
+      const agente = agentesFiltrados[0];
+
+      const permisosResponse = await usuarioAgenteService.obtenerPorUsuarioYAgente(
+        usuario.id_usuario,
+        agente.id_agente
+      );
+
+      if (permisosResponse) {
+        setPermisos({
+          puede_ver_contenido: permisosResponse.puede_ver_contenido || false,
+          puede_crear_contenido: permisosResponse.puede_crear_contenido || false,
+          puede_editar_contenido: permisosResponse.puede_editar_contenido || false,
+          puede_eliminar_contenido: permisosResponse.puede_eliminar_contenido || false,
+          puede_publicar_contenido: permisosResponse.puede_publicar_contenido || false,
+          puede_ver_metricas: permisosResponse.puede_ver_metricas || false,
+          puede_exportar_datos: permisosResponse.puede_exportar_datos || false,
+          puede_configurar_agente: permisosResponse.puede_configurar_agente || false,
+          puede_gestionar_permisos: permisosResponse.puede_gestionar_permisos || false,
+          puede_gestionar_categorias: permisosResponse.puede_gestionar_categorias || false,
+          puede_gestionar_widgets: permisosResponse.puede_gestionar_widgets || false,
+        });
+      } else {
+        setPermisos(null);
+      }
+
+      setLoadingPermisos(false);
+    } catch (error) {
+      console.error('❌ Error cargando permisos reales:', error);
+      setPermisos(null);
+      setLoadingPermisos(false);
+    }
+  };
+
+  return (
+    <View style={[
+      styles.modalOverlay,
+      !isWeb && {
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      }
+    ]}>
+      <View style={[
+        styles.modalContent,
+        !isWeb && {
+          width: width * 0.95,
+          maxWidth: width * 0.95,
+          height: height * 0.90,
+          maxHeight: height * 0.90,
+          margin: 10,
+        }
+      ]}>
+        <ScrollView
+          style={[
+            styles.modalScroll,
+            !isWeb && { flex: 1 }
+          ]}
+          contentContainerStyle={!isWeb ? {
+            paddingBottom: 30,
+            paddingHorizontal: 0,
+          } : {}}
+          showsVerticalScrollIndicator={true}
+        >
           {/* Header del Modal */}
-          <View style={styles.modalHeader}>
-            <View style={styles.modalHeaderLeft}>
+          <View style={[
+            styles.modalHeader,
+            !isWeb && {
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              paddingBottom: 8,
+            }
+          ]}>
+            <View style={[
+              styles.modalHeaderLeft,
+              !isWeb && {
+                width: '100%',
+                marginBottom: 12,
+                paddingRight: 40,
+              }
+            ]}>
               <View style={styles.avatarLarge}>
                 <Text style={styles.avatarLargeText}>
                   {usuario.persona?.nombre?.charAt(0)}
                   {usuario.persona?.apellido?.charAt(0)}
                 </Text>
               </View>
-              <View>
-                <Text style={styles.modalTitle}>
+              <View style={{ flex: 1 }}>
+                <Text style={[
+                  styles.modalTitle,
+                  !isWeb && { fontSize: 17, lineHeight: 22 }
+                ]}>
                   {usuario.persona?.nombre} {usuario.persona?.apellido}
                 </Text>
-                <Text style={styles.modalSubtitle}>
+                <Text style={[
+                  styles.modalSubtitle,
+                  !isWeb && { fontSize: 13, marginTop: 2 }
+                ]}>
                   @{usuario.username}
                 </Text>
               </View>
             </View>
 
+            {/* Botón Cerrar SOLO para móvil */}
+            {!isWeb && (
+              <TouchableOpacity
+                style={{
+                  position: 'absolute',
+                  right: 16,
+                  top: 16,
+                  padding: 8,
+                  zIndex: 10,
+                }}
+                onPress={onClose}
+              >
+                <Ionicons name="close" size={28} color="#64748b" />
+              </TouchableOpacity>
+            )}
+
             {/* Botones de Acción */}
-            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+            <View style={[
+              { flexDirection: 'row', gap: 12, alignItems: 'center' },
+              !isWeb && {
+                flexDirection: 'column',
+                alignItems: 'stretch',
+                width: '100%',
+                gap: 10,
+              }
+            ]}>
               {/* Botón Editar Permisos */}
               {onEditarPermisos && (
                 <TouchableOpacity
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    backgroundColor: '#667eea',
-                    paddingVertical: 10,
-                    paddingHorizontal: 16,
-                    borderRadius: 8,
-                    gap: 6
-                  }}
+                  style={[
+                    {
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: '#667eea',
+                      paddingVertical: 10,
+                      paddingHorizontal: 16,
+                      borderRadius: 8,
+                      gap: 6,
+                    },
+                    !isWeb && {
+                      justifyContent: 'center',
+                      paddingVertical: 12,
+                      width: '100%',
+                    }
+                  ]}
                   onPress={() => onEditarPermisos(usuario)}
                 >
                   <Ionicons name="shield-checkmark" size={18} color="white" />
@@ -356,15 +514,22 @@ export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos, onRevo
               {/* Botón Revocar Asignación */}
               {onRevocarAsignacion && usuario.departamento && (
                 <TouchableOpacity
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    backgroundColor: '#ef4444',
-                    paddingVertical: 10,
-                    paddingHorizontal: 16,
-                    borderRadius: 8,
-                    gap: 6
-                  }}
+                  style={[
+                    {
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: '#ef4444',
+                      paddingVertical: 10,
+                      paddingHorizontal: 16,
+                      borderRadius: 8,
+                      gap: 6,
+                    },
+                    !isWeb && {
+                      justifyContent: 'center',
+                      paddingVertical: 12,
+                      width: '100%',
+                    }
+                  ]}
                   onPress={() => {
                     onClose();
                     onRevocarAsignacion(usuario);
@@ -377,21 +542,29 @@ export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos, onRevo
                 </TouchableOpacity>
               )}
 
-              {/* Botón Cerrar */}
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={onClose}
-              >
-                <Ionicons name="close" size={24} color="#64748b" />
-              </TouchableOpacity>
+              {/* Botón Cerrar - Solo en WEB */}
+              {isWeb && (
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={onClose}
+                >
+                  <Ionicons name="close" size={24} color="#64748b" />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 
           {/* Información Personal */}
-          <View style={styles.modalSection}>
+          <View style={[
+            styles.modalSection,
+            !isWeb && { paddingHorizontal: 12, marginBottom: 16 }
+          ]}>
             <View style={styles.modalSectionHeader}>
               <Ionicons name="person" size={20} color="#3b82f6" />
-              <Text style={styles.modalSectionTitle}>Información Personal</Text>
+              <Text style={[
+                styles.modalSectionTitle,
+                !isWeb && { fontSize: 15 }
+              ]}>Información Personal</Text>
             </View>
 
             <View style={styles.infoGrid}>
@@ -411,13 +584,6 @@ export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos, onRevo
                 <Text style={styles.infoLabel}>Teléfono</Text>
                 <Text style={styles.infoValue}>
                   {usuario.persona?.telefono || 'N/A'}
-                </Text>
-              </View>
-
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Cargo</Text>
-                <Text style={styles.infoValue}>
-                  {usuario.persona?.cargo || 'N/A'}
                 </Text>
               </View>
             </View>
@@ -450,100 +616,94 @@ export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos, onRevo
                   </Text>
                 </View>
               </View>
-
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Roles</Text>
-                <View style={styles.rolesContainer}>
-                  {usuario.roles && usuario.roles.length > 0 ? (
-                    usuario.roles.map((rol, index) => (
-                      <View key={index} style={styles.rolBadge}>
-                        <Ionicons name="shield-checkmark" size={12} color="#10b981" />
-                        <Text style={styles.rolBadgeText}>{rol.nombre}</Text>
-                      </View>
-                    ))
-                  ) : (
-                    <Text style={styles.infoValue}>Sin roles asignados</Text>
-                  )}
-                </View>
-              </View>
             </View>
           </View>
 
           {/* Permisos */}
-          <View style={styles.modalSection}>
+          <View style={[
+            styles.modalSection,
+            !isWeb && { paddingHorizontal: 12, marginBottom: 16 }
+          ]}>
             <View style={styles.modalSectionHeader}>
               <Ionicons name="lock-closed" size={20} color="#ef4444" />
-              <Text style={styles.modalSectionTitle}>Permisos del Usuario</Text>
+              <Text style={[
+                styles.modalSectionTitle,
+                !isWeb && { fontSize: 15 }
+              ]}>Permisos del Usuario</Text>
             </View>
 
-            <View style={styles.permisosGrid}>
-              <PermisoItem
-                icon="eye"
-                color="#3b82f6"
-                label="Ver Contenido"
-                value={true}
-              />
-              <PermisoItem
-                icon="add-circle"
-                color="#10b981"
-                label="Crear Contenido"
-                value={false}
-              />
-              <PermisoItem
-                icon="create"
-                color="#f59e0b"
-                label="Editar Contenido"
-                value={true}
-              />
-              <PermisoItem
-                icon="trash"
-                color="#ef4444"
-                label="Eliminar Contenido"
-                value={false}
-              />
-              <PermisoItem
-                icon="paper-plane"
-                color="#8b5cf6"
-                label="Publicar Contenido"
-                value={true}
-              />
-              <PermisoItem
-                icon="stats-chart"
-                color="#06b6d4"
-                label="Ver Métricas"
-                value={false}
-              />
-              <PermisoItem
-                icon="download"
-                color="#14b8a6"
-                label="Exportar Datos"
-                value={true}
-              />
-              <PermisoItem
-                icon="settings"
-                color="#6366f1"
-                label="Configurar Agente"
-                value={false}
-              />
-              <PermisoItem
-                icon="key"
-                color="#dc2626"
-                label="Gestionar Permisos"
-                value={false}
-              />
-              <PermisoItem
-                icon="list"
-                color="#f59e0b"
-                label="Gestionar Categorías"
-                value={true}
-              />
-              <PermisoItem
-                icon="grid"
-                color="#8b5cf6"
-                label="Gestionar Widgets"
-                value={false}
-              />
-            </View>
+            {loadingPermisos ? (
+              <View style={{ padding: 20, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#3b82f6" />
+                <Text style={{ marginTop: 10, color: '#64748b' }}>Cargando permisos...</Text>
+              </View>
+            ) : permisos ? (
+              <View style={styles.permisosGrid}>
+                <PermisoItem
+                  icon="eye"
+                  color="#3b82f6"
+                  label="Ver Contenido"
+                  value={permisos.puede_ver_contenido}
+                />
+                <PermisoItem
+                  icon="add-circle"
+                  color="#10b981"
+                  label="Crear Contenido"
+                  value={permisos.puede_crear_contenido}
+                />
+                <PermisoItem
+                  icon="create"
+                  color="#f59e0b"
+                  label="Editar Contenido"
+                  value={permisos.puede_editar_contenido}
+                />
+                <PermisoItem
+                  icon="trash"
+                  color="#ef4444"
+                  label="Eliminar Contenido"
+                  value={permisos.puede_eliminar_contenido}
+                />
+                <PermisoItem
+                  icon="stats-chart"
+                  color="#06b6d4"
+                  label="Ver Métricas"
+                  value={permisos.puede_ver_metricas}
+                />
+                <PermisoItem
+                  icon="download"
+                  color="#14b8a6"
+                  label="Exportar Datos"
+                  value={permisos.puede_exportar_datos}
+                />
+                <PermisoItem
+                  icon="settings"
+                  color="#6366f1"
+                  label="Configurar Agente"
+                  value={permisos.puede_configurar_agente}
+                />
+                <PermisoItem
+                  icon="list"
+                  color="#f59e0b"
+                  label="Gestionar Categorías"
+                  value={permisos.puede_gestionar_categorias}
+                />
+              </View>
+            ) : (
+              <View style={{
+                padding: 16,
+                backgroundColor: '#fef3c7',
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: '#fbbf24'
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="information-circle" size={20} color="#f59e0b" />
+                  <Text style={{ color: '#92400e', fontSize: 13 }}>
+                    No hay permisos configurados para este usuario
+                  </Text>
+                </View>
+              </View>
+            )}
 
             {/* Notas */}
             <View style={styles.notasContainer}>

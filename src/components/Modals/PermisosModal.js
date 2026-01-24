@@ -1,17 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
-    Alert,
-    Modal,
-    ScrollView,
-    Switch,
-    Text,
-    TouchableOpacity,
-    View
+  Alert,
+  Dimensions,
+  Modal,
+  Platform,
+  ScrollView,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
-const PermisosModal = ({ isOpen, onClose, onConfirm, selectedCount, departamentoDestino, permisosIniciales = null, modoEdicion = false, usuarioEditando = null }) => {  
-    const [permisos, setPermisos] = useState(permisosIniciales || {
+const { width, height } = Dimensions.get('window');
+const isWeb = Platform.OS === 'web';
+
+const PermisosModal = ({ isOpen, onClose, onConfirm, selectedCount, departamentoDestino, permisosIniciales = null, modoEdicion = false, usuarioEditando = null }) => {
+  const [permisos, setPermisos] = useState(permisosIniciales || {
     puede_ver_contenido: true,
     puede_crear_contenido: true,
     puede_editar_contenido: true,
@@ -23,13 +28,13 @@ const PermisosModal = ({ isOpen, onClose, onConfirm, selectedCount, departamento
     puede_gestionar_permisos: false,
     puede_gestionar_categorias: false,
     puede_gestionar_widgets: false,
-    });
+  });
 
-    useEffect(() => {
+  useEffect(() => {
     if (permisosIniciales) {
-        setPermisos(permisosIniciales);
+      setPermisos(permisosIniciales);
     }
-    }, [permisosIniciales]);
+  }, [permisosIniciales]);
 
   const togglePermiso = (key) => {
     setPermisos(prev => ({
@@ -38,9 +43,9 @@ const PermisosModal = ({ isOpen, onClose, onConfirm, selectedCount, departamento
     }));
   };
 
-const handleConfirmar = () => {
+  const handleConfirmar = () => {
     const hayPermisoActivo = Object.values(permisos).some(valor => valor === true);
-    
+
     if (!hayPermisoActivo) {
       Alert.alert(
         '⚠️ Validación',
@@ -49,7 +54,7 @@ const handleConfirmar = () => {
       );
       return;
     }
-    
+
     onConfirm(permisos);
   };
 
@@ -59,37 +64,30 @@ const handleConfirmar = () => {
       icon: 'document-text',
       color: '#3b82f6',
       permisos: [
-        { 
-          key: 'puede_ver_contenido', 
-          label: 'Ver contenido', 
-          icon: 'eye', 
-          description: 'Permite visualizar el contenido del agente' 
+        {
+          key: 'puede_ver_contenido',
+          label: 'Ver contenido',
+          icon: 'eye',
+          description: 'Permite visualizar el contenido del agente'
         },
-        { 
-          key: 'puede_crear_contenido', 
-          label: 'Crear contenido', 
-          icon: 'add-circle', 
-          description: 'Permite crear nuevo contenido' 
+        {
+          key: 'puede_crear_contenido',
+          label: 'Crear contenido',
+          icon: 'add-circle',
+          description: 'Permite crear nuevo contenido'
         },
-        { 
-          key: 'puede_editar_contenido', 
-          label: 'Editar contenido', 
-          icon: 'create', 
-          description: 'Permite modificar contenido existente' 
+        {
+          key: 'puede_editar_contenido',
+          label: 'Editar contenido',
+          icon: 'create',
+          description: 'Permite modificar contenido existente'
         },
-        { 
-          key: 'puede_eliminar_contenido', 
-          label: 'Eliminar contenido', 
-          icon: 'trash', 
-          description: 'Permite eliminar contenido', 
-          critical: true 
-        },
-        { 
-          key: 'puede_publicar_contenido', 
-          label: 'Publicar contenido', 
-          icon: 'checkmark-circle', 
-          description: 'Permite publicar contenido para hacerlo visible', 
-          critical: true 
+        {
+          key: 'puede_eliminar_contenido',
+          label: 'Eliminar contenido',
+          icon: 'trash',
+          description: 'Permite eliminar contenido',
+          critical: true
         },
       ]
     },
@@ -98,17 +96,17 @@ const handleConfirmar = () => {
       icon: 'bar-chart',
       color: '#10b981',
       permisos: [
-        { 
-          key: 'puede_ver_metricas', 
-          label: 'Ver métricas', 
-          icon: 'stats-chart', 
-          description: 'Permite ver estadísticas y métricas' 
+        {
+          key: 'puede_ver_metricas',
+          label: 'Ver métricas',
+          icon: 'stats-chart',
+          description: 'Permite ver estadísticas y métricas'
         },
-        { 
-          key: 'puede_exportar_datos', 
-          label: 'Exportar datos', 
-          icon: 'download', 
-          description: 'Permite exportar información y reportes' 
+        {
+          key: 'puede_exportar_datos',
+          label: 'Exportar datos',
+          icon: 'download',
+          description: 'Permite exportar información y reportes'
         },
       ]
     },
@@ -117,31 +115,18 @@ const handleConfirmar = () => {
       icon: 'settings',
       color: '#f59e0b',
       permisos: [
-        { 
-          key: 'puede_configurar_agente', 
-          label: 'Configurar agente', 
-          icon: 'construct', 
-          description: 'Permite modificar configuración del agente', 
-          critical: true 
+        {
+          key: 'puede_configurar_agente',
+          label: 'Configurar agente',
+          icon: 'construct',
+          description: 'Permite modificar configuración del agente',
+          critical: true
         },
-        { 
-          key: 'puede_gestionar_permisos', 
-          label: 'Gestionar permisos', 
-          icon: 'shield-checkmark', 
-          description: 'Permite administrar permisos de otros usuarios', 
-          critical: true 
-        },
-        { 
-          key: 'puede_gestionar_categorias', 
-          label: 'Gestionar categorías', 
-          icon: 'grid', 
-          description: 'Permite crear y modificar categorías' 
-        },
-        { 
-          key: 'puede_gestionar_widgets', 
-          label: 'Gestionar widgets', 
-          icon: 'apps', 
-          description: 'Permite configurar widgets del agente' 
+        {
+          key: 'puede_gestionar_categorias',
+          label: 'Gestionar categorías',
+          icon: 'grid',
+          description: 'Permite crear y modificar categorías'
         },
       ]
     }
@@ -159,19 +144,22 @@ const handleConfirmar = () => {
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 20
+        padding: isWeb ? 20 : 10
       }}>
         <View style={{
           backgroundColor: 'white',
           borderRadius: 16,
-          width: '100%',
-          maxWidth: 600,
-          maxHeight: '90%',
-          overflow: 'hidden'
+          width: isWeb ? '100%' : width * 0.95,
+          maxWidth: isWeb ? 600 : width * 0.95,
+          height: isWeb ? 'auto' : height * 0.85,
+          maxHeight: isWeb ? '90%' : height * 0.85,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
         }}>
           {/* Header */}
           <View style={{
-            padding: 20,
+            padding: isWeb ? 20 : 16,
             borderBottomWidth: 1,
             borderBottomColor: '#e5e7eb',
             backgroundColor: '#f9fafb'
@@ -184,32 +172,32 @@ const handleConfirmar = () => {
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                   <Ionicons name="shield-checkmark" size={24} color="#3b82f6" />
-                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#111827' }}>
-                {modoEdicion ? 'Editar Permisos' : 'Configurar Permisos'}
-                </Text>
+                  <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#111827' }}>
+                    {modoEdicion ? 'Editar Permisos' : 'Configurar Permisos'}
+                  </Text>
                 </View>
-            <Text style={{ marginTop: 8, fontSize: 13, color: '#6b7280' }}>
-            {modoEdicion ? (
-                <>
-                Editando permisos de{'\n'}
-                <Text style={{ fontWeight: 'bold' }}>
-                    {usuarioEditando?.persona?.nombre} {usuarioEditando?.persona?.apellido}
+                <Text style={{ marginTop: 8, fontSize: 13, color: '#6b7280' }}>
+                  {modoEdicion ? (
+                    <>
+                      Editando permisos de{'\n'}
+                      <Text style={{ fontWeight: 'bold' }}>
+                        {usuarioEditando?.persona?.nombre} {usuarioEditando?.persona?.apellido}
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      Asignando {selectedCount} usuario(s) a{'\n'}
+                      <Text style={{ fontWeight: 'bold' }}>{departamentoDestino?.nombre}</Text>
+                    </>
+                  )}
                 </Text>
-                </>
-            ) : (
-                <>
-                Asignando {selectedCount} usuario(s) a{'\n'}
-                <Text style={{ fontWeight: 'bold' }}>{departamentoDestino?.nombre}</Text>
-                </>
-            )}
-            </Text>
               </View>
               <TouchableOpacity onPress={onClose} style={{ padding: 8 }}>
                 <Ionicons name="close" size={24} color="#6b7280" />
               </TouchableOpacity>
             </View>
           </View>
-{/* Info Banner */}
+          {/* Info Banner */}
           <View style={{
             margin: 16,
             padding: 12,
@@ -257,133 +245,181 @@ const handleConfirmar = () => {
             </View>
           )}
 
+          {/* DEBUG: Contador de permisos */}
+          <View style={{
+            marginHorizontal: 16,
+            marginBottom: 8,
+            padding: 8,
+            backgroundColor: '#e0f2fe',
+            borderRadius: 8
+          }}>
+            <Text style={{ fontSize: 11, color: '#0369a1' }}>
+              📋 Cargando {permisosConfig.reduce((acc, cat) => acc + cat.permisos.length, 0)} permisos en {permisosConfig.length} categorías
+            </Text>
+          </View>
+
           {/* Permisos Content */}
-          <ScrollView style={{ flex: 1, paddingHorizontal: 16 }}>
-            {permisosConfig.map((categoria, idx) => (
-              <View key={idx} style={{ marginBottom: 20 }}>
-                {/* Categoría Header */}
-                <View style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 10,
-                  marginBottom: 12,
-                  paddingBottom: 10,
-                  borderBottomWidth: 2,
-                  borderBottomColor: '#e5e7eb'
+          <View style={{
+            flex: 1,
+            width: '100%',
+            backgroundColor: '#f9fafb'
+          }}>
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{
+                padding: 16,
+                paddingBottom: 20
+              }}
+              showsVerticalScrollIndicator={true}
+            >
+              {permisosConfig.map((categoria, idx) => (
+                <View key={idx} style={{
+                  marginBottom: 20
                 }}>
+                  {/* Header de Categoría */}
                   <View style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 8,
-                    backgroundColor: `${categoria.color}15`,
-                    justifyContent: 'center',
-                    alignItems: 'center'
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: 12,
+                    paddingBottom: 8,
+                    borderBottomWidth: 2,
+                    borderBottomColor: categoria.color
                   }}>
-                    <Ionicons name={categoria.icon} size={18} color={categoria.color} />
+                    <View style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 8,
+                      backgroundColor: `${categoria.color}20`,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      marginRight: 10
+                    }}>
+                      <Ionicons name={categoria.icon} size={18} color={categoria.color} />
+                    </View>
+                    <Text style={{
+                      fontSize: 16,
+                      fontWeight: '700',
+                      color: '#111827'
+                    }}>
+                      {categoria.categoria}
+                    </Text>
                   </View>
-                  <Text style={{
-                    fontSize: 16,
-                    fontWeight: '600',
-                    color: '#111827'
-                  }}>
-                    {categoria.categoria}
-                  </Text>
-                </View>
 
-                {/* Lista de Permisos */}
-                {categoria.permisos.map((permiso) => {
-                  const isActive = permisos[permiso.key];
-                  
-                  return (
-                    <TouchableOpacity
-                      key={permiso.key}
-                      onPress={() => togglePermiso(permiso.key)}
-                      activeOpacity={0.7}
-                      style={{
-                        padding: 12,
-                        borderRadius: 10,
-                        borderWidth: 2,
-                        borderColor: isActive ? categoria.color : '#e5e7eb',
-                        backgroundColor: isActive ? `${categoria.color}08` : '#ffffff',
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 12,
-                        marginBottom: 10
-                      }}
-                    >
-                      {/* Switch */}
-                      <Switch
-                        value={isActive}
-                        onValueChange={() => togglePermiso(permiso.key)}
-                        trackColor={{ false: '#d1d5db', true: categoria.color }}
-                        thumbColor="#ffffff"
-                        ios_backgroundColor="#d1d5db"
-                      />
+                  {/* Lista de Permisos */}
+                  {categoria.permisos.map((permiso) => {
+                    const isActive = permisos[permiso.key];
 
-                      {/* Icon */}
-                      <View style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 8,
-                        backgroundColor: isActive ? `${categoria.color}20` : '#f3f4f6',
-                        justifyContent: 'center',
-                        alignItems: 'center'
-                      }}>
-                        <Ionicons 
-                          name={permiso.icon} 
-                          size={16} 
-                          color={isActive ? categoria.color : '#6b7280'} 
-                        />
-                      </View>
-
-                      {/* Info */}
-                      <View style={{ flex: 1 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                          <Text style={{
-                            fontSize: 14,
-                            fontWeight: '600',
-                            color: isActive ? '#111827' : '#4b5563'
+                    return (
+                      <View
+                        key={permiso.key}
+                        style={{
+                          backgroundColor: 'white',
+                          borderRadius: 12,
+                          padding: 14,
+                          marginBottom: 10,
+                          borderWidth: 2,
+                          borderColor: isActive ? categoria.color : '#e5e7eb',
+                          shadowColor: '#000',
+                          shadowOffset: { width: 0, height: 1 },
+                          shadowOpacity: 0.05,
+                          shadowRadius: 2,
+                          elevation: 1
+                        }}
+                      >
+                        <View style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}>
+                          {/* Lado Izquierdo: Info */}
+                          <View style={{
+                            flex: 1,
+                            paddingRight: 12
                           }}>
-                            {permiso.label}
-                          </Text>
-                          {permiso.critical && (
+                            {/* Título del permiso */}
                             <View style={{
                               flexDirection: 'row',
                               alignItems: 'center',
-                              gap: 3,
-                              paddingVertical: 1,
-                              paddingHorizontal: 6,
-                              borderRadius: 4,
-                              backgroundColor: '#fef2f2'
+                              marginBottom: 6,
+                              flexWrap: 'wrap'
                             }}>
-                              <Ionicons name="lock-closed" size={9} color="#dc2626" />
+                              <Ionicons
+                                name={permiso.icon}
+                                size={16}
+                                color={isActive ? categoria.color : '#6b7280'}
+                                style={{ marginRight: 6 }}
+                              />
                               <Text style={{
-                                fontSize: 9,
-                                color: '#dc2626',
-                                fontWeight: '600'
+                                fontSize: 14,
+                                fontWeight: '600',
+                                color: isActive ? '#111827' : '#4b5563'
                               }}>
-                                CRÍTICO
+                                {permiso.label}
                               </Text>
+
+                              {/* Badge CRÍTICO */}
+                              {permiso.critical && (
+                                <View style={{
+                                  flexDirection: 'row',
+                                  alignItems: 'center',
+                                  backgroundColor: '#fef2f2',
+                                  paddingHorizontal: 6,
+                                  paddingVertical: 2,
+                                  borderRadius: 4,
+                                  marginLeft: 6
+                                }}>
+                                  <Ionicons name="lock-closed" size={9} color="#dc2626" />
+                                  <Text style={{
+                                    fontSize: 9,
+                                    color: '#dc2626',
+                                    fontWeight: '700',
+                                    marginLeft: 3
+                                  }}>
+                                    CRÍTICO
+                                  </Text>
+                                </View>
+                              )}
                             </View>
-                          )}
+
+                            {/* Descripción */}
+                            <Text style={{
+                              fontSize: 12,
+                              color: '#6b7280',
+                              lineHeight: 16
+                            }}>
+                              {permiso.description}
+                            </Text>
+                          </View>
+
+                          {/* Lado Derecho: Switch */}
+                          <View style={{
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            paddingLeft: 8
+                          }}>
+                            <Switch
+                              value={isActive}
+                              onValueChange={() => togglePermiso(permiso.key)}
+                              trackColor={{
+                                false: '#d1d5db',
+                                true: categoria.color
+                              }}
+                              thumbColor="#ffffff"
+                              ios_backgroundColor="#d1d5db"
+                            />
+                          </View>
                         </View>
-                        <Text style={{
-                          fontSize: 12,
-                          color: '#6b7280'
-                        }}>
-                          {permiso.description}
-                        </Text>
                       </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            ))}
-          </ScrollView>
+                    );
+                  })}
+                </View>
+              ))}
+            </ScrollView>
+          </View>
 
           {/* Footer */}
           <View style={{
-            padding: 16,
+            padding: isWeb ? 16 : 14,
             borderTopWidth: 1,
             borderTopColor: '#e5e7eb',
             flexDirection: 'row',
@@ -417,8 +453,8 @@ const handleConfirmar = () => {
                 paddingVertical: 10,
                 paddingHorizontal: 20,
                 borderRadius: 8,
-                backgroundColor: Object.values(permisos).some(valor => valor === true) 
-                  ? '#3b82f6' 
+                backgroundColor: Object.values(permisos).some(valor => valor === true)
+                  ? '#3b82f6'
                   : '#9ca3af',
                 flexDirection: 'row',
                 alignItems: 'center',

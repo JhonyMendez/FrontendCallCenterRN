@@ -63,13 +63,11 @@ export default function AdminSidebar({ isOpen }) {
     },
 
     {
-      id: 'reportes',
-      label: 'Reportes',
+      id: 'metricas',
+      label: 'Métricas Globales',
       icon: 'bar-chart-outline',
       submenu: [
-        { label: 'Reportes Generales', route: '/admin/reportes' },
-        { label: 'Actividad de Usuarios', route: '/admin/reportes/actividad' },
-        { label: 'Métricas del Departamento', route: '/admin/reportes/metricas' },
+        { label: 'Dashboard de Métricas', route: '/superadmin/metricas' },
       ]
     },
   ];
@@ -116,7 +114,7 @@ export default function AdminSidebar({ isOpen }) {
       </View>
 
       {/* Scroll Content */}
-      <ScrollView 
+      <ScrollView
         style={sidebarStyles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -146,10 +144,10 @@ export default function AdminSidebar({ isOpen }) {
                     <Text style={sidebarStyles.menuLabel}>{item.label}</Text>
                   </View>
                   {hasSubmenu && (
-                    <Ionicons 
-                      name={isExpanded ? 'chevron-up' : 'chevron-down'} 
-                      size={20} 
-                      color="#c7d2fe" 
+                    <Ionicons
+                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={20}
+                      color="#c7d2fe"
                     />
                   )}
                 </TouchableOpacity>
@@ -165,10 +163,10 @@ export default function AdminSidebar({ isOpen }) {
                         activeOpacity={0.7}
                       >
                         <View style={sidebarStyles.submenuIcon}>
-                          <Ionicons 
-                            name="chevron-forward" 
-                            size={12} 
-                            color="#c7d2fe" 
+                          <Ionicons
+                            name="chevron-forward"
+                            size={12}
+                            color="#c7d2fe"
                           />
                         </View>
                         <Text style={sidebarStyles.submenuLabel}>

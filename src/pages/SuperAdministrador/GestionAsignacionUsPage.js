@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   Platform,
   RefreshControl,
   ScrollView,
@@ -28,6 +29,7 @@ import {
 import { styles } from '../../styles/GestionAsignacionUsStyles';
 
 const isWeb = Platform.OS === 'web';
+const { width: screenWidth } = Dimensions.get('window');
 
 export default function GestionAsignacionUsPage() {
   const router = useRouter();
@@ -418,10 +420,7 @@ export default function GestionAsignacionUsPage() {
 
       Alert.alert(
         '✅ Asignación Exitosa',
-        `${usuariosAsignados} usuario(s) asignado(s) a "${nombreDept}"\n\n` +
-        `✓ Departamento actualizado\n` +
-        `✓ ${promesasPermisos.length} relación(es) usuario-agente creadas\n` +
-        `✓ ${resumenPermisos} permiso(s) activo(s) por usuario`,
+        `${usuariosAsignados} usuario asignado a "${nombreDept}"\n\n`,
         [{ text: 'Perfecto', style: 'default' }]
       );
 
@@ -652,9 +651,7 @@ export default function GestionAsignacionUsPage() {
 
       Alert.alert(
         '✅ Revocación Exitosa',
-        `${nombreUsuario} ha sido removido del departamento.\n\n` +
-        `✓ Departamento: Removido\n` +
-        `✓ Relaciones usuario-agente: Eliminadas (${agentes.length} registro(s))`,
+        `${nombreUsuario} ha sido removido del departamento.\n\n`,
         [{ text: 'Entendido', style: 'default' }]
       );
 
@@ -932,14 +929,16 @@ export default function GestionAsignacionUsPage() {
         >
 
           {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
+          <View style={[styles.header, !isWeb && { flexDirection: 'column', alignItems: 'flex-start' }]}>
+            <View style={[styles.headerLeft, !isWeb && { marginBottom: 12 }]}>
               <View style={styles.iconContainer}>
-                <Ionicons name="swap-horizontal" size={28} color="#3b82f6" />
+                <Ionicons name="swap-horizontal" size={isWeb ? 28 : 24} color="#3b82f6" />
               </View>
-              <View>
-                <Text style={styles.title}>Asignacion por Departamentos</Text>
-                <Text style={styles.subtitle}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.title, !isWeb && { fontSize: 20 }]}>
+                  Asignacion por Departamentos
+                </Text>
+                <Text style={[styles.subtitle, !isWeb && { fontSize: 12 }]}>
                   {departamentos.length} departamentos • {usuarios.length} usuarios en departamento seleccionado
                 </Text>
               </View>
@@ -947,7 +946,14 @@ export default function GestionAsignacionUsPage() {
 
             {selectedDepartamento && (
               <TouchableOpacity
-                style={styles.resetButton}
+                style={[
+                  styles.resetButton,
+                  !isWeb && {
+                    width: '100%',
+                    marginTop: 12,
+                    justifyContent: 'center'
+                  }
+                ]}
                 onPress={resetSeleccion}
               >
                 <Ionicons name="close-circle" size={20} color="#ef4444" />
@@ -958,7 +964,10 @@ export default function GestionAsignacionUsPage() {
 
           {/* Breadcrumb */}
           {selectedDepartamento && (
-            <View style={styles.breadcrumb}>
+            <View style={[
+              styles.breadcrumb,
+              !isWeb && { paddingHorizontal: 16 }
+            ]}>
               <TouchableOpacity
                 style={styles.breadcrumbItem}
                 onPress={resetSeleccion}
@@ -982,7 +991,9 @@ export default function GestionAsignacionUsPage() {
                 <View style={styles.stepBadge}>
                   <Text style={styles.stepNumber}>1</Text>
                 </View>
-                <Text style={styles.sectionTitle}>Selecciona un Departamento</Text>
+                <Text style={[styles.sectionTitle, !isWeb && { fontSize: 18 }]}>
+                  Selecciona un Departamento
+                </Text>
               </View>
 
               {/* Búsqueda Departamentos */}
@@ -1009,14 +1020,20 @@ export default function GestionAsignacionUsPage() {
                 </View>
               ) : departamentosFiltrados.length === 0 ? (
                 <View style={styles.emptyContainer}>
-                  <Ionicons name="business-outline" size={64} color="#cbd5e1" />
+                  <Ionicons name="business-outline" size={isWeb ? 64 : 48} color="#cbd5e1" />
                   <Text style={styles.emptyTitle}>No se encontraron departamentos</Text>
                   <Text style={styles.emptyText}>
                     {busquedaDept ? 'Intenta con otros términos de búsqueda' : 'No hay departamentos disponibles'}
                   </Text>
                 </View>
               ) : (
-                <View style={styles.departamentosGrid}>
+                <View style={[
+                  styles.departamentosGrid,
+                  !isWeb && {
+                    flexDirection: 'column',
+                    gap: 12,
+                  }
+                ]}>
                   {departamentosFiltrados.map((dept) => (
                     <DepartamentoCard
                       key={dept.id_departamento}
@@ -1037,7 +1054,9 @@ export default function GestionAsignacionUsPage() {
                     <Text style={styles.stepNumber}>2</Text>
                   </View>
                   <View style={styles.sectionTitleContainer}>
-                    <Text style={styles.sectionTitle}>Usuarios en {departamentoActual?.nombre}</Text>
+                    <Text style={[styles.sectionTitle, !isWeb && { fontSize: 18 }]}>
+                      Usuarios en {departamentoActual?.nombre}
+                    </Text>
                     <Text style={styles.sectionSubtitle}>
                       {usuarios.length} usuarios totales
                       {mostrarCambioDept && ` • ${selectedUsuarios.length} seleccionados`}
@@ -1046,9 +1065,16 @@ export default function GestionAsignacionUsPage() {
                 </View>
 
                 {/* Botones de Acción */}
-                <View style={styles.actionButtonsContainer}>
+                <View style={[
+                  styles.actionButtonsContainer,
+                  !isWeb && { flexDirection: 'column', gap: 12 }
+                ]}>
                   <TouchableOpacity
-                    style={[styles.actionToggleButton, mostrarCambioDept && styles.actionToggleButtonActive]}
+                    style={[
+                      styles.actionToggleButton,
+                      mostrarCambioDept && styles.actionToggleButtonActive,
+                      !isWeb && { width: '100%' }
+                    ]}
                     onPress={() => {
                       setMostrarCambioDept(!mostrarCambioDept);
                       setMostrarAsignacionSinDept(false);
@@ -1063,7 +1089,11 @@ export default function GestionAsignacionUsPage() {
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.actionToggleButton, mostrarAsignacionSinDept && styles.actionToggleButtonActive]}
+                    style={[
+                      styles.actionToggleButton,
+                      mostrarAsignacionSinDept && styles.actionToggleButtonActive,
+                      !isWeb && { width: '100%' }
+                    ]}
                     onPress={() => {
                       setMostrarAsignacionSinDept(!mostrarAsignacionSinDept);
                       setMostrarCambioDept(false);
@@ -1108,7 +1138,7 @@ export default function GestionAsignacionUsPage() {
                       </View>
                     ) : usuariosSinDept.length === 0 ? (
                       <View style={styles.emptyContainer}>
-                        <Ionicons name="checkmark-circle" size={64} color="#10b981" />
+                        <Ionicons name="checkmark-circle" size={isWeb ? 64 : 48} color="#10b981" />
                         <Text style={styles.emptyTitle}>Todos los usuarios tienen departamento</Text>
                       </View>
                     ) : (
@@ -1207,7 +1237,7 @@ export default function GestionAsignacionUsPage() {
                       </View>
                     ) : usuariosFiltrados.length === 0 ? (
                       <View style={styles.emptyContainer}>
-                        <Ionicons name="people-outline" size={64} color="#cbd5e1" />
+                        <Ionicons name="people-outline" size={isWeb ? 64 : 48} color="#cbd5e1" />
                         <Text style={styles.emptyTitle}>No hay usuarios en este departamento</Text>
                         <Text style={styles.emptyText}>
                           {busquedaUsuario ? 'Intenta con otros términos' : 'Este departamento no tiene usuarios asignados'}
@@ -1250,10 +1280,18 @@ export default function GestionAsignacionUsPage() {
                     <View style={styles.stepBadge}>
                       <Text style={styles.stepNumber}>3</Text>
                     </View>
-                    <Text style={styles.sectionTitle}>Selecciona Departamento Destino</Text>
+                    <Text style={[styles.sectionTitle, !isWeb && { fontSize: 18 }]}>
+                      Selecciona Departamento Destino
+                    </Text>
                   </View>
 
-                  <View style={styles.departamentosGrid}>
+                  <View style={[
+                    styles.departamentosGrid,
+                    !isWeb && {
+                      flexDirection: 'column',
+                      gap: 12,
+                    }
+                  ]}>
                     {departamentos
                       .filter(d => d.id_departamento !== selectedDepartamento)
                       .map((dept) => (
