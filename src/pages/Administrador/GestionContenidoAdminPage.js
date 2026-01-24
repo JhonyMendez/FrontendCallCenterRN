@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   Modal,
   Platform,
   RefreshControl,
@@ -39,6 +40,190 @@ const PRIORITY_LABELS = {
 
 const isWeb = Platform.OS === 'web';
 
+// ============ COMPONENTE TOOLTIP ============
+function TooltipIcon({ text }) {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const buttonRef = useRef(null);
+  const isMobile = Platform.OS !== 'web';
+  const { width } = Dimensions.get('window');
+
+  const handlePress = () => {
+    if (isMobile && buttonRef.current) {
+      buttonRef.current.measure((fx, fy, width, height, px, py) => {
+        setPosition({ x: px, y: py });
+        setShowTooltip(true);
+      });
+    } else {
+      setShowTooltip(!showTooltip);
+    }
+  };
+
+  return (
+    <View style={{ position: 'relative', marginLeft: 6 }}>
+      <TouchableOpacity
+        ref={buttonRef}
+        onPress={handlePress}
+        onMouseEnter={() => !isMobile && setShowTooltip(true)}
+        onMouseLeave={() => !isMobile && setShowTooltip(false)}
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: 9,
+          backgroundColor: 'rgba(102, 126, 234, 0.2)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderWidth: 1,
+          borderColor: 'rgba(102, 126, 234, 0.4)',
+        }}
+      >
+        <Text style={{ color: '#667eea', fontSize: 12, fontWeight: 'bold' }}>?</Text>
+      </TouchableOpacity>
+
+      {/* Tooltip para WEB */}
+      {showTooltip && !isMobile && (
+        <View style={{
+          position: 'absolute',
+          top: -5,
+          left: 25,
+          minWidth: 200,
+          maxWidth: 280,
+          backgroundColor: '#1a1a2e',
+          padding: 12,
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: 'rgba(102, 126, 234, 0.3)',
+          zIndex: 1000,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 8,
+        }}>
+          <View style={{
+            position: 'absolute',
+            top: 8,
+            left: -6,
+            width: 12,
+            height: 12,
+            backgroundColor: '#1a1a2e',
+            borderTopWidth: 1,
+            borderLeftWidth: 1,
+            borderColor: 'rgba(102, 126, 234, 0.3)',
+            transform: [{ rotate: '-45deg' }],
+          }} />
+
+          <Text style={{
+            color: 'rgba(255, 255, 255, 0.9)',
+            fontSize: 12,
+            lineHeight: 18,
+          }}>
+            {text}
+          </Text>
+        </View>
+      )}
+
+      {/* Tooltip para MÓVIL */}
+      {showTooltip && isMobile && (
+        <Modal
+          visible={true}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowTooltip(false)}
+        >
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            }}
+            activeOpacity={1}
+            onPress={() => setShowTooltip(false)}
+          >
+            <View style={{
+              position: 'absolute',
+              top: position.y + 25,
+              left: Math.min(position.x - 50, width - 270),
+              width: 250,
+              backgroundColor: '#1a1a2e',
+              padding: 16,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: 'rgba(102, 126, 234, 0.3)',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.4,
+              shadowRadius: 8,
+              elevation: 10,
+            }}>
+              <View style={{
+                position: 'absolute',
+                top: -6,
+                left: Math.max(50, position.x - Math.min(position.x - 50, width - 270)),
+                width: 12,
+                height: 12,
+                backgroundColor: '#1a1a2e',
+                borderTopWidth: 1,
+                borderLeftWidth: 1,
+                borderColor: 'rgba(102, 126, 234, 0.3)',
+                transform: [{ rotate: '45deg' }],
+              }} />
+
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                marginBottom: 10,
+                paddingBottom: 10,
+                borderBottomWidth: 1,
+                borderBottomColor: 'rgba(102, 126, 234, 0.2)',
+              }}>
+                <View style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                  <Text style={{ fontSize: 14 }}>💡</Text>
+                </View>
+                <Text style={{
+                  color: '#667eea',
+                  fontSize: 13,
+                  fontWeight: '700',
+                  flex: 1,
+                }}>
+                  Información
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowTooltip(false)}
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 11,
+                    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Ionicons name="close" size={14} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={{
+                color: 'rgba(255, 255, 255, 0.9)',
+                fontSize: 12,
+                lineHeight: 18,
+              }}>
+                {text}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
+    </View>
+  );
+}
 const GestionContenidoPage = () => {
   const [contenidos, setContenidos] = useState([]);
   const [agentes, setAgentes] = useState([]);
@@ -1102,6 +1287,7 @@ const GestionContenidoPage = () => {
                     <Text style={styles.label}>
                       Categoría <Text style={styles.required}>*</Text>
                     </Text>
+                    <TooltipIcon text="Selecciona la categoría a la que pertenece este contenido. La categoría determina cómo se organiza y busca la información." />
                   </View>
 
                   {/* Campo de búsqueda */}
@@ -1371,6 +1557,7 @@ const GestionContenidoPage = () => {
                     <Text style={styles.formLabel}>
                       Título <Text style={{ color: '#ef4444' }}>*</Text>
                     </Text>
+                    <TooltipIcon text="Escribe un título claro y descriptivo (mínimo 5 caracteres). Este será el identificador principal del contenido." />
                   </View>
                   <TextInput
                     value={formData.titulo}
@@ -1407,6 +1594,7 @@ const GestionContenidoPage = () => {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                   <Text style={{ fontSize: 18 }}>📋</Text>
                   <Text style={styles.formLabel}>Resumen <Text style={{ color: '#ef4444' }}>*</Text></Text>
+                  <TooltipIcon text="Proporciona un resumen breve del contenido (mínimo 10 caracteres). Ayuda a los usuarios a entender rápidamente de qué trata." />
                 </View>
                 <TextInput
                   value={formData.resumen}
@@ -1447,6 +1635,7 @@ const GestionContenidoPage = () => {
                   <Text style={styles.formLabel}>
                     Contenido <Text style={{ color: '#ef4444' }}>*</Text>
                   </Text>
+                  <TooltipIcon text="Escribe el contenido completo y detallado (mínimo 50 caracteres). Esta es la información que el agente utilizará para responder." />
                 </View>
                 <TextInput
                   value={formData.contenido}
@@ -1490,6 +1679,7 @@ const GestionContenidoPage = () => {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                   <Text style={{ fontSize: 18 }}>🔑</Text>
                   <Text style={styles.formLabel}>Palabras clave <Text style={{ color: '#ef4444' }}>*</Text></Text>
+                  <TooltipIcon text="Ingresa palabras clave separadas por comas. Ayudan a encontrar este contenido más fácilmente en las búsquedas." />
                 </View>
                 <TextInput
                   value={formData.palabras_clave}
@@ -1526,6 +1716,7 @@ const GestionContenidoPage = () => {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                   <Text style={{ fontSize: 18 }}>🏷️</Text>
                   <Text style={styles.formLabel}>Etiquetas <Text style={{ color: '#ef4444' }}>*</Text></Text>
+                  <TooltipIcon text="Agrega etiquetas separadas por comas para clasificar y filtrar el contenido por temas o categorías." />
                 </View>
                 <TextInput
                   value={formData.etiquetas}
@@ -1564,6 +1755,7 @@ const GestionContenidoPage = () => {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <Text style={{ fontSize: 18 }}>🚩</Text>
                     <Text style={styles.formLabel}>Prioridad</Text>
+                    <TooltipIcon text="Define la importancia del contenido (1-10). Mayor prioridad significa que este contenido será más relevante en las respuestas del agente." />
                   </View>
 
                   {/* Badge con prioridad seleccionada */}
@@ -1797,27 +1989,6 @@ const GestionContenidoPage = () => {
                   borderLeftWidth: 3,
                   borderLeftColor: '#3498db',
                 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <Text style={{ fontSize: 18 }}>ℹ️</Text>
-                    <Text style={{
-                      color: '#3498db',
-                      fontWeight: '700',
-                      fontSize: 14,
-                    }}>
-                      Estado del Contenido (Automático)
-                    </Text>
-                  </View>
-                  <Text style={{
-                    color: 'rgba(255, 255, 255, 0.7)',
-                    fontSize: 13,
-                    lineHeight: 20,
-                  }}>
-                    El estado se determina automáticamente según las fechas de vigencia:{'\n'}
-                    • Sin fechas → <Text style={{ color: '#10b981', fontWeight: '600' }}>Activo</Text>{'\n'}
-                    • Antes del inicio → <Text style={{ color: '#ef4444', fontWeight: '600' }}>Inactivo</Text>{'\n'}
-                    • Durante vigencia → <Text style={{ color: '#10b981', fontWeight: '600' }}>Activo</Text>{'\n'}
-                    • Después del fin → <Text style={{ color: '#ef4444', fontWeight: '600' }}>Inactivo</Text>
-                  </Text>
 
                   {/* Mostrar estado actual previsto */}
                   <View style={{
@@ -1957,6 +2128,7 @@ const GestionContenidoPage = () => {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                       <Text style={{ fontSize: 16 }}>📆</Text>
                       <Text style={styles.formLabel}>Fecha de inicio de vigencia</Text>
+                      <TooltipIcon text="Opcional: Define desde qué fecha este contenido estará activo. Antes de esta fecha estará inactivo automáticamente." />
                     </View>
 
                     {Platform.OS === 'web' ? (
@@ -2119,6 +2291,7 @@ const GestionContenidoPage = () => {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                       <Text style={{ fontSize: 16 }}>📆</Text>
                       <Text style={styles.formLabel}>Fecha de fin de vigencia</Text>
+                      <TooltipIcon text="Opcional: Define hasta qué fecha este contenido estará activo. Después de esta fecha se desactivará automáticamente." />
                     </View>
 
                     {Platform.OS === 'web' ? (
@@ -2345,7 +2518,7 @@ const GestionContenidoPage = () => {
                       borderColor: 'rgba(255, 255, 255, 0.15)',
                       flexDirection: 'row',
                       alignItems: 'center',
-                      gap: 8,
+                      gap: 6,
                     }}
                     onPress={cerrarModal}
                     activeOpacity={0.7}
@@ -2364,7 +2537,7 @@ const GestionContenidoPage = () => {
                     style={{
                       flexDirection: 'row',
                       alignItems: 'center',
-                      gap: 8,
+                      gap: 6,
                       backgroundColor: '#667eea',
                       paddingHorizontal: 24,
                       paddingVertical: 14,
@@ -2412,7 +2585,9 @@ const GestionContenidoPage = () => {
                 flexDirection: 'row',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: 24,
+                paddingLeft: Platform.OS === 'web' ? 24 : 6,
+                paddingRight: Platform.OS === 'web' ? 24 : 6,
+                paddingVertical: Platform.OS === 'web' ? 24 : 10,
                 borderBottomWidth: 1,
                 borderBottomColor: 'rgba(102, 126, 234, 0.2)',
                 backgroundColor: 'rgba(102, 126, 234, 0.05)',
@@ -2422,40 +2597,56 @@ const GestionContenidoPage = () => {
                 marginHorizontal: -28,
                 marginBottom: 20,
               }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: Platform.OS === 'web' ? 12 : 4,
+                  flex: 1,
+                  marginRight: 4,
+                }}>
                   <View style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 14,
+                    width: Platform.OS === 'web' ? 48 : 32,
+                    height: Platform.OS === 'web' ? 48 : 32,
+                    borderRadius: 8,
                     backgroundColor: 'rgba(52, 152, 219, 0.3)',
                     justifyContent: 'center',
                     alignItems: 'center',
                   }}>
-                    <Text style={{ fontSize: 28 }}>👁️</Text>
+                    <Text style={{ fontSize: Platform.OS === 'web' ? 28 : 18 }}>👁️</Text>
                   </View>
-                  <View>
-                    <Text style={{ fontSize: 22, fontWeight: '900', color: '#fff' }}>
-                      Detalles del Contenido
+                  <View style={{ flex: 1 }}>
+                    <Text style={{
+                      fontSize: Platform.OS === 'web' ? 22 : 12,
+                      fontWeight: '900',
+                      color: '#fff',
+                      flexWrap: 'wrap',
+                    }}>
+                      Detalles Del Contenido
                     </Text>
-                    <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}>
-                      Visualización completa
+                    <Text style={{
+                      color: 'rgba(255, 255, 255, 0.5)',
+                      fontSize: Platform.OS === 'web' ? 12 : 8,
+                      marginTop: 1,
+                    }}>
+                      Vista completa
                     </Text>
                   </View>
                 </View>
                 <TouchableOpacity
                   onPress={cerrarModalView}
                   style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
+                    width: Platform.OS === 'web' ? 40 : 28,
+                    height: Platform.OS === 'web' ? 40 : 28,
+                    borderRadius: 8,
                     backgroundColor: 'rgba(239, 68, 68, 0.15)',
                     justifyContent: 'center',
                     alignItems: 'center',
                     borderWidth: 1,
                     borderColor: 'rgba(239, 68, 68, 0.3)',
+                    flexShrink: 0,
                   }}
                 >
-                  <Text style={{ fontSize: 22 }}>❌</Text>
+                  <Text style={{ fontSize: Platform.OS === 'web' ? 22 : 16 }}>❌</Text>
                 </TouchableOpacity>
               </View>
 
@@ -2655,34 +2846,30 @@ const GestionContenidoPage = () => {
                   {/* Footer */}
                   <View style={{
                     flexDirection: 'row',
-                    justifyContent: 'flex-end',
-                    gap: 12,
-                    padding: 24,
+                    justifyContent: 'center',
+                    padding: Platform.OS === 'web' ? 24 : 16,
                     borderTopWidth: 1,
                     borderTopColor: 'rgba(255, 255, 255, 0.1)',
-                    marginHorizontal: -28,
-                    marginBottom: -28,
+                    marginHorizontal: Platform.OS === 'web' ? -28 : 0,
+                    marginBottom: Platform.OS === 'web' ? -28 : 0,
                     marginTop: 20,
                   }}>
                     <TouchableOpacity
                       style={{
-                        paddingHorizontal: 24,
-                        paddingVertical: 14,
-                        borderRadius: 16,
+                        paddingHorizontal: Platform.OS === 'web' ? 24 : 20,
+                        paddingVertical: Platform.OS === 'web' ? 14 : 10,
+                        borderRadius: 12,
                         backgroundColor: '#667eea',
                         flexDirection: 'row',
                         alignItems: 'center',
-                        gap: 8,
-                        shadowColor: '#667eea',
-                        shadowOpacity: 0.6,
-                        shadowRadius: 12,
+                        gap: 6,
                         elevation: 10,
                       }}
                       onPress={cerrarModalView}
                       activeOpacity={0.8}
                     >
-                      <Text style={{ fontSize: 18 }}>✅</Text>
-                      <Text style={{ color: 'white', fontWeight: '700', fontSize: 16 }}>
+                      <Text style={{ fontSize: Platform.OS === 'web' ? 18 : 16 }}>✅</Text>
+                      <Text style={{ color: 'white', fontWeight: '700', fontSize: Platform.OS === 'web' ? 16 : 14 }}>
                         Cerrar
                       </Text>
                     </TouchableOpacity>
