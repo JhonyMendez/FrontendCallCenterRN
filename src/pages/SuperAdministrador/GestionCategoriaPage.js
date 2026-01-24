@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   FlatList,
   Modal,
   Platform,
@@ -10,7 +11,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { agenteService } from '../../api/services/agenteService';
 import { categoriaService } from '../../api/services/categoriaService';
@@ -18,6 +19,191 @@ import SuperAdminSidebar from '../../components/Sidebar/sidebarSuperAdmin';
 import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles';
 import GestionCategoriaCard from '../../components/SuperAdministrador/GestionCategoriaCard';
 import { styles } from '../../styles/gestionCategoriaStyles';
+
+// ============ COMPONENTE TOOLTIP ============
+function TooltipIcon({ text }) {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const buttonRef = useRef(null);
+  const isMobile = Platform.OS !== 'web';
+  const { width } = Dimensions.get('window');
+
+  const handlePress = () => {
+    if (isMobile && buttonRef.current) {
+      buttonRef.current.measure((fx, fy, width, height, px, py) => {
+        setPosition({ x: px, y: py });
+        setShowTooltip(true);
+      });
+    } else {
+      setShowTooltip(!showTooltip);
+    }
+  };
+
+  return (
+    <View style={{ position: 'relative', marginLeft: 6 }}>
+      <TouchableOpacity
+        ref={buttonRef}
+        onPress={handlePress}
+        onMouseEnter={() => !isMobile && setShowTooltip(true)}
+        onMouseLeave={() => !isMobile && setShowTooltip(false)}
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: 9,
+          backgroundColor: 'rgba(102, 126, 234, 0.2)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderWidth: 1,
+          borderColor: 'rgba(102, 126, 234, 0.4)',
+        }}
+      >
+        <Text style={{ color: '#667eea', fontSize: 12, fontWeight: 'bold' }}>?</Text>
+      </TouchableOpacity>
+
+      {/* Tooltip para WEB */}
+      {showTooltip && !isMobile && (
+        <View style={{
+          position: 'absolute',
+          top: -5,
+          left: 25,
+          minWidth: 200,
+          maxWidth: 280,
+          backgroundColor: '#1a1a2e',
+          padding: 12,
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: 'rgba(102, 126, 234, 0.3)',
+          zIndex: 1000,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 8,
+        }}>
+          <View style={{
+            position: 'absolute',
+            top: 8,
+            left: -6,
+            width: 12,
+            height: 12,
+            backgroundColor: '#1a1a2e',
+            borderTopWidth: 1,
+            borderLeftWidth: 1,
+            borderColor: 'rgba(102, 126, 234, 0.3)',
+            transform: [{ rotate: '-45deg' }],
+          }} />
+
+          <Text style={{
+            color: 'rgba(255, 255, 255, 0.9)',
+            fontSize: 12,
+            lineHeight: 18,
+          }}>
+            {text}
+          </Text>
+        </View>
+      )}
+
+      {/* Tooltip para MÓVIL */}
+      {showTooltip && isMobile && (
+        <Modal
+          visible={true}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowTooltip(false)}
+        >
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            }}
+            activeOpacity={1}
+            onPress={() => setShowTooltip(false)}
+          >
+            <View style={{
+              position: 'absolute',
+              top: position.y + 25,
+              left: Math.min(position.x - 50, width - 270),
+              width: 250,
+              backgroundColor: '#1a1a2e',
+              padding: 16,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: 'rgba(102, 126, 234, 0.3)',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.4,
+              shadowRadius: 8,
+              elevation: 10,
+            }}>
+              <View style={{
+                position: 'absolute',
+                top: -6,
+                left: Math.max(50, position.x - Math.min(position.x - 50, width - 270)),
+                width: 12,
+                height: 12,
+                backgroundColor: '#1a1a2e',
+                borderTopWidth: 1,
+                borderLeftWidth: 1,
+                borderColor: 'rgba(102, 126, 234, 0.3)',
+                transform: [{ rotate: '45deg' }],
+              }} />
+
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                marginBottom: 10,
+                paddingBottom: 10,
+                borderBottomWidth: 1,
+                borderBottomColor: 'rgba(102, 126, 234, 0.2)',
+              }}>
+                <View style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                  <Text style={{ fontSize: 14 }}>💡</Text>
+                </View>
+                <Text style={{
+                  color: '#667eea',
+                  fontSize: 13,
+                  fontWeight: '700',
+                  flex: 1,
+                }}>
+                  Información
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowTooltip(false)}
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 11,
+                    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Ionicons name="close" size={14} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={{
+                color: 'rgba(255, 255, 255, 0.9)',
+                fontSize: 12,
+                lineHeight: 18,
+              }}>
+                {text}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
+    </View>
+  );
+}
 
 export default function GestionCategoriaPage() {
   // ============ STATE ============
@@ -39,6 +225,7 @@ export default function GestionCategoriaPage() {
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [searchAgente, setSearchAgente] = useState('');
+  const [showAllAgentes, setShowAllAgentes] = useState(false);
   const [searchFilterAgente, setSearchFilterAgente] = useState('');
   const [showDetalleModal, setShowDetalleModal] = useState(false);
   const [categoriaDetalle, setCategoriaDetalle] = useState(null);
@@ -333,6 +520,7 @@ export default function GestionCategoriaPage() {
     setEditingCategoria(null);
     setErrors({});
     setSearchAgente('');
+    setShowAllAgentes(false);
   };
 
 
@@ -520,7 +708,17 @@ export default function GestionCategoriaPage() {
           {/* ============ FILTROS ============ */}
           <View style={{ paddingHorizontal: 16 }}>
             {/* Filtro por Estado */}
-            <View style={styles.filterContainer}>
+            <View style={[
+              styles.filterContainer,
+              // ✅ Forzar que se ajusten en móvil
+              !isWeb && {
+                flexDirection: 'row',
+                flexWrap: 'nowrap',
+                justifyContent: 'space-between',
+                paddingHorizontal: 16,
+                gap: 6,
+              }
+            ]}>
               {[
                 { key: 'all', label: 'Todas', icon: 'apps' },
                 { key: 'true', label: 'Activas', icon: 'checkmark-circle' },
@@ -531,21 +729,40 @@ export default function GestionCategoriaPage() {
                   style={[
                     styles.filterButton,
                     filterActivo === filter.key && styles.filterButtonActive,
+                    // ✅ Botones MUY compactos en móvil
+                    !isWeb && {
+                      paddingHorizontal: 6,
+                      paddingVertical: 5,
+                      minWidth: 0,
+                      flex: 1,
+                      maxWidth: '31%', // ✅ CRÍTICO: Limitar ancho máximo
+                    }
                   ]}
                   onPress={() => setFilterActivo(filter.key)}
                   activeOpacity={0.7}
                 >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: isWeb ? 6 : 2,
+                    justifyContent: 'center'
+                  }}>
                     <Ionicons
                       name={filter.icon}
-                      size={14}
+                      size={isWeb ? 14 : 10}
                       color={filterActivo === filter.key ? 'white' : 'rgba(255, 255, 255, 0.6)'}
                     />
                     <Text
                       style={[
                         styles.filterText,
                         filterActivo === filter.key && styles.filterTextActive,
+                        // ✅ Texto MUY pequeño en móvil
+                        !isWeb && {
+                          fontSize: 9,
+                        }
                       ]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
                     >
                       {filter.label}
                     </Text>
@@ -590,95 +807,135 @@ export default function GestionCategoriaPage() {
               </View>
 
               {/* Botones de filtro */}
-              <View
+              <ScrollView
                 ref={scrollRef}
-                onStartShouldSetResponder={() => true}
-                style={{
-                  flexDirection: 'row',
-                  overflowX: 'scroll',
-                  overflowY: 'hidden',
-                  cursor: isDragging ? 'grabbing' : 'grab',
-                  userSelect: 'none',
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{
                   paddingHorizontal: 16,
                   paddingVertical: 4,
                   paddingRight: 32,
-                  scrollbarWidth: 'none',
-                  msOverflowStyle: 'none',
                 }}
-                onMouseDown={(e) => {
-                  setIsDragging(true);
-                  setStartX(e.pageX - scrollRef.current.offsetLeft);
-                  setScrollLeft(scrollRef.current.scrollLeft);
+                style={{
+                  flexGrow: 0,
                 }}
-                onMouseLeave={() => {
-                  setIsDragging(false);
+                onStartShouldSetResponder={() => Platform.OS === 'web'}
+                onMoveShouldSetResponder={() => Platform.OS === 'web' && isDragging}
+                onResponderGrant={(e) => {
+                  if (Platform.OS === 'web' && e.nativeEvent.button === 0) {
+                    setIsDragging(true);
+                    setStartX(e.nativeEvent.pageX);
+                    if (scrollRef.current) {
+                      scrollRef.current.measure((x, y, width, height, pageX, pageY) => {
+                        setScrollLeft(scrollRef.current.scrollLeft || 0);
+                      });
+                    }
+                  }
                 }}
-                onMouseUp={() => {
-                  setIsDragging(false);
+                onResponderMove={(e) => {
+                  if (Platform.OS === 'web' && isDragging && scrollRef.current) {
+                    const x = e.nativeEvent.pageX;
+                    const walk = (startX - x) * 2;
+                    scrollRef.current.scrollTo({ x: (scrollLeft || 0) + walk, animated: false });
+                  }
                 }}
-                onMouseMove={(e) => {
-                  if (!isDragging) return;
-                  e.preventDefault();
-                  const x = e.pageX - scrollRef.current.offsetLeft;
-                  const walk = (x - startX) * 2;
-                  scrollRef.current.scrollLeft = scrollLeft - walk;
+                onResponderRelease={() => {
+                  if (Platform.OS === 'web') {
+                    setIsDragging(false);
+                  }
                 }}
               >
-                <TouchableOpacity
-                  style={[
-                    styles.filterButton,
-                    filterAgente === 'all' && styles.filterButtonActive,
-                  ]}
-                  onPress={() => setFilterAgente('all')}
-                  activeOpacity={0.7}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    gap: 8,
+                    cursor: Platform.OS === 'web' ? (isDragging ? 'grabbing' : 'grab') : 'default',
+                  }}
+                  onMouseDown={(e) => {
+                    if (Platform.OS === 'web') {
+                      e.preventDefault();
+                      setIsDragging(true);
+                      setStartX(e.pageX);
+                      if (scrollRef.current) {
+                        setScrollLeft(scrollRef.current.scrollLeft || 0);
+                      }
+                    }
+                  }}
+                  onMouseMove={(e) => {
+                    if (Platform.OS === 'web' && isDragging && scrollRef.current) {
+                      e.preventDefault();
+                      const x = e.pageX;
+                      const walk = (startX - x) * 2;
+                      scrollRef.current.scrollTo({ x: (scrollLeft || 0) + walk, animated: false });
+                    }
+                  }}
+                  onMouseUp={() => {
+                    if (Platform.OS === 'web') {
+                      setIsDragging(false);
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    if (Platform.OS === 'web') {
+                      setIsDragging(false);
+                    }
+                  }}
                 >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Ionicons
-                      name="globe"
-                      size={14}
-                      color={filterAgente === 'all' ? 'white' : 'rgba(255, 255, 255, 0.6)'}
-                    />
-                    <Text
-                      style={[
-                        styles.filterText,
-                        filterAgente === 'all' && styles.filterTextActive,
-                      ]}
-                      numberOfLines={1}
-                    >
-                      Todos
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-
-                {filteredFilterAgentes.map((agente) => (
                   <TouchableOpacity
-                    key={agente.id_agente}
                     style={[
                       styles.filterButton,
-                      filterAgente === agente.id_agente.toString() && styles.filterButtonActive,
+                      filterAgente === 'all' && styles.filterButtonActive,
                     ]}
-                    onPress={() => setFilterAgente(agente.id_agente.toString())}
+                    onPress={() => setFilterAgente('all')}
                     activeOpacity={0.7}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Ionicons
-                        name="person"
+                        name="globe"
                         size={14}
-                        color={filterAgente === agente.id_agente.toString() ? 'white' : 'rgba(255, 255, 255, 0.6)'}
+                        color={filterAgente === 'all' ? 'white' : 'rgba(255, 255, 255, 0.6)'}
                       />
                       <Text
                         style={[
                           styles.filterText,
-                          filterAgente === agente.id_agente.toString() && styles.filterTextActive,
+                          filterAgente === 'all' && styles.filterTextActive,
                         ]}
                         numberOfLines={1}
                       >
-                        {agente.nombre_agente}
+                        Todos
                       </Text>
                     </View>
                   </TouchableOpacity>
-                ))}
-              </View>
+
+                  {filteredFilterAgentes.map((agente) => (
+                    <TouchableOpacity
+                      key={agente.id_agente}
+                      style={[
+                        styles.filterButton,
+                        filterAgente === agente.id_agente.toString() && styles.filterButtonActive,
+                      ]}
+                      onPress={() => setFilterAgente(agente.id_agente.toString())}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons
+                          name="person"
+                          size={14}
+                          color={filterAgente === agente.id_agente.toString() ? 'white' : 'rgba(255, 255, 255, 0.6)'}
+                        />
+                        <Text
+                          style={[
+                            styles.filterText,
+                            filterAgente === agente.id_agente.toString() && styles.filterTextActive,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {agente.nombre_agente}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
             </View>
           </View>
 
@@ -772,7 +1029,12 @@ export default function GestionCategoriaPage() {
                 </View>
 
                 {/* Contenido del Modal */}
-                <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+                <ScrollView
+                  style={styles.modalContent}
+                  contentContainerStyle={{ paddingBottom: 120 }}
+                  showsVerticalScrollIndicator={true}
+                  bounces={true}
+                >
 
                   {/* Selector de Agente */}
                   <View style={styles.formGroup}>
@@ -781,6 +1043,7 @@ export default function GestionCategoriaPage() {
                       <Text style={styles.label}>
                         Agente Virtual <Text style={styles.required}>*</Text>
                       </Text>
+                      <TooltipIcon text="Selecciona el agente virtual al que pertenecerá esta categoría. Una vez que la categoría tenga subcategorías, no podrás cambiar el agente." />
                     </View>
 
                     {editingCategoria && getSubcategorias(editingCategoria.id_categoria).length > 0 && (
@@ -869,105 +1132,144 @@ export default function GestionCategoriaPage() {
                             </Text>
                           </View>
                         ) : (
-                          filteredAgentes.map((agente) => {
-                            // ✅ Calcular si tiene subcategorías y si está deshabilitado
-                            const tieneSubcategorias = editingCategoria && getSubcategorias(editingCategoria.id_categoria).length > 0;
-                            const esAgenteActual = editingCategoria && editingCategoria.id_agente === agente.id_agente;
-                            const estaDeshabilitado = tieneSubcategorias && !esAgenteActual;
+                          <>
+                            {/* Mostrar solo los primeros 3 o todos según showAllAgentes */}
+                            {(showAllAgentes ? filteredAgentes : filteredAgentes.slice(0, 3)).map((agente) => {
+                              // ✅ Calcular si tiene subcategorías y si está deshabilitado
+                              const tieneSubcategorias = editingCategoria && getSubcategorias(editingCategoria.id_categoria).length > 0;
+                              const esAgenteActual = editingCategoria && editingCategoria.id_agente === agente.id_agente;
+                              const estaDeshabilitado = tieneSubcategorias && !esAgenteActual;
 
-                            return (
+                              return (
+                                <TouchableOpacity
+                                  key={agente.id_agente}
+                                  style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 12,
+                                    padding: 14,
+                                    borderRadius: 12,
+                                    borderWidth: 2,
+                                    borderColor: formData.id_agente === agente.id_agente
+                                      ? '#667eea'
+                                      : 'rgba(255, 255, 255, 0.15)',
+                                    backgroundColor: formData.id_agente === agente.id_agente
+                                      ? 'rgba(102, 126, 234, 0.2)'
+                                      : 'rgba(255, 255, 255, 0.05)',
+                                    opacity: estaDeshabilitado ? 0.4 : 1,
+                                  }}
+                                  onPress={() => {
+                                    if (!estaDeshabilitado) {
+                                      handleInputChange('id_agente', agente.id_agente);
+                                    }
+                                  }}
+                                  activeOpacity={estaDeshabilitado ? 1 : 0.7}
+                                  disabled={estaDeshabilitado}
+                                >
+                                  <View style={{
+                                    width: 40,
+                                    height: 40,
+                                    borderRadius: 10,
+                                    backgroundColor: agente.color_tema || '#667eea',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                  }}>
+                                    <Ionicons
+                                      name="person"
+                                      size={22}
+                                      color="white"
+                                    />
+                                  </View>
+                                  <View style={{ flex: 1 }}>
+                                    <Text style={{
+                                      color: formData.id_agente === agente.id_agente ? '#667eea' : 'white',
+                                      fontWeight: '700',
+                                      fontSize: 15,
+                                    }}>
+                                      {agente.nombre_agente}
+                                    </Text>
+                                    <Text style={{
+                                      color: 'rgba(255, 255, 255, 0.5)',
+                                      fontSize: 12,
+                                      marginTop: 2,
+                                    }}>
+                                      {agente.area_especialidad || 'Agente general'}
+                                    </Text>
+                                  </View>
+                                  {formData.id_agente === agente.id_agente && (
+                                    <Ionicons name="checkmark-circle" size={24} color="#667eea" />
+                                  )}
+                                  {estaDeshabilitado && (
+                                    <Ionicons name="lock-closed" size={20} color="rgba(255, 255, 255, 0.3)" />
+                                  )}
+                                </TouchableOpacity>
+                              );
+                            })}
+
+                            {/* Botón "Ver más" / "Ver menos" */}
+                            {filteredAgentes.length > 3 && (
                               <TouchableOpacity
-                                key={agente.id_agente}
                                 style={{
                                   flexDirection: 'row',
                                   alignItems: 'center',
-                                  gap: 12,
-                                  padding: 14,
-                                  borderRadius: 12,
-                                  borderWidth: 2,
-                                  borderColor: formData.id_agente === agente.id_agente
-                                    ? '#667eea'
-                                    : 'rgba(255, 255, 255, 0.15)',
-                                  backgroundColor: formData.id_agente === agente.id_agente
-                                    ? 'rgba(102, 126, 234, 0.2)'
-                                    : 'rgba(255, 255, 255, 0.05)',
-                                  opacity: estaDeshabilitado ? 0.4 : 1, // ✅ Opacidad reducida si está deshabilitado
-                                }}
-                                onPress={() => {
-                                  if (!estaDeshabilitado) { // ✅ Solo permite clic si no está deshabilitado
-                                    handleInputChange('id_agente', agente.id_agente);
-                                  }
-                                }}
-                                activeOpacity={estaDeshabilitado ? 1 : 0.7} // ✅ Sin efecto visual si está deshabilitado
-                                disabled={estaDeshabilitado} // ✅ Deshabilitar el botón
-                              >
-                                <View style={{
-                                  width: 40,
-                                  height: 40,
-                                  borderRadius: 10,
-                                  backgroundColor: agente.color_tema || '#667eea',
                                   justifyContent: 'center',
-                                  alignItems: 'center',
+                                  gap: 8,
+                                  padding: 12,
+                                  borderRadius: 10,
+                                  backgroundColor: 'rgba(102, 126, 234, 0.15)',
+                                  borderWidth: 1,
+                                  borderColor: 'rgba(102, 126, 234, 0.3)',
+                                  marginTop: 8,
+                                }}
+                                onPress={() => setShowAllAgentes(!showAllAgentes)}
+                                activeOpacity={0.7}
+                              >
+                                <Ionicons
+                                  name={showAllAgentes ? "chevron-up" : "chevron-down"}
+                                  size={18}
+                                  color="#667eea"
+                                />
+                                <Text style={{
+                                  color: '#667eea',
+                                  fontSize: 14,
+                                  fontWeight: '600',
                                 }}>
-                                  <Ionicons
-                                    name="person"
-                                    size={22}
-                                    color="white"
-                                  />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                  <Text style={{
-                                    color: formData.id_agente === agente.id_agente ? '#667eea' : 'white',
-                                    fontWeight: '700',
-                                    fontSize: 15,
-                                  }}>
-                                    {agente.nombre_agente}
-                                  </Text>
-                                  <Text style={{
-                                    color: 'rgba(255, 255, 255, 0.5)',
-                                    fontSize: 12,
-                                    marginTop: 2,
-                                  }}>
-                                    {agente.area_especialidad || 'Agente general'}
-                                  </Text>
-                                </View>
-                                {formData.id_agente === agente.id_agente && (
-                                  <Ionicons name="checkmark-circle" size={24} color="#667eea" />
-                                )}
-                                {/* ✅ NUEVO: Icono de bloqueo si está deshabilitado */}
-                                {estaDeshabilitado && (
-                                  <Ionicons name="lock-closed" size={20} color="rgba(255, 255, 255, 0.3)" />
-                                )}
+                                  {showAllAgentes
+                                    ? 'Ver menos'
+                                    : `Ver ${filteredAgentes.length - 3} agente${filteredAgentes.length - 3 === 1 ? '' : 's'} más`
+                                  }
+                                </Text>
                               </TouchableOpacity>
-                            );
-                          })
+                            )}
+                          </>
                         )}
-                      </View>
-                    )}
 
-                    {errors.id_agente && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
-                        <Ionicons name="alert-circle" size={14} color="#ef4444" />
-                        <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>
-                          {errors.id_agente}
-                        </Text>
+                        {errors.id_agente && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                            <Ionicons name="alert-circle" size={14} color="#ef4444" />
+                            <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>
+                              {errors.id_agente}
+                            </Text>
+                          </View>
+                        )}
                       </View>
                     )}
                   </View>
 
-                  {/* ========== NUEVO: Selector de Categoría Padre ========== */}
+                  {/* ========== Selector de Categoría Padre/Hija ========== */}
                   <View style={styles.formGroup}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                       <Ionicons name="git-branch" size={16} color="#667eea" />
                       <Text style={styles.label}>
-                        Categoría Padre
+                        Nivel de Categoría
                         <Text style={{ fontSize: 11, fontWeight: '400', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'none' }}>
-                          {' '}(opcional - para subcategorías)
+                          {' '}(¿Es una categoría independiente o depende de otra?)
                         </Text>
                       </Text>
+                      <TooltipIcon text="Elige si esta categoría es independiente (aparecerá en el menú principal) o si depende de otra categoría existente (será una subcategoría que se mostrará dentro de otra)." />
                     </View>
 
-                    {/* Opción: Sin categoría padre (categoría principal) */}
+                    {/* Opción: Categoría independiente (sin padre) */}
                     <TouchableOpacity
                       style={{
                         flexDirection: 'row',
@@ -1003,20 +1305,43 @@ export default function GestionCategoriaPage() {
                           fontWeight: '700',
                           fontSize: 15,
                         }}>
-                          Categoría Principal
+                          Categoría Independiente
                         </Text>
                         <Text style={{
                           color: 'rgba(255, 255, 255, 0.5)',
                           fontSize: 12,
                           marginTop: 2,
                         }}>
-                          Sin categoría padre
+                          Aparecerá directamente en el menú principal
                         </Text>
                       </View>
                       {formData.id_categoria_padre === null && (
                         <Ionicons name="checkmark-circle" size={24} color="#667eea" />
                       )}
                     </TouchableOpacity>
+
+                    {/* Texto explicativo si hay categorías disponibles */}
+                    {formData.id_agente && categorias.filter(cat =>
+                      cat.id_agente === formData.id_agente &&
+                      (!editingCategoria || cat.id_categoria !== editingCategoria.id_categoria)
+                    ).length > 0 && (
+                        <View style={{
+                          padding: 12,
+                          backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                          borderRadius: 10,
+                          marginBottom: 8,
+                          borderLeftWidth: 3,
+                          borderLeftColor: '#667eea',
+                        }}>
+                          <Text style={{
+                            color: 'rgba(255, 255, 255, 0.7)',
+                            fontSize: 12,
+                            lineHeight: 18,
+                          }}>
+                            O selecciona una categoría existente para crear una subcategoría dentro de ella:
+                          </Text>
+                        </View>
+                      )}
 
                     {/* Lista de categorías disponibles como padre */}
                     {categorias
@@ -1069,7 +1394,7 @@ export default function GestionCategoriaPage() {
                               fontWeight: '700',
                               fontSize: 15,
                             }}>
-                              {cat.nombre}
+                              Dentro de: {cat.nombre}
                             </Text>
                             {cat.descripcion && (
                               <Text
@@ -1105,7 +1430,8 @@ export default function GestionCategoriaPage() {
                         }}>
                           <Ionicons name="information-circle" size={32} color="rgba(255, 255, 255, 0.3)" />
                           <Text style={{ color: 'rgba(255, 255, 255, 0.5)', marginTop: 8, fontSize: 13, textAlign: 'center' }}>
-                            No hay categorías disponibles del agente seleccionado
+                            No hay otras categorías disponibles del agente seleccionado.
+                            Esta será una categoría independiente.
                           </Text>
                         </View>
                       )}
@@ -1123,7 +1449,7 @@ export default function GestionCategoriaPage() {
                       }}>
                         <Ionicons name="alert-circle" size={32} color="#fbbf24" />
                         <Text style={{ color: '#fbbf24', marginTop: 8, fontSize: 13, textAlign: 'center', fontWeight: '600' }}>
-                          Primero selecciona un agente para ver categorías disponibles
+                          Primero selecciona un agente para ver las categorías disponibles
                         </Text>
                       </View>
                     )}
@@ -1139,6 +1465,7 @@ export default function GestionCategoriaPage() {
                           {' '}(3-100 caracteres)
                         </Text>
                       </Text>
+                      <TooltipIcon text="Ingresa un nombre descriptivo para la categoría. Debe tener entre 3 y 100 caracteres. Ejemplo: 'Solicitudes de Información', 'Quejas y Reclamos'." />
                     </View>
                     <TextInput
                       style={[styles.input, errors.nombre && { borderColor: '#ef4444', borderWidth: 2 }]}
@@ -1174,6 +1501,7 @@ export default function GestionCategoriaPage() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                       <Ionicons name="star" size={16} color="#667eea" />
                       <Text style={styles.label}>Icono Seleccionado</Text>
+                      <TooltipIcon text="Elige un icono representativo para esta categoría. El icono ayuda a identificar visualmente la categoría en la interfaz." />
                     </View>
 
                     {/* Vista previa del icono seleccionado */}
@@ -1264,6 +1592,7 @@ export default function GestionCategoriaPage() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                       <Ionicons name="color-palette" size={16} color="#667eea" />
                       <Text style={styles.label}>Color Seleccionado</Text>
+                      <TooltipIcon text="Selecciona un color que identifique esta categoría. El color se usará en tarjetas, badges y otros elementos visuales de la interfaz." />
                     </View>
 
                     {/* Color actual */}
@@ -1343,15 +1672,67 @@ export default function GestionCategoriaPage() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                       <Ionicons name="reorder-three" size={16} color="#667eea" />
                       <Text style={styles.label}>Orden</Text>
+                      <TooltipIcon text="Define el orden de aparición de esta categoría. Un número menor aparecerá primero. Ejemplo: 1, 2, 3... Las categorías se ordenarán de menor a mayor." />
                     </View>
-                    <TextInput
-                      style={styles.input}
-                      value={formData.orden.toString()}
-                      onChangeText={(text) => handleInputChange('orden', parseInt(text) || 0)}
-                      placeholder="0"
-                      placeholderTextColor="rgba(255, 255, 255, 0.3)"
-                      keyboardType="numeric"
-                    />
+
+                    {/* Selector visual de 1 a 10 */}
+                    <View style={{
+                      flexDirection: 'row',
+                      flexWrap: 'wrap',
+                      gap: 8,
+                      padding: 12,
+                      borderRadius: 12,
+                      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255, 255, 255, 0.08)',
+                    }}>
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((numero) => (
+                        <TouchableOpacity
+                          key={numero}
+                          style={{
+                            width: 50,
+                            height: 50,
+                            borderRadius: 12,
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            backgroundColor: formData.orden === numero
+                              ? 'rgba(102, 126, 234, 0.3)'
+                              : 'rgba(255, 255, 255, 0.05)',
+                            borderWidth: 2,
+                            borderColor: formData.orden === numero
+                              ? '#667eea'
+                              : 'rgba(255, 255, 255, 0.15)',
+                          }}
+                          onPress={() => handleInputChange('orden', numero)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={{
+                            color: formData.orden === numero ? '#667eea' : 'rgba(255, 255, 255, 0.7)',
+                            fontSize: 18,
+                            fontWeight: '700',
+                          }}>
+                            {numero}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    {/* Muestra el número seleccionado */}
+                    <View style={{
+                      marginTop: 12,
+                      padding: 12,
+                      borderRadius: 10,
+                      backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                      borderLeftWidth: 3,
+                      borderLeftColor: '#667eea',
+                    }}>
+                      <Text style={{
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        fontSize: 13,
+                      }}>
+                        Orden seleccionado: <Text style={{ color: '#667eea', fontWeight: '700', fontSize: 15 }}>{formData.orden}</Text>
+                      </Text>
+                    </View>
                   </View>
 
                   {/* Descripción */}
@@ -1360,10 +1741,8 @@ export default function GestionCategoriaPage() {
                       <Ionicons name="document-text" size={16} color="#667eea" />
                       <Text style={styles.label}>
                         Descripción
-                        <Text style={{ fontSize: 11, fontWeight: '400', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'none' }}>
-                          {' '}(opcional, máx. 500 caracteres)
-                        </Text>
                       </Text>
+                      <TooltipIcon text="Agrega una descripción detallada de la categoría. Explica qué tipo de contenido o consultas incluirá esta categoría. Máximo 500 caracteres." />
                     </View>
                     <TextInput
                       style={[styles.input, styles.textArea, errors.descripcion && { borderColor: '#ef4444', borderWidth: 2 }]}
@@ -1441,7 +1820,7 @@ export default function GestionCategoriaPage() {
           {/* ============ MODAL DETALLE CATEGORÍA ============ */}
           <Modal visible={showDetalleModal} animationType="fade" transparent>
             <View style={styles.modalOverlay}>
-              <View style={[styles.modal, { maxWidth: 700 }]}>
+              <View style={[styles.modal, { maxWidth: 700, maxHeight: '90%' }]}>
 
                 {/* Header del Modal */}
                 <View style={styles.modalHeader}>
@@ -1523,7 +1902,11 @@ export default function GestionCategoriaPage() {
                 </View>
 
                 {/* Contenido del Modal */}
-                <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+                <ScrollView
+                  style={styles.modalContent}
+                  contentContainerStyle={{ paddingBottom: 24 }}
+                  showsVerticalScrollIndicator={false}
+                >
 
                   {/* Información de la categoría */}
                   <View style={{ gap: 16 }}>
