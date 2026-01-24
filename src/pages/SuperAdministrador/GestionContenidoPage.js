@@ -992,14 +992,15 @@ const GestionContenidoPage = () => {
         onRequestClose={cerrarModal}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { marginHorizontal: 20 }]}>
 
             {/* ============ HEADER DEL MODAL ============ */}
             <View style={{
               flexDirection: 'row',
               justifyContent: 'space-between',
               alignItems: 'center',
-              padding: 20,
+              paddingHorizontal: Platform.OS === 'web' ? 16 : 8,
+              paddingVertical: Platform.OS === 'web' ? 16 : 12,
               borderBottomWidth: 1,
               borderBottomColor: 'rgba(102, 126, 234, 0.2)',
               backgroundColor: 'rgba(102, 126, 234, 0.05)',
@@ -1027,7 +1028,7 @@ const GestionContenidoPage = () => {
                 </View>
                 <View>
                   <Text style={{
-                    fontSize: 22,
+                    fontSize: Platform.OS === 'web' ? 22 : 18,
                     fontWeight: '900',
                     color: '#fff',
                     letterSpacing: 0.5,
@@ -2258,7 +2259,7 @@ const GestionContenidoPage = () => {
                     borderColor: 'rgba(16, 185, 129, 0.3)',
                   }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                      <Text style={{ fontSize: 16 }}>✅</Text>
+                      
                       <Text style={{ color: '#10b981', fontWeight: '700', fontSize: 13 }}>
                         Rango de vigencia configurado
                       </Text>
@@ -2297,16 +2298,18 @@ const GestionContenidoPage = () => {
               {/* ============ FOOTER DEL MODAL ============ */}
               <View style={{
                 flexDirection: 'row',
-                justifyContent: 'flex-end',
-                gap: 12,
-                padding: 20,
+                justifyContent: 'space-between',
+                gap: 10,
+                paddingHorizontal: Platform.OS === 'web' ? 20 : 12,
+                paddingVertical: Platform.OS === 'web' ? 20 : 14,
                 borderTopWidth: 1,
                 borderTopColor: 'rgba(255, 255, 255, 0.1)',
                 marginTop: 20,
               }}>
                 <TouchableOpacity
                   style={{
-                    paddingHorizontal: 24,
+                    flex: 1,
+                    paddingHorizontal: Platform.OS === 'web' ? 24 : 16,
                     paddingVertical: 14,
                     borderRadius: 16,
                     backgroundColor: 'rgba(255, 255, 255, 0.08)',
@@ -2314,6 +2317,7 @@ const GestionContenidoPage = () => {
                     borderColor: 'rgba(255, 255, 255, 0.15)',
                     flexDirection: 'row',
                     alignItems: 'center',
+                    justifyContent: 'center',
                     gap: 8,
                   }}
                   onPress={cerrarModal}
@@ -2331,12 +2335,15 @@ const GestionContenidoPage = () => {
 
                 <TouchableOpacity
                   style={{
+                    flex: 1,
                     flexDirection: 'row',
                     alignItems: 'center',
+                    justifyContent: 'center',
                     gap: 8,
                     backgroundColor: '#667eea',
-                    paddingHorizontal: 24,
+                    paddingHorizontal: Platform.OS === 'web' ? 24 : 12, 
                     paddingVertical: 14,
+                    justifyContent: 'center', 
                     borderRadius: 16,
                     shadowColor: '#667eea',
                     shadowOpacity: 0.6,
@@ -2374,14 +2381,14 @@ const GestionContenidoPage = () => {
         onRequestClose={cerrarModalView}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxWidth: 800 }]}>
-
+          <View style={[styles.modalContent, { maxWidth: 800, marginHorizontal: 20 }]}>
             {/* Header */}
             <View style={{
               flexDirection: 'row',
               justifyContent: 'space-between',
               alignItems: 'center',
-              padding: 20,
+              paddingHorizontal: Platform.OS === 'web' ? 16 : 8,
+              paddingVertical: Platform.OS === 'web' ? 16 : 12,
               borderBottomWidth: 1,
               borderBottomColor: 'rgba(102, 126, 234, 0.2)',
               backgroundColor: 'rgba(102, 126, 234, 0.05)',
@@ -2398,10 +2405,10 @@ const GestionContenidoPage = () => {
                   justifyContent: 'center',
                   alignItems: 'center',
                 }}>
-                  <Text style={{ fontSize: 28 }}>👁️</Text>
+                  <Text style={{ fontSize: Platform.OS === 'web' ? 28 : 22 }}>👁️</Text>
                 </View>
                 <View>
-                  <Text style={{ fontSize: 22, fontWeight: '900', color: '#fff' }}>
+                  <Text style={{ fontSize: Platform.OS === 'web' ? 22 : 18, fontWeight: '900', color: '#fff' }}>
                     Detalles del Contenido
                   </Text>
                   <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, marginTop: 2 }}>
@@ -2627,9 +2634,10 @@ const GestionContenidoPage = () => {
             {contenidoView && (
               <View style={{
                 flexDirection: 'row',
-                justifyContent: 'flex-end',
-                gap: 12,
-                padding: 20,
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingHorizontal: Platform.OS === 'web' ? 16 : 8,
+                paddingVertical: Platform.OS === 'web' ? 16 : 12,
                 borderTopWidth: 1,
                 borderTopColor: 'rgba(255, 255, 255, 0.1)',
                 marginTop: 20,
@@ -2683,8 +2691,8 @@ const GestionContenidoPage = () => {
             }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <View style={{
-                  width: 48,
-                  height: 48,
+                  width: Platform.OS === 'web' ? 48 : 36,
+                  height: Platform.OS === 'web' ? 48 : 36,
                   borderRadius: 14,
                   backgroundColor: 'rgba(251, 191, 36, 0.3)',
                   justifyContent: 'center',
@@ -3056,14 +3064,14 @@ const GestionContenidoPage = () => {
             }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, justifyContent: 'center' }}>
                 <View style={{
-                  width: 48,
-                  height: 48,
+                  width: Platform.OS === 'web' ? 48 : 36,
+                  height: Platform.OS === 'web' ? 48 : 36,
                   borderRadius: 14,
                   backgroundColor: 'rgba(239, 68, 68, 0.3)',
                   justifyContent: 'center',
                   alignItems: 'center',
                 }}>
-                  <Text style={{ fontSize: 28 }}>⚠️</Text>
+                  <Text style={{ fontSize: Platform.OS === 'web' ? 28 : 22 }}>⚠️</Text>
                 </View>
                 <View>
                   <Text style={{ fontSize: 20, fontWeight: '900', color: '#ef4444' }}>
