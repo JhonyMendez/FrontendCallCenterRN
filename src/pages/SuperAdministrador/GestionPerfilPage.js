@@ -19,11 +19,15 @@ import {
 import { usuarioService } from '../../api/services/usuarioService';
 import GestionPerfilCard from '../../components/SuperAdministrador/GestionPerfilCard';
 
+import { Dimensions } from 'react-native';
 import SuperAdminSidebar from '../../components/Sidebar/sidebarSuperAdmin';
 import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles';
 import { getUserIdFromToken } from '../../components/utils/authHelper';
 import SecurityValidator from '../../components/utils/SecurityValidator';
 import { styles } from '../../styles/GestionPerfilStyles';
+
+const { width } = Dimensions.get('window');
+const isMobile = width < 768;
 
 const GestionPerfilPage = () => {
     // ==================== ESTADOS ====================
@@ -232,13 +236,13 @@ const GestionPerfilPage = () => {
                         >
                             <View style={styles.headerContent}>
                                 <View style={styles.headerTop}>
-                                    <View style={styles.headerTitleContainer}>
+                                    <View style={[styles.headerTitleContainer, isMobile && { flex: 1, maxWidth: '65%' }]}>
                                         <View style={styles.headerIconContainer}>
-                                            <User size={32} color="#FFFFFF" />
+                                            <User size={isMobile ? 28 : 32} color="#FFFFFF" />
                                         </View>
-                                        <View>
-                                            <Text style={styles.headerTitle}>Mi Perfil</Text>
-                                            <Text style={styles.headerSubtitle}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={[styles.headerTitle, isMobile && { fontSize: 20 }]}>Mi Perfil</Text>
+                                            <Text style={[styles.headerSubtitle, isMobile && { fontSize: 13 }]} numberOfLines={1}>
                                                 {SecurityValidator.sanitizeText(usuario?.persona?.nombre || '')} {' '}
                                                 {SecurityValidator.sanitizeText(usuario?.persona?.apellido || '')}
                                             </Text>
@@ -253,8 +257,10 @@ const GestionPerfilPage = () => {
                                             colors={['#FFFFFF', '#F3F4F6']}
                                             style={styles.btnEditGradient}
                                         >
-                                            <Ionicons name="create" size={20} color="#667eea" />
-                                            <Text style={styles.btnEditText}>EDITAR</Text>
+                                            <Ionicons name="create" size={isMobile ? 18 : 20} color="#667eea" />
+                                            <Text style={[styles.btnEditText, isMobile && { fontSize: 11 }]}>
+                                                {isMobile ? 'EDITAR' : 'EDITAR'}
+                                            </Text>
                                         </LinearGradient>
                                     </TouchableOpacity>
                                 </View>

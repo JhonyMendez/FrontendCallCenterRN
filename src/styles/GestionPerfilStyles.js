@@ -355,13 +355,15 @@ export const styles = StyleSheet.create({
 
     // ==================== CAMPOS DE FORMULARIO ====================
     formRow: {
-        flexDirection: 'row',
+        flexDirection: isTabletOrDesktop ? 'row' : 'column',
         gap: 16,
         marginBottom: 20,
+        flexWrap: 'wrap',
     },
 
     formColumn: {
         flex: 1,
+        minWidth: isTabletOrDesktop ? 250 : '100%',
     },
 
     label: {
@@ -464,11 +466,13 @@ export const styles = StyleSheet.create({
 
     actionsContainer: {
         flexDirection: 'row',
-        gap: 16,
-        padding: 24,
+        alignItems: 'center',
+        paddingHorizontal: isTabletOrDesktop ? 16 : 8, // ← Muy poco padding en móvil
+        paddingVertical: 12,
         backgroundColor: 'rgba(26, 26, 46, 0.98)',
         borderTopWidth: 1,
         borderTopColor: 'rgba(102, 126, 234, 0.3)',
+        gap: isTabletOrDesktop ? 8 : 4, // ← Espacio mínimo
     },
 
     btnGuardar: {
@@ -837,10 +841,10 @@ export const styles = StyleSheet.create({
     btnPrimario: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10,
-        paddingVertical: 14,
-        paddingHorizontal: 28,
-        borderRadius: 12,
+        gap: 3,
+        paddingVertical: 10,
+        paddingHorizontal: isTabletOrDesktop ? 16 : 10, // ← Compacto
+        borderRadius: 8,
         shadowColor: '#667eea',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
@@ -849,29 +853,30 @@ export const styles = StyleSheet.create({
     },
 
     btnPrimarioText: {
-        fontSize: 14,
-        fontWeight: '700',
+        fontSize: isTabletOrDesktop ? 13 : 11, // ← Texto más pequeño
+        fontWeight: '800',
         color: '#FFFFFF',
-        letterSpacing: 1,
+        letterSpacing: 0.3,
     },
+
 
     btnSecundario: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
-        paddingVertical: 14,
-        paddingHorizontal: 24,
-        borderRadius: 12,
+        gap: 3,
+        paddingVertical: 8,
+        paddingHorizontal: isTabletOrDesktop ? 14 : 8, // ← Muy compacto
+        borderRadius: 8,
         backgroundColor: '#374151',
         borderWidth: 2,
         borderColor: '#667eea',
     },
 
     btnSecundarioText: {
-        fontSize: 14,
+        fontSize: isTabletOrDesktop ? 13 : 11, // ← Texto más pequeño en móvil
         fontWeight: '700',
         color: '#667eea',
-        letterSpacing: 1,
+        letterSpacing: 0.3,
     },
 
     eyeButton: {
@@ -984,24 +989,23 @@ export const styles = StyleSheet.create({
         fontWeight: '500',
     },
 
-    // Botón cancelar (MEJORAR el que ya tienes)
     btnCancelar: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
-        paddingVertical: 14,
-        paddingHorizontal: 24,
-        borderRadius: 12,
+        gap: 3,
+        paddingVertical: 8,
+        paddingHorizontal: isTabletOrDesktop ? 14 : 8, // ← Muy compacto
+        borderRadius: 8,
         backgroundColor: '#7F1D1D',
         borderWidth: 2,
         borderColor: '#EF4444',
     },
 
     btnCancelarText: {
-        fontSize: 14,
+        fontSize: isTabletOrDesktop ? 13 : 11, // ← Texto más pequeño
         fontWeight: '700',
         color: '#FCA5A5',
-        letterSpacing: 1,
+        letterSpacing: 0.3,
     },
 
     // Header form (MEJORAR)
@@ -1211,17 +1215,17 @@ export const styles = StyleSheet.create({
     btnEditGradient: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
-        paddingHorizontal: 20,
-        paddingVertical: 12,
+        gap: 6,
+        paddingHorizontal: isTabletOrDesktop ? 20 : 12, // ← Más compacto en móvil
+        paddingVertical: isTabletOrDesktop ? 12 : 10,
         borderRadius: 12,
     },
 
     btnEditText: {
-        fontSize: 13,
+        fontSize: isTabletOrDesktop ? 13 : 11, // ← Texto más pequeño en móvil
         fontWeight: '800',
         color: '#667eea',
-        letterSpacing: 1,
+        letterSpacing: 0.8,
     },
 
     // ==================== CONTENEDOR GENERAL ====================
@@ -1404,4 +1408,5 @@ export const styles = StyleSheet.create({
         color: '#FFFFFF',
         lineHeight: 22,
     },
+
 });

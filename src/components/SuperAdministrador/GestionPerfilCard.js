@@ -2,13 +2,15 @@
 // src/components/Perfil/GestionPerfilCard.js
 // Formulario de Edición de Perfil Personal - VERSIÓN MEJORADA ✨
 // ==================================================================================
-
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Animated,
+    Dimensions,
+    Platform,
     ScrollView,
     Text,
     TextInput,
@@ -21,6 +23,8 @@ import { usuarioService } from '../../api/services/usuarioService';
 import { styles } from '../../styles/GestionPerfilStyles';
 import DateInput from '../common/DateInput';
 import SecurityValidator from '../utils/SecurityValidator';
+const { width } = Dimensions.get('window');
+const isMobile = width < 768;
 
 const GestionPerfilCard = ({ usuario, onCerrar, onGuardado }) => {
     // ==================== ESTADOS ====================
@@ -178,6 +182,7 @@ const GestionPerfilCard = ({ usuario, onCerrar, onGuardado }) => {
     };
 
     // ==================== GUARDAR ====================
+    // ==================== GUARDAR ====================
     const handleGuardar = async () => {
         if (!validarPaso(2)) {
             mostrarNotificacion('Por favor completa los campos requeridos', 'error');
@@ -188,31 +193,65 @@ const GestionPerfilCard = ({ usuario, onCerrar, onGuardado }) => {
         try {
             await actualizarPerfil();
 
-            const datosSesion = localStorage.getItem('@datos_sesion');
-            if (datosSesion) {
-                const sesion = JSON.parse(datosSesion);
-                sesion.usuario = {
-                    ...sesion.usuario,
-                    username: SecurityValidator.truncateText(
-                        SecurityValidator.sanitizeText(username), 50
-                    ),
-                    email: SecurityValidator.sanitizeText(email).toLowerCase().trim(),
-                    nombre: SecurityValidator.truncateText(
-                        SecurityValidator.sanitizeText(nombre), 100
-                    ),
-                    apellido: SecurityValidator.truncateText(
-                        SecurityValidator.sanitizeText(apellido), 100
-                    ),
-                    telefono: telefono
-                        ? SecurityValidator.sanitizeText(telefono).replace(/[-\s()]/g, '')
-                        : null,
-                    direccion: direccion
-                        ? SecurityValidator.truncateText(SecurityValidator.sanitizeText(direccion), 200)
-                        : null,
-                    fecha_nacimiento: fechaNacimiento || null,
-                    genero: genero ? genero.toLowerCase() : null,
-                };
-                localStorage.setItem('@datos_sesion', JSON.stringify(sesion));
+            // ✅ Usar AsyncStorage en móvil, localStorage en web
+            const storage = Platform.OS === 'web' ? localStorage : AsyncStorage;
+
+            if (Platform.OS === 'web') {
+                // WEB: localStorage
+                const datosSesion = localStorage.getItem('@datos_sesion');
+                if (datosSesion) {
+                    const sesion = JSON.parse(datosSesion);
+                    sesion.usuario = {
+                        ...sesion.usuario,
+                        username: SecurityValidator.truncateText(
+                            SecurityValidator.sanitizeText(username), 50
+                        ),
+                        email: SecurityValidator.sanitizeText(email).toLowerCase().trim(),
+                        nombre: SecurityValidator.truncateText(
+                            SecurityValidator.sanitizeText(nombre), 100
+                        ),
+                        apellido: SecurityValidator.truncateText(
+                            SecurityValidator.sanitizeText(apellido), 100
+                        ),
+                        telefono: telefono
+                            ? SecurityValidator.sanitizeText(telefono).replace(/[-\s()]/g, '')
+                            : null,
+                        direccion: direccion
+                            ? SecurityValidator.truncateText(SecurityValidator.sanitizeText(direccion), 200)
+                            : null,
+                        fecha_nacimiento: fechaNacimiento || null,
+                        genero: genero ? genero.toLowerCase() : null,
+                    };
+                    localStorage.setItem('@datos_sesion', JSON.stringify(sesion));
+                }
+            } else {
+                // MÓVIL: AsyncStorage
+                const datosSesion = await AsyncStorage.getItem('@datos_sesion');
+                if (datosSesion) {
+                    const sesion = JSON.parse(datosSesion);
+                    sesion.usuario = {
+                        ...sesion.usuario,
+                        username: SecurityValidator.truncateText(
+                            SecurityValidator.sanitizeText(username), 50
+                        ),
+                        email: SecurityValidator.sanitizeText(email).toLowerCase().trim(),
+                        nombre: SecurityValidator.truncateText(
+                            SecurityValidator.sanitizeText(nombre), 100
+                        ),
+                        apellido: SecurityValidator.truncateText(
+                            SecurityValidator.sanitizeText(apellido), 100
+                        ),
+                        telefono: telefono
+                            ? SecurityValidator.sanitizeText(telefono).replace(/[-\s()]/g, '')
+                            : null,
+                        direccion: direccion
+                            ? SecurityValidator.truncateText(SecurityValidator.sanitizeText(direccion), 200)
+                            : null,
+                        fecha_nacimiento: fechaNacimiento || null,
+                        genero: genero ? genero.toLowerCase() : null,
+                    };
+                    await AsyncStorage.setItem('@datos_sesion', JSON.stringify(sesion));
+                }
             }
 
             mostrarNotificacion('✅ Perfil actualizado correctamente', 'success');
@@ -695,8 +734,8 @@ const GestionPerfilCard = ({ usuario, onCerrar, onGuardado }) => {
                         onPress={handleAnterior}
                         activeOpacity={0.7}
                     >
-                        <Ionicons name="arrow-back" size={20} color="#667eea" />
-                        <Text style={styles.btnSecundarioText}>ANTERIOR</Text>
+                        <Ionicons name="arrow-back" size={isMobile ? 18 : 20} color="#667eea" />
+                        <Text style={styles.btnSecundarioText}>{isMobile ? 'ATRÁS' : 'ANTERIOR'}</Text>
                     </TouchableOpacity>
                 )}
 
@@ -707,7 +746,7 @@ const GestionPerfilCard = ({ usuario, onCerrar, onGuardado }) => {
                     onPress={onCerrar}
                     activeOpacity={0.7}
                 >
-                    <Ionicons name="close" size={20} color="#FCA5A5" />
+                    <Ionicons name="close" size={isMobile ? 18 : 20} color="#FCA5A5" />
                     <Text style={styles.btnCancelarText}>CANCELAR</Text>
                 </TouchableOpacity>
 
@@ -718,7 +757,7 @@ const GestionPerfilCard = ({ usuario, onCerrar, onGuardado }) => {
                             style={styles.btnPrimario}
                         >
                             <Text style={styles.btnPrimarioText}>SIGUIENTE</Text>
-                            <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+                            <Ionicons name="arrow-forward" size={isMobile ? 18 : 20} color="#FFFFFF" />
                         </LinearGradient>
                     </TouchableOpacity>
                 ) : (
@@ -734,12 +773,12 @@ const GestionPerfilCard = ({ usuario, onCerrar, onGuardado }) => {
                             {guardando ? (
                                 <>
                                     <ActivityIndicator size="small" color="#FFFFFF" />
-                                    <Text style={styles.btnPrimarioText}>GUARDANDO...</Text>
+                                    <Text style={styles.btnPrimarioText}>{isMobile ? 'GUARDANDO...' : 'GUARDANDO...'}</Text>
                                 </>
                             ) : (
                                 <>
-                                    <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-                                    <Text style={styles.btnPrimarioText}>GUARDAR CAMBIOS</Text>
+                                    <Ionicons name="checkmark-circle" size={isMobile ? 18 : 20} color="#FFFFFF" />
+                                    <Text style={styles.btnPrimarioText}>{isMobile ? 'GUARDAR' : 'GUARDAR CAMBIOS'}</Text>
                                 </>
                             )}
                         </LinearGradient>
