@@ -671,7 +671,17 @@ export default function GestionCategoriaPage() {
           {/* ============ FILTROS ============ */}
           <View style={{ paddingHorizontal: 16 }}>
             {/* Filtro por Estado */}
-            <View style={styles.filterContainer}>
+            <View style={[
+              styles.filterContainer,
+              // ✅ Forzar que se ajusten en móvil
+              !isWeb && {
+                flexDirection: 'row',
+                flexWrap: 'nowrap',
+                justifyContent: 'space-between',
+                paddingHorizontal: 16,
+                gap: 6,
+              }
+            ]}>
               {[
                 { key: 'all', label: 'Todas', icon: 'apps' },
                 { key: 'true', label: 'Activas', icon: 'checkmark-circle' },
@@ -682,21 +692,40 @@ export default function GestionCategoriaPage() {
                   style={[
                     styles.filterButton,
                     filterActivo === filter.key && styles.filterButtonActive,
+                    // ✅ Botones MUY compactos en móvil
+                    !isWeb && {
+                      paddingHorizontal: 6,
+                      paddingVertical: 5,
+                      minWidth: 0,
+                      flex: 1,
+                      maxWidth: '31%', // ✅ CRÍTICO: Limitar ancho máximo
+                    }
                   ]}
                   onPress={() => setFilterActivo(filter.key)}
                   activeOpacity={0.7}
                 >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: isWeb ? 6 : 2,
+                    justifyContent: 'center'
+                  }}>
                     <Ionicons
                       name={filter.icon}
-                      size={14}
+                      size={isWeb ? 14 : 10}
                       color={filterActivo === filter.key ? 'white' : 'rgba(255, 255, 255, 0.6)'}
                     />
                     <Text
                       style={[
                         styles.filterText,
                         filterActivo === filter.key && styles.filterTextActive,
+                        // ✅ Texto MUY pequeño en móvil
+                        !isWeb && {
+                          fontSize: 9,
+                        }
                       ]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
                     >
                       {filter.label}
                     </Text>
