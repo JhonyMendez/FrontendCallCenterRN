@@ -799,7 +799,7 @@ const GestionUsuarioPage = () => {
           {/* Sidebar deslizante */}
           <View style={{
             position: 'absolute',
-            top: 0,
+            top: Platform.OS === 'ios' ? 50 : 40,  // ← SOLO ESTE CAMBIO
             left: 0,
             bottom: 0,
             width: '80%',

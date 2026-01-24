@@ -397,10 +397,7 @@ export default function GestionAsignacionUsPage() {
 
       Alert.alert(
         '✅ Asignación Exitosa',
-        `${usuariosAsignados} usuario(s) asignado(s) a "${nombreDept}"\n\n` +
-        `✓ Departamento actualizado\n` +
-        `✓ ${promesasPermisos.length} relación(es) usuario-agente creadas\n` +
-        `✓ ${resumenPermisos} permiso(s) activo(s) por usuario`,
+        `${usuariosAsignados} usuario(s) asignado(s) a "${nombreDept}"\n\n`,
         [{ text: 'Perfecto', style: 'default' }]
       );
 
@@ -631,9 +628,7 @@ export default function GestionAsignacionUsPage() {
 
       Alert.alert(
         '✅ Revocación Exitosa',
-        `${nombreUsuario} ha sido removido del departamento.\n\n` +
-        `✓ Departamento: Removido\n` +
-        `✓ Relaciones usuario-agente: Eliminadas (${agentes.length} registro(s))`,
+        `${nombreUsuario} ha sido removido del departamento.\n\n`,
         [{ text: 'Entendido', style: 'default' }]
       );
 
