@@ -788,9 +788,17 @@ export default function GestionDepartamentosPage() {
                         </Text>
                       </View>
                     )}
-                    <Text style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 11, marginTop: 6 }}>
-                      {formData.codigo.length}/50 caracteres
-                    </Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
+                      <Text style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 11 }}>
+                        {formData.codigo.length}/50 caracteres
+                      </Text>
+                      {formData.codigo.length >= 3 && validateCodigo(formData.codigo) && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Ionicons name="checkmark-circle" size={14} color="#10b981" />
+                          <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '600' }}>Válido</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
 
                   {/* Facultad */}
@@ -816,6 +824,9 @@ export default function GestionDepartamentosPage() {
                         </Text>
                       </View>
                     )}
+                    <Text style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 11, marginTop: 6 }}>
+                      {formData.facultad.length}/100 caracteres
+                    </Text>
                   </View>
 
                   {/* Email */}
@@ -843,12 +854,17 @@ export default function GestionDepartamentosPage() {
                         </Text>
                       </View>
                     )}
-                    {formData.email.length > 0 && !errors.email && validateEmail(formData.email) && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
-                        <Ionicons name="checkmark-circle" size={14} color="#10b981" />
-                        <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '600' }}>Válido</Text>
-                      </View>
-                    )}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
+                      <Text style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 11 }}>
+                        {formData.email.length}/100 caracteres
+                      </Text>
+                      {formData.email.length > 0 && !errors.email && validateEmail(formData.email) && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Ionicons name="checkmark-circle" size={14} color="#10b981" />
+                          <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '600' }}>Válido</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
 
                   {/* Teléfono */}
@@ -875,6 +891,17 @@ export default function GestionDepartamentosPage() {
                         </Text>
                       </View>
                     )}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
+                      <Text style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 11 }}>
+                        {formData.telefono.length}/20 caracteres
+                      </Text>
+                      {formData.telefono.length > 0 && validatePhone(formData.telefono) && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Ionicons name="checkmark-circle" size={14} color="#10b981" />
+                          <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '600' }}>Válido</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
 
                   {/* Ubicación */}

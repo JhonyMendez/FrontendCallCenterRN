@@ -1850,7 +1850,8 @@ export default function GestionAgentePage() {
                                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                         <Text style={modalStyles.label}>Nombre del Agente *</Text>
                                         <TooltipIcon text="Ingresa un nombre descriptivo que identifique claramente la función del agente. Este nombre será visible para los usuarios." />
-                                    </View>                                    <TextInput
+                                    </View>
+                                    <TextInput
                                         style={[modalStyles.input, formErrors.nombre_agente && modalStyles.inputError]}
                                         placeholder="Ej: Asistente de Ventas"
                                         placeholderTextColor="rgba(255, 255, 255, 0.4)"
@@ -1858,6 +1859,9 @@ export default function GestionAgentePage() {
                                         onChangeText={(text) => setFormData({ ...formData, nombre_agente: text })}
                                         maxLength={100}
                                     />
+                                    <Text style={[modalStyles.helperText, { textAlign: 'right', marginTop: 4 }]}>
+                                        {formData.nombre_agente?.length || 0} / 100 caracteres
+                                    </Text>
                                     {formErrors.nombre_agente && (
                                         <Text style={modalStyles.errorText}>{formErrors.nombre_agente}</Text>
                                     )}
@@ -1867,7 +1871,8 @@ export default function GestionAgentePage() {
                                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                         <Text style={modalStyles.label}>Área de Especialidad *</Text>
                                         <TooltipIcon text="Define el área específica en la que el agente se especializa (ej: Ventas, Soporte Técnico, RRHH). Esto ayuda a clasificar y organizar los agentes." />
-                                    </View>                                    <TextInput
+                                    </View>
+                                    <TextInput
                                         style={[modalStyles.input, formErrors.area_especialidad && modalStyles.inputError]}
                                         placeholder="Ej: Ventas, Soporte, RRHH"
                                         placeholderTextColor="rgba(255, 255, 255, 0.4)"
@@ -1875,6 +1880,9 @@ export default function GestionAgentePage() {
                                         onChangeText={(text) => setFormData({ ...formData, area_especialidad: text })}
                                         maxLength={100}
                                     />
+                                    <Text style={[modalStyles.helperText, { textAlign: 'right', marginTop: 4 }]}>
+                                        {formData.area_especialidad?.length || 0} / 100 caracteres
+                                    </Text>
                                     {formErrors.area_especialidad && (
                                         <Text style={modalStyles.errorText}>{formErrors.area_especialidad}</Text>
                                     )}
@@ -1884,7 +1892,8 @@ export default function GestionAgentePage() {
                                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                         <Text style={modalStyles.label}>Departamento Responsable</Text>
                                         <TooltipIcon text="Selecciona el departamento al que pertenece este agente. Cada departamento solo puede tener un agente asignado. Una vez asignado, no se puede cambiar." />
-                                    </View>                                    <TextInput
+                                    </View>
+                                    <TextInput
                                         style={[modalStyles.textArea, formErrors.descripcion && modalStyles.inputError]}
                                         placeholder="Describe el propósito y funciones del agente..."
                                         placeholderTextColor="rgba(255, 255, 255, 0.4)"
@@ -1894,6 +1903,9 @@ export default function GestionAgentePage() {
                                         numberOfLines={4}
                                         maxLength={500}
                                     />
+                                    <Text style={[modalStyles.helperText, { textAlign: 'right', marginTop: 4 }]}>
+                                        {formData.descripcion?.length || 0} / 500 caracteres
+                                    </Text>
                                     {formErrors.descripcion && (
                                         <Text style={modalStyles.errorText}>{formErrors.descripcion}</Text>
                                     )}
@@ -2323,11 +2335,7 @@ export default function GestionAgentePage() {
                                                     borderColor: '#fbbf24',
                                                     borderWidth: 2,
                                                 }
-
                                             ]}
-
-
-
                                             placeholder="https://ejemplo.com/avatar.png o cualquier URL de imagen"
                                             placeholderTextColor="rgba(255, 255, 255, 0.4)"
                                             value={formData.avatar_url}
@@ -2336,6 +2344,9 @@ export default function GestionAgentePage() {
                                             autoCapitalize="none"
                                             autoCorrect={false}
                                         />
+                                        <Text style={[modalStyles.helperText, { textAlign: 'right', marginTop: 4 }]}>
+                                            {formData.avatar_url?.length || 0} / 255 caracteres
+                                        </Text>
                                         {formErrors.avatar_url && (
                                             <Text style={modalStyles.errorText}>{formErrors.avatar_url}</Text>
                                         )}
@@ -2715,7 +2726,8 @@ export default function GestionAgentePage() {
                                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                         <Text style={modalStyles.label}>Mensaje de Bienvenida *</Text>
                                         <TooltipIcon text="Este es el primer mensaje que verán los usuarios al iniciar una conversación con el agente. Hazlo amigable y descriptivo sobre cómo el agente puede ayudar." />
-                                    </View>                                    <TextInput
+                                    </View>
+                                    <TextInput
                                         style={[modalStyles.textArea, formErrors.mensaje_bienvenida && modalStyles.inputError]}
                                         placeholder="¡Hola! Soy tu asistente virtual. ¿En qué puedo ayudarte?"
                                         placeholderTextColor="rgba(255, 255, 255, 0.4)"
@@ -2725,6 +2737,9 @@ export default function GestionAgentePage() {
                                         numberOfLines={3}
                                         maxLength={500}
                                     />
+                                    <Text style={[modalStyles.helperText, { textAlign: 'right', marginTop: 4 }]}>
+                                        {formData.mensaje_bienvenida?.length || 0} / 500 caracteres
+                                    </Text>
                                     {formErrors.mensaje_bienvenida && (
                                         <Text style={modalStyles.errorText}>{formErrors.mensaje_bienvenida}</Text>
                                     )}
@@ -2737,7 +2752,8 @@ export default function GestionAgentePage() {
                                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                         <Text style={modalStyles.label}>Mensaje de Despedida *</Text>
                                         <TooltipIcon text="Mensaje que se muestra cuando el usuario finaliza la conversación. Debe ser cortés y puede incluir información de contacto adicional." />
-                                    </View>                                    <TextInput
+                                    </View>
+                                    <TextInput
                                         style={[modalStyles.textArea, formErrors.mensaje_despedida && modalStyles.inputError]}
                                         placeholder="¡Hasta pronto! Fue un gusto ayudarte."
                                         placeholderTextColor="rgba(255, 255, 255, 0.4)"
@@ -2747,6 +2763,9 @@ export default function GestionAgentePage() {
                                         numberOfLines={3}
                                         maxLength={500}
                                     />
+                                    <Text style={[modalStyles.helperText, { textAlign: 'right', marginTop: 4 }]}>
+                                        {formData.mensaje_despedida?.length || 0} / 500 caracteres
+                                    </Text>
                                     {formErrors.mensaje_despedida && (
                                         <Text style={modalStyles.errorText}>{formErrors.mensaje_despedida}</Text>
                                     )}
@@ -2759,7 +2778,8 @@ export default function GestionAgentePage() {
                                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                         <Text style={modalStyles.label}>Mensaje de Derivación *</Text>
                                         <TooltipIcon text="Mensaje que se muestra cuando el agente necesita transferir la consulta a un especialista humano o a otro agente. Debe explicar el motivo de la transferencia." />
-                                    </View>                                    <TextInput
+                                    </View>
+                                    <TextInput
                                         style={[modalStyles.textArea, formErrors.mensaje_derivacion && modalStyles.inputError]}
                                         placeholder="Voy a transferir tu consulta a un especialista humano..."
                                         placeholderTextColor="rgba(255, 255, 255, 0.4)"
@@ -2769,6 +2789,10 @@ export default function GestionAgentePage() {
                                         numberOfLines={3}
                                         maxLength={500}
                                     />
+                                    <Text style={[modalStyles.helperText, { textAlign: 'right', marginTop: 4 }]}>
+                                        {formData.mensaje_derivacion?.length || 0} / 500 caracteres
+                                    </Text>
+
                                     {formErrors.mensaje_derivacion && (
                                         <Text style={modalStyles.errorText}>{formErrors.mensaje_derivacion}</Text>
                                     )}
@@ -2792,6 +2816,9 @@ export default function GestionAgentePage() {
                                         numberOfLines={3}
                                         maxLength={500}
                                     />
+                                    <Text style={[modalStyles.helperText, { textAlign: 'right', marginTop: 4 }]}>
+                                        {formData.mensaje_fuera_horario?.length || 0} / 500 caracteres
+                                    </Text>
                                     {formErrors.mensaje_fuera_horario && (
                                         <Text style={modalStyles.errorText}>{formErrors.mensaje_fuera_horario}</Text>
                                     )}
@@ -2810,7 +2837,8 @@ export default function GestionAgentePage() {
                                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                         <Text style={modalStyles.label}>Modelo de IA</Text>
                                         <TooltipIcon text="Modelo de inteligencia artificial que usa el agente. Actualmente está configurado en llama3:8b y no se puede modificar." />
-                                    </View>                                    <View style={{
+                                    </View>
+                                    <View style={{
                                         backgroundColor: 'rgba(71, 85, 105, 0.3)',
                                         borderWidth: 1,
                                         borderColor: 'rgba(148, 163, 184, 0.3)',
@@ -3516,6 +3544,9 @@ export default function GestionAgentePage() {
                                         numberOfLines={3}
                                         maxLength={300}
                                     />
+                                    <Text style={[modalStyles.helperText, { textAlign: 'right', marginTop: 4 }]}>
+                                        {formData.prompt_mision?.length || 0} / 300 caracteres
+                                    </Text>
                                     {formErrors.prompt_mision && (
                                         <Text style={modalStyles.errorText}>{formErrors.prompt_mision}</Text>
                                     )}
@@ -3552,7 +3583,6 @@ export default function GestionAgentePage() {
                                                     }}
                                                     maxLength={200}
                                                 />
-                                                {/* Botón eliminar (solo si hay más de 2) */}
                                                 {formData.prompt_reglas.length > 2 && (
                                                     <TouchableOpacity
                                                         onPress={() => {
@@ -3574,6 +3604,12 @@ export default function GestionAgentePage() {
                                                     </TouchableOpacity>
                                                 )}
                                             </View>
+
+                                            {/* ⭐ NUEVO: Contador de caracteres */}
+                                            <Text style={[modalStyles.helperText, { textAlign: 'right', marginTop: 4, fontSize: 11 }]}>
+                                                {regla?.length || 0} / 200 caracteres
+                                            </Text>
+
                                             {formErrors[`prompt_regla_${index}`] && (
                                                 <Text style={modalStyles.errorText}>{formErrors[`prompt_regla_${index}`]}</Text>
                                             )}
@@ -3800,10 +3836,7 @@ export default function GestionAgentePage() {
                             <View style={modalStyles.formGroup}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
 
-                                    <Text style={modalStyles.label}>
-                                        Especialización del Agente
-                                        <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 13 }}> (Opcional)</Text>
-                                    </Text>
+                                    <Text style={modalStyles.label}>Especialización del Agente</Text>
                                     <TooltipIcon text="Describe temas específicos, servicios o áreas de ayuda adicionales del agente. Esto complementa la misión con detalles más específicos sobre lo que el agente puede hacer." />
                                 </View>
                                 <TextInput
@@ -3869,7 +3902,8 @@ export default function GestionAgentePage() {
                                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                         <Text style={modalStyles.label}>Idioma Principal</Text>
                                         <TooltipIcon text="Idioma en el que el agente se comunicará con los usuarios. Actualmente está configurado en Español y no se puede modificar." />
-                                    </View>                                    <View style={{
+                                    </View>
+                                    <View style={{
                                         backgroundColor: 'rgba(71, 85, 105, 0.3)',
                                         borderWidth: 1,
                                         borderColor: 'rgba(148, 163, 184, 0.3)',
@@ -3919,7 +3953,8 @@ export default function GestionAgentePage() {
                                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                         <Text style={modalStyles.label}>Zona Horaria</Text>
                                         <TooltipIcon text="Zona horaria del agente para coordinar horarios de atención. Configurada para Ecuador (America/Guayaquil, GMT-5) y no se puede modificar." />
-                                    </View>                                    <View style={{
+                                    </View>                                    
+                                    <View style={{
                                         backgroundColor: 'rgba(71, 85, 105, 0.3)',
                                         borderWidth: 1,
                                         borderColor: 'rgba(148, 163, 184, 0.3)',
@@ -5432,4 +5467,3 @@ export default function GestionAgentePage() {
         </View >
     );
 }
-

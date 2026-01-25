@@ -2193,9 +2193,16 @@ export default function GestionCategoriaPage() {
                                                     </Text>
                                                 </View>
                                             )}
-                                            <Text style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 11, marginTop: 6 }}>
-                                                {formData.descripcion.length}/500 caracteres
-                                            </Text>
+
+                                            {/* Contador de caracteres y palabras */}
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
+                                                <Text style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 11 }}>
+                                                    {formData.descripcion.length}/500 caracteres
+                                                </Text>
+                                                <Text style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 11 }}>
+                                                    {formData.descripcion.trim() ? formData.descripcion.trim().split(/\s+/).length : 0} palabra{formData.descripcion.trim() && formData.descripcion.trim().split(/\s+/).length !== 1 ? 's' : ''}
+                                                </Text>
+                                            </View>
                                         </View>
 
                                         {/* Checkbox Activo */}

@@ -3140,9 +3140,21 @@ export default function GestionAgentePage() {
                           </TouchableOpacity>
                         )}
                       </View>
+
+                      {/* ⭐ MENSAJE DE ERROR ⭐ */}
                       {formErrors[`prompt_regla_${index}`] && (
                         <Text style={modalStyles.errorText}>{formErrors[`prompt_regla_${index}`]}</Text>
                       )}
+
+                      {/* ⭐ CONTADOR DE CARACTERES (NUEVO) ⭐ */}
+                      <Text style={{
+                        color: regla.length >= 180 ? '#fb923c' : 'rgba(255, 255, 255, 0.5)',
+                        fontSize: 11,
+                        marginTop: 4,
+                        textAlign: 'right',
+                      }}>
+                        {regla.length}/200 caracteres
+                      </Text>
                     </View>
                   ))}
 
