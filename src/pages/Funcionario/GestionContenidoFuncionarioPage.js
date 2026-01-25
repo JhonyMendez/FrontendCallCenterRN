@@ -1897,7 +1897,30 @@ const GestionContenidoPage = () => {
                     placeholder="Título del contenido"
                     placeholderTextColor="rgba(255, 255, 255, 0.4)"
                     style={styles.formInput}
+                    maxLength={200}
                   />
+
+                  {/* 🔥 CONTADOR DE CARACTERES */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                    <Text style={{
+                      color: formData.titulo.length >= 5 ? '#10b981' : 'rgba(255, 255, 255, 0.4)',
+                      fontSize: 11,
+                      fontWeight: '600'
+                    }}>
+                      {formData.titulo.length >= 5 ? '✅' : '⚠️'} Mínimo: 5 caracteres
+                    </Text>
+                    <Text style={{
+                      color: formData.titulo.length > 180
+                        ? '#fbbf24'
+                        : formData.titulo.length > 0
+                          ? 'rgba(255, 255, 255, 0.6)'
+                          : 'rgba(255, 255, 255, 0.4)',
+                      fontSize: 11,
+                      fontWeight: '600'
+                    }}>
+                      {formData.titulo.length}/200
+                    </Text>
+                  </View>
 
                   {/* Mensaje de error */}
                   {errores.titulo && (
@@ -1929,7 +1952,6 @@ const GestionContenidoPage = () => {
                   value={formData.resumen}
                   onChangeText={(text) => {
                     setFormData({ ...formData, resumen: text });
-                    // 🔥 LIMPIAR ERROR AL ESCRIBIR
                     if (text.trim()) setErrores({ ...errores, resumen: '' });
                   }}
                   placeholder="Resumen breve"
@@ -1937,7 +1959,30 @@ const GestionContenidoPage = () => {
                   multiline
                   numberOfLines={3}
                   style={styles.formInputMultiline}
+                  maxLength={500}
                 />
+
+                {/* 🔥 CONTADOR DE CARACTERES */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                  <Text style={{
+                    color: formData.resumen.length >= 10 ? '#10b981' : 'rgba(255, 255, 255, 0.4)',
+                    fontSize: 11,
+                    fontWeight: '600'
+                  }}>
+                    {formData.resumen.length >= 10 ? '✅' : '⚠️'} Mínimo: 10 caracteres
+                  </Text>
+                  <Text style={{
+                    color: formData.resumen.length > 450
+                      ? '#fbbf24'
+                      : formData.resumen.length > 0
+                        ? 'rgba(255, 255, 255, 0.6)'
+                        : 'rgba(255, 255, 255, 0.4)',
+                    fontSize: 11,
+                    fontWeight: '600'
+                  }}>
+                    {formData.resumen.length}/500
+                  </Text>
+                </View>
 
                 {/* 🔥 MENSAJE DE ERROR DE RESUMEN */}
                 {errores.resumen && (
@@ -1970,7 +2015,6 @@ const GestionContenidoPage = () => {
                   value={formData.contenido}
                   onChangeText={(text) => {
                     setFormData({ ...formData, contenido: text });
-                    // 🔥 LIMPIAR ERROR AL ESCRIBIR
                     if (text.trim()) setErrores({ ...errores, contenido: '' });
                   }}
                   placeholder="Contenido detallado"
@@ -1978,7 +2022,30 @@ const GestionContenidoPage = () => {
                   multiline
                   numberOfLines={6}
                   style={styles.formInputMultiline}
+                  maxLength={10000}
                 />
+
+                {/* 🔥 CONTADOR DE CARACTERES */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                  <Text style={{
+                    color: formData.contenido.length >= 50 ? '#10b981' : 'rgba(255, 255, 255, 0.4)',
+                    fontSize: 11,
+                    fontWeight: '600'
+                  }}>
+                    {formData.contenido.length >= 50 ? '✅' : '⚠️'} Mínimo: 50 caracteres
+                  </Text>
+                  <Text style={{
+                    color: formData.contenido.length > 9000
+                      ? '#fbbf24'
+                      : formData.contenido.length > 0
+                        ? 'rgba(255, 255, 255, 0.6)'
+                        : 'rgba(255, 255, 255, 0.4)',
+                    fontSize: 11,
+                    fontWeight: '600'
+                  }}>
+                    {formData.contenido.length}/10,000
+                  </Text>
+                </View>
 
                 {/* 🔥 AGREGAR ESTE MENSAJE DE ERROR */}
                 {errores.contenido && (
@@ -2014,13 +2081,35 @@ const GestionContenidoPage = () => {
                   value={formData.palabras_clave}
                   onChangeText={(text) => {
                     setFormData({ ...formData, palabras_clave: text });
-                    // 🔥 LIMPIAR ERROR AL ESCRIBIR
                     if (text.trim()) setErrores({ ...errores, palabras_clave: '' });
                   }}
                   placeholder="Separadas por comas"
                   placeholderTextColor="rgba(255, 255, 255, 0.4)"
                   style={styles.formInput}
+                  maxLength={300}
                 />
+
+                {/* 🔥 CONTADOR DE CARACTERES */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                  <Text style={{
+                    color: formData.palabras_clave.length >= 3 ? '#10b981' : 'rgba(255, 255, 255, 0.4)',
+                    fontSize: 11,
+                    fontWeight: '600'
+                  }}>
+                    {formData.palabras_clave.length >= 3 ? '✅' : '⚠️'} Mínimo: 3 caracteres
+                  </Text>
+                  <Text style={{
+                    color: formData.palabras_clave.length > 270
+                      ? '#fbbf24'
+                      : formData.palabras_clave.length > 0
+                        ? 'rgba(255, 255, 255, 0.6)'
+                        : 'rgba(255, 255, 255, 0.4)',
+                    fontSize: 11,
+                    fontWeight: '600'
+                  }}>
+                    {formData.palabras_clave.length}/300
+                  </Text>
+                </View>
 
                 {/* 🔥 MENSAJE DE ERROR DE PALABRAS CLAVE */}
                 {errores.palabras_clave && (
@@ -2051,13 +2140,35 @@ const GestionContenidoPage = () => {
                   value={formData.etiquetas}
                   onChangeText={(text) => {
                     setFormData({ ...formData, etiquetas: text });
-                    // 🔥 LIMPIAR ERROR AL ESCRIBIR
                     if (text.trim()) setErrores({ ...errores, etiquetas: '' });
                   }}
                   placeholder="Separadas por comas"
                   placeholderTextColor="rgba(255, 255, 255, 0.4)"
                   style={styles.formInput}
+                  maxLength={300}
                 />
+
+                {/* 🔥 CONTADOR DE CARACTERES */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                  <Text style={{
+                    color: formData.etiquetas.length >= 3 ? '#10b981' : 'rgba(255, 255, 255, 0.4)',
+                    fontSize: 11,
+                    fontWeight: '600'
+                  }}>
+                    {formData.etiquetas.length >= 3 ? '✅' : '⚠️'} Mínimo: 3 caracteres
+                  </Text>
+                  <Text style={{
+                    color: formData.etiquetas.length > 270
+                      ? '#fbbf24'
+                      : formData.etiquetas.length > 0
+                        ? 'rgba(255, 255, 255, 0.6)'
+                        : 'rgba(255, 255, 255, 0.4)',
+                    fontSize: 11,
+                    fontWeight: '600'
+                  }}>
+                    {formData.etiquetas.length}/300
+                  </Text>
+                </View>
 
                 {/* 🔥 MENSAJE DE ERROR DE ETIQUETAS */}
                 {errores.etiquetas && (
@@ -2317,7 +2428,7 @@ const GestionContenidoPage = () => {
                   borderLeftWidth: 3,
                   borderLeftColor: '#3498db',
                 }}>
-                  
+
                   {/* Mostrar estado actual previsto */}
                   <View style={{
                     marginTop: 12,
