@@ -18,7 +18,7 @@ const storage = {
       return await AsyncStorage.getItem(key);
     }
   },
-  
+
   async setItem(key, value) {
     if (isWeb) {
       localStorage.setItem(key, value);
@@ -26,7 +26,7 @@ const storage = {
       await AsyncStorage.setItem(key, value);
     }
   },
-  
+
   async removeItem(key) {
     if (isWeb) {
       localStorage.removeItem(key);
@@ -46,12 +46,12 @@ const storage = {
 
 // ==================== AUTH SERVICE ====================
 const authService = {
-  
+
   // ========== PROCESAR LOGIN ==========
   procesarLogin: async (usuario) => {
     try {
       console.log('🔐 [authService] Procesando login para:', usuario.username);
-      
+
       // ✅ GUARDAR ID DEL USUARIO
       await storage.setItem('@usuario_id', usuario.id_usuario.toString());
       await storage.setItem('@usuario_username', usuario.username);
@@ -65,21 +65,21 @@ const authService = {
       } else {
         console.log('⚠️ Usuario sin id_departamento al hacer login');
       }
-      
+
       // Guardar flags de administrador
       await storage.setItem('@usuario_es_admin', usuario.es_admin ? 'true' : 'false');
       await storage.setItem('@usuario_es_superadmin', usuario.es_superadmin ? 'true' : 'false');
 
       // Procesar roles
       const roles = usuario.roles || [];
-      
+
       if (!roles || roles.length === 0) {
         throw new Error('Usuario sin roles asignados. Contacta al administrador');
       }
 
       // Determinar rol principal (el de mayor jerarquía)
       let rolPrincipal = null;
-      
+
       if (roles.some(r => r.id_rol === 1)) {
         rolPrincipal = roles.find(r => r.id_rol === 1);
       } else if (roles.some(r => r.id_rol === 2)) {
@@ -103,13 +103,62 @@ const authService = {
         rolPrincipal: rolPrincipal.nombre_rol,
         ruta
       };
-      
+
     } catch (error) {
       console.error('❌ [authService] Error procesando login:', error);
       throw error;
     }
   },
+  // ========== PROCESAR LOGIN CON ROL ESPECÍFICO ==========
+  procesarLoginConRolEspecifico: async (usuario, rolSeleccionado) => {
+    try {
+      console.log('🎭 [authService] Procesando login con rol específico:', rolSeleccionado.nombre_rol);
 
+      // ✅ GUARDAR ID DEL USUARIO
+      await storage.setItem('@usuario_id', usuario.id_usuario.toString());
+      await storage.setItem('@usuario_username', usuario.username);
+      await storage.setItem('@usuario_email', usuario.email || '');
+      await storage.setItem('@usuario_nombre_completo', usuario.nombre_completo || usuario.username);
+
+      // 🔥 Guardar departamento si existe
+      if (usuario.id_departamento) {
+        await storage.setItem('@usuario_id_departamento', usuario.id_departamento.toString());
+        console.log('✅ Guardado id_departamento:', usuario.id_departamento);
+      } else {
+        console.log('⚠️ Usuario sin id_departamento al hacer login');
+      }
+
+      // Guardar flags de administrador
+      await storage.setItem('@usuario_es_admin', usuario.es_admin ? 'true' : 'false');
+      await storage.setItem('@usuario_es_superadmin', usuario.es_superadmin ? 'true' : 'false');
+
+      // Guardar el rol seleccionado como rol principal
+      await storage.setItem('@rol_principal_id', rolSeleccionado.id_rol.toString());
+      await storage.setItem('@rol_principal_nombre', rolSeleccionado.nombre_rol);
+
+      // Determinar ruta según el rol seleccionado
+      const ruta = authService.getRutaPorRol(rolSeleccionado.id_rol);
+
+      console.log('✅ [authService] Login procesado con rol:', rolSeleccionado.nombre_rol);
+      console.log('🚀 [authService] Ruta asignada:', ruta);
+
+      return {
+        success: true,
+        usuario: usuario.username,
+        rolPrincipal: rolSeleccionado.nombre_rol,
+        rolId: rolSeleccionado.id_rol,
+        ruta
+      };
+
+    } catch (error) {
+      console.error('❌ [authService] Error procesando login con rol específico:', error);
+      return {
+        success: false,
+        error: error.message || 'Error procesando el rol seleccionado'
+      };
+    }
+  },
+  
   // ========== OBTENER RUTA POR ROL ==========
   getRutaPorRol: (idRol) => {
     switch (idRol) {
@@ -128,7 +177,7 @@ const authService = {
   logout: async () => {
     try {
       console.log('🚪 [authService] Iniciando logout...');
-      
+
       // Intentar notificar al backend
       try {
         const token = await apiClient.getToken();
@@ -144,20 +193,20 @@ const authService = {
         console.log('⚠️ Error notificando logout al servidor:', error);
         // No fallar el logout si el backend no responde
       }
-      
+
       // Limpiar token primero
       await apiClient.removeToken();
-      
+
       // Limpiar sesión local
       await authService.limpiarSesion();
-      
+
       console.log('✅ [authService] Logout completado');
-      
+
       return { success: true };
-      
+
     } catch (error) {
       console.error('❌ [authService] Error en logout:', error);
-      
+
       // Limpiar de todas formas aunque haya error
       try {
         await apiClient.removeToken();
@@ -165,7 +214,7 @@ const authService = {
       } catch (e) {
         console.error('❌ Error limpiando en catch:', e);
       }
-      
+
       return { success: false, error: error.message };
     }
   },
@@ -233,7 +282,7 @@ const authService = {
       }
 
       console.log('🔐 getUsuarioActual devuelve:', usuario);
-      
+
       return usuario;
     } catch (error) {
       console.error('❌ Error obteniendo usuario actual:', error);
@@ -270,7 +319,7 @@ const authService = {
       }
 
       const rolId = parseInt(rolIdStr);
-      
+
       if (isNaN(rolId) || rolId < 1) {
         return null;
       }
@@ -294,6 +343,7 @@ const authService = {
       return null;
     }
   }
+
 };
 
 export default authService;

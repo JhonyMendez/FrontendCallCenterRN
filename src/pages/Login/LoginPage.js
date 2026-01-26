@@ -6,12 +6,13 @@
 
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Platform, ScrollView, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { apiClient } from "../../api/client";
 import authService from "../../api/services/authService";
 import { usuarioService } from "../../api/services/usuarioService";
 import LoginCard from "../../components/Login/LoginCard";
 import { loginStyles } from "../../styles/loginStyles";
+
 
 // ==================================================================================
 // STORAGE UNIVERSAL - Compatible con Web y Móvil
@@ -224,6 +225,9 @@ export default function LoginPage() {
   const [bloqueadoHasta, setBloqueadoHasta] = useState(null);
   const [tiempoRestante, setTiempoRestante] = useState(0);
   const [contadorBloqueos, setContadorBloqueos] = useState(0);
+  const [mostrarModalRoles, setMostrarModalRoles] = useState(false);
+  const [rolesDisponibles, setRolesDisponibles] = useState([]);
+  const [datosLoginTemp, setDatosLoginTemp] = useState(null);
 
   // ==================== VERIFICAR SI YA ESTÁ AUTENTICADO ====================
   useEffect(() => {
@@ -507,6 +511,24 @@ export default function LoginPage() {
 
       console.log("🔍 [LoginPage] Procesando roles del usuario...");
 
+      // Verificar si tiene múltiples roles
+      if (response.usuario.roles && response.usuario.roles.length > 1) {
+        console.log("🎭 Usuario con múltiples roles detectado");
+
+        // Guardar datos temporalmente
+        setDatosLoginTemp({
+          usuario: response.usuario,
+          token: response.token
+        });
+
+        // Mostrar modal de selección
+        setRolesDisponibles(response.usuario.roles);
+        setMostrarModalRoles(true);
+        setIsLoading(false);
+        return; // Detener el flujo aquí
+      }
+
+      // Si tiene solo un rol, continuar normalmente
       const resultadoAuth = await authService.procesarLogin(response.usuario);
 
       if (!resultadoAuth.success) {
@@ -657,6 +679,88 @@ export default function LoginPage() {
     }
   };
 
+  // ==================== MANEJAR SELECCIÓN DE ROL ====================
+  const handleSeleccionRol = async (rolSeleccionado) => {
+    try {
+      setMostrarModalRoles(false);
+      setIsLoading(true);
+
+      if (!datosLoginTemp) {
+        throw new Error("Datos de sesión no disponibles");
+      }
+
+      // Establecer el token
+      await apiClient.setToken(datosLoginTemp.token);
+
+      // Procesar login con el rol específico seleccionado
+      const resultadoAuth = await authService.procesarLoginConRolEspecifico(
+        datosLoginTemp.usuario,
+        rolSeleccionado
+      );
+
+      if (!resultadoAuth.success) {
+        throw new Error("Error procesando el rol seleccionado");
+      }
+
+      // ✅ RESETEAR BLOQUEO DEL USUARIO
+      await BloqueoUsuarioManager.resetearUsuario(username.trim());
+
+      // Guardar datos completos en localStorage
+      const datosSesion = {
+        usuario: {
+          id_usuario: datosLoginTemp.usuario.id_usuario,
+          id_persona: datosLoginTemp.usuario.persona?.id_persona || datosLoginTemp.usuario.id_persona,
+          username: datosLoginTemp.usuario.username,
+          email: datosLoginTemp.usuario.email,
+          estado: datosLoginTemp.usuario.estado,
+          nombre: datosLoginTemp.usuario.persona?.nombre || datosLoginTemp.usuario.nombre || '',
+          apellido: datosLoginTemp.usuario.persona?.apellido || datosLoginTemp.usuario.apellido || '',
+          cedula: datosLoginTemp.usuario.persona?.cedula || datosLoginTemp.usuario.cedula || '',
+          telefono: datosLoginTemp.usuario.persona?.telefono || datosLoginTemp.usuario.telefono || '',
+          direccion: datosLoginTemp.usuario.persona?.direccion || datosLoginTemp.usuario.direccion || '',
+          fecha_nacimiento: datosLoginTemp.usuario.persona?.fecha_nacimiento || datosLoginTemp.usuario.fecha_nacimiento || null,
+          genero: datosLoginTemp.usuario.persona?.genero || datosLoginTemp.usuario.genero || '',
+          tipo_persona: datosLoginTemp.usuario.persona?.tipo_persona || datosLoginTemp.usuario.tipo_persona || '',
+        },
+        roles: datosLoginTemp.usuario.roles || [],
+        token: datosLoginTemp.token,
+        fecha_login: new Date().toISOString()
+      };
+
+      await storage.setItem('@datos_sesion', JSON.stringify(datosSesion));
+
+      console.log("✅ [LoginPage] Autenticación completada con rol:", rolSeleccionado.nombre_rol);
+      console.log(`🚀 [LoginPage] Redirigiendo a: ${resultadoAuth.ruta}`);
+
+      redirigiendo.current = true;
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      if (Platform.OS !== 'web') {
+        Alert.alert(
+          "Bienvenido",
+          `Hola ${resultadoAuth.usuario}, has iniciado sesión como ${resultadoAuth.rolPrincipal}`,
+          [{
+            text: "Continuar",
+            onPress: () => {
+              router.replace(resultadoAuth.ruta);
+            }
+          }]
+        );
+      } else {
+        router.replace(resultadoAuth.ruta);
+      }
+
+    } catch (error) {
+      console.error("❌ Error al procesar rol seleccionado:", error);
+      setErrorMsg("Error al iniciar sesión con el rol seleccionado");
+      setIsLoading(false);
+
+      // Limpiar datos temporales
+      setDatosLoginTemp(null);
+      setRolesDisponibles([]);
+    }
+  };
+
   // ==================== FORMATEAR TIEMPO RESTANTE ====================
   const formatearTiempoRestante = () => {
     if (tiempoRestante <= 0) return "";
@@ -670,6 +774,277 @@ export default function LoginPage() {
     }
 
     return `${minutos}:${segundos.toString().padStart(2, '0')}`;
+  };
+
+  // ==================== MODAL DE SELECCIÓN DE ROLES ====================
+  const ModalSeleccionRoles = () => {
+    if (!mostrarModalRoles) return null;
+
+    return (
+      <View style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(15, 15, 35, 0.95)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000
+      }}>
+        {/* Círculos flotantes decorativos */}
+        <View style={{
+          position: 'absolute',
+          width: 200,
+          height: 200,
+          borderRadius: 100,
+          backgroundColor: 'rgba(102, 126, 234, 0.1)',
+          top: 50,
+          right: -50,
+        }} />
+        <View style={{
+          position: 'absolute',
+          width: 150,
+          height: 150,
+          borderRadius: 75,
+          backgroundColor: 'rgba(118, 75, 162, 0.1)',
+          bottom: 100,
+          left: -30,
+        }} />
+
+        <View style={{
+          backgroundColor: 'rgba(26, 26, 46, 0.98)',
+          borderRadius: 30,
+          padding: 35,
+          width: '90%',
+          maxWidth: 480,
+          borderWidth: 1,
+          borderColor: 'rgba(102, 126, 234, 0.3)',
+          shadowColor: '#667eea',
+          shadowOffset: { width: 0, height: 15 },
+          shadowOpacity: 0.4,
+          shadowRadius: 25,
+          elevation: 15
+        }}>
+          {/* Icono decorativo superior */}
+          <View style={{
+            width: 80,
+            height: 80,
+            borderRadius: 40,
+            backgroundColor: '#667eea',
+            justifyContent: 'center',
+            alignItems: 'center',
+            alignSelf: 'center',
+            marginBottom: 20,
+            shadowColor: '#667eea',
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.6,
+            shadowRadius: 15,
+            elevation: 10,
+            borderWidth: 3,
+            borderColor: 'rgba(102, 126, 234, 0.3)'
+          }}>
+            <Text style={{
+              fontSize: 40,
+              color: '#fff',
+              fontWeight: 'bold'
+            }}>
+              🎭
+            </Text>
+          </View>
+
+          {/* Título principal */}
+          <Text style={{
+            fontSize: 28,
+            fontWeight: '800',
+            color: '#ffffff',
+            marginBottom: 8,
+            textAlign: 'center',
+            letterSpacing: 1
+          }}>
+            Selecciona tu Rol
+          </Text>
+
+          {/* Línea decorativa */}
+          <View style={{
+            width: 60,
+            height: 3,
+            backgroundColor: '#667eea',
+            borderRadius: 2,
+            alignSelf: 'center',
+            marginBottom: 15
+          }} />
+
+          {/* Subtítulo */}
+          <Text style={{
+            fontSize: 15,
+            color: 'rgba(255, 255, 255, 0.7)',
+            marginBottom: 30,
+            textAlign: 'center',
+            lineHeight: 22,
+            paddingHorizontal: 10
+          }}>
+            Tienes <Text style={{ fontWeight: 'bold', color: '#667eea' }}>{rolesDisponibles.length} roles</Text> asignados.
+            {'\n'}Selecciona con cuál deseas iniciar sesión.
+          </Text>
+
+          {/* Lista de roles */}
+          <View style={{ marginBottom: 15 }}>
+            {rolesDisponibles.map((rol, index) => (
+              <TouchableOpacity
+                key={rol.id_rol}
+                onPress={() => handleSeleccionRol(rol)}
+                style={{
+                  backgroundColor: 'rgba(102, 126, 234, 0.15)',
+                  paddingVertical: 18,
+                  paddingHorizontal: 20,
+                  borderRadius: 16,
+                  marginBottom: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  borderWidth: 2,
+                  borderColor: 'rgba(102, 126, 234, 0.3)',
+                  shadowColor: '#667eea',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 5
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                  {/* Número del rol con gradiente */}
+                  <View style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: '#667eea',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginRight: 15,
+                    shadowColor: '#667eea',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.5,
+                    shadowRadius: 4,
+                    elevation: 3
+                  }}>
+                    <Text style={{
+                      color: '#fff',
+                      fontSize: 16,
+                      fontWeight: 'bold'
+                    }}>
+                      {index + 1}
+                    </Text>
+                  </View>
+
+                  {/* Nombre del rol */}
+                  <Text style={{
+                    color: '#ffffff',
+                    fontSize: 17,
+                    fontWeight: '700',
+                    flex: 1,
+                    letterSpacing: 0.5
+                  }}>
+                    {rol.nombre_rol}
+                  </Text>
+                </View>
+
+                {/* Icono de flecha con fondo */}
+                <View style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: 'rgba(102, 126, 234, 0.3)',
+                  justifyContent: 'center',
+                  alignItems: 'center'
+                }}>
+                  <Text style={{
+                    color: '#667eea',
+                    fontSize: 18,
+                    fontWeight: 'bold'
+                  }}>
+                    →
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Línea divisora elegante */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginVertical: 20
+          }}>
+            <View style={{
+              flex: 1,
+              height: 1,
+              backgroundColor: 'rgba(102, 126, 234, 0.2)'
+            }} />
+            <Text style={{
+              marginHorizontal: 15,
+              color: 'rgba(255, 255, 255, 0.4)',
+              fontSize: 12,
+              fontWeight: '600'
+            }}>
+              O
+            </Text>
+            <View style={{
+              flex: 1,
+              height: 1,
+              backgroundColor: 'rgba(102, 126, 234, 0.2)'
+            }} />
+          </View>
+
+          {/* Botón Cancelar mejorado */}
+          <TouchableOpacity
+            onPress={() => {
+              setMostrarModalRoles(false);
+              setDatosLoginTemp(null);
+              setRolesDisponibles([]);
+              setIsLoading(false);
+            }}
+            style={{
+              padding: 16,
+              alignItems: 'center',
+              borderRadius: 16,
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              borderWidth: 2,
+              borderColor: 'rgba(255, 255, 255, 0.1)'
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={{
+              color: 'rgba(255, 255, 255, 0.7)',
+              fontSize: 16,
+              fontWeight: '700',
+              letterSpacing: 0.5
+            }}>
+              Cancelar
+            </Text>
+          </TouchableOpacity>
+
+          {/* Texto informativo inferior */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: 20,
+            gap: 6
+          }}>
+            <Text style={{ color: '#667eea', fontSize: 14 }}>🔒</Text>
+            <Text style={{
+              color: 'rgba(102, 126, 234, 0.8)',
+              fontSize: 12,
+              fontWeight: '500'
+            }}>
+              Sesión segura y encriptada
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
   };
 
   if (redirigiendo.current) {
@@ -709,6 +1084,7 @@ export default function LoginPage() {
             setMostrarPassword={setMostrarPassword}
           />
         )}
+        <ModalSeleccionRoles />
       </View>
     </ScrollView>
   );
