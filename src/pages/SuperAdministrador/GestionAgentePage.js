@@ -909,7 +909,16 @@ export default function GestionAgentePage() {
       }
 
       // ✅ Si NO tiene contenidos NI categorías, proceder con la eliminación
-      await agenteService.delete(agenteToDelete.id_agente);
+      // ✅ REEMPLAZAR AMBAS LLAMADAS POR:
+      const userId = await getUserIdFromToken();
+
+      if (!userId) {
+        console.warn("❌ No se pudo obtener el ID del usuario");
+        Alert.alert("Error", "No se pudo identificar al usuario autenticado.");
+        return;
+      }
+
+      await agenteService.delete(agenteToDelete.id_agente, { eliminado_por: userId });
 
       setSuccessMessage('🗑️ Agente eliminado permanentemente');
       setShowSuccessMessage(true);

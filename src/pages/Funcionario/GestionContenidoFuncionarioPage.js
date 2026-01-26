@@ -95,7 +95,15 @@ const ErrorNotification = ({ message, onClose }) => {
           {message}
         </Text>
       </View>
-      <TouchableOpacity onPress={onClose}>
+      <TouchableOpacity
+        onPress={() => {
+          console.log('🔴 Cerrando notificación de error');
+          onClose();
+        }}
+        style={{
+          padding: 4, // ✅ Aumenta el área clickeable
+        }}
+      >
         <Ionicons name="close" size={20} color="white" />
       </TouchableOpacity>
     </View>
@@ -1013,24 +1021,37 @@ const GestionContenidoPage = () => {
       ]
     );
   };
-
   const eliminarContenido = (id) => {
-    console.log('🗑️ Abriendo modal de eliminación para ID:', id);
+    console.log('🗑️ Intentando eliminar ID:', id);
 
-    // 🔥 Verificar permisos antes de abrir modal
+    // Buscar el contenido
     const contenido = contenidos.find(c => c.id_contenido === id);
-    if (!contenido) return;
-
-    const permisos = agentesPermitidos.find(p => p.id_agente === contenido.id_agente);
-
-    if (!permisos || !permisos.puede_eliminar_contenido) {
-      mostrarNotificacionError(
-        'No tienes permisos para eliminar contenidos de este agente. Solicita permisos de eliminación a tu administrador.'
-      );
+    if (!contenido) {
+      console.error('❌ Contenido no encontrado');
       return;
     }
 
-    // Abrir modal de confirmación
+    console.log('📋 Contenido encontrado:', contenido);
+
+    // Buscar permisos
+    const permisos = agentesPermitidos.find(p => p.id_agente === contenido.id_agente);
+    console.log('🔐 Permisos encontrados:', permisos);
+
+    // ✅ VERIFICAR SI TIENE PERMISOS
+    if (!permisos) {
+      console.error('❌ No se encontraron permisos para este agente');
+      mostrarNotificacionError('No tienes permisos asignados para este agente.');
+      return;
+    }
+
+    if (!permisos.puede_eliminar_contenido) {
+      console.error('❌ Sin permiso para eliminar');
+      mostrarNotificacionError('No tienes permisos para eliminar contenidos de este agente.');
+      return;
+    }
+
+    // ✅ SI TIENE PERMISOS, ABRIR MODAL
+    console.log('✅ Permisos OK, abriendo modal de confirmación');
     setContenidoAEliminar(id);
     setModalEliminarVisible(true);
   };
@@ -1038,22 +1059,50 @@ const GestionContenidoPage = () => {
   const confirmarEliminacion = async () => {
     console.log('✅ Confirmando eliminación del ID:', contenidoAEliminar);
 
+    // Guardar ID antes de cerrar modal
+    const idAEliminar = contenidoAEliminar;
+
+    // Cerrar modal inmediatamente
+    setModalEliminarVisible(false);
+    setContenidoAEliminar(null);
+
     try {
-      const resultado = await contenidoService.softDelete(contenidoAEliminar);
-      console.log('✅ Contenido eliminado:', resultado);
+      // Intentar eliminar
+      console.log('🗑️ Llamando a softDelete...');
+      const resultado = await contenidoService.softDelete(idAEliminar);
+      console.log('✅ Respuesta del servidor:', resultado);
 
-      mostrarNotificacionExito('Contenido eliminado correctamente');
+      // Actualizar lista localmente (inmediato)
+      console.log('🔄 Actualizando lista local...');
+      setContenidos(prev => {
+        const nuevaLista = prev.filter(c => c.id_contenido !== idAEliminar);
+        console.log('📋 Nueva lista tiene', nuevaLista.length, 'elementos');
+        return nuevaLista;
+      });
 
-      // Cerrar modal
-      setModalEliminarVisible(false);
-      setContenidoAEliminar(null);
+      // Mostrar éxito
+      console.log('✅ Mostrando notificación de éxito');
+      mostrarNotificacionExito('✅ Contenido eliminado correctamente');
 
-      // Recargar contenidos
-      await cargarContenidos();
+      // Recargar del servidor después de 500ms (confirmación)
+      setTimeout(async () => {
+        try {
+          console.log('🔄 Recargando desde el servidor...');
+          await cargarContenidos();
+          console.log('✅ Recarga completada');
+        } catch (errorRecarga) {
+          console.error('⚠️ Error recargando (eliminación fue exitosa):', errorRecarga);
+          // No mostrar error porque la eliminación SÍ funcionó
+        }
+      }, 500);
+
     } catch (error) {
-      console.error('❌ Error eliminando:', error);
-      setModalEliminarVisible(false);
-      mostrarNotificacionError('No se pudo eliminar el contenido. Intenta nuevamente.');
+      // Intentar recargar para ver el estado real
+      try {
+        await cargarContenidos();
+      } catch (e) {
+        console.error('Error recargando después de fallo:', e);
+      }
     }
   };
 
@@ -3859,19 +3908,12 @@ const GestionContenidoPage = () => {
         {/* Notificación de ERROR */}
         <ErrorNotification
           message={errorMessage}
-          onClose={() => setShowErrorNotification(false)}
+          onClose={() => {
+            console.log('❌ Cerrando notificación de error');
+            setShowErrorNotification(false);
+            setErrorMessage(''); // ✅ Limpia el mensaje
+          }}
         />
-        {showErrorNotification && (
-          <View style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.3)',
-            zIndex: 9998,
-          }} />
-        )}
 
         {/* 🔥 Notificación flotante mejorada */}
         {showSuccessNotification && (

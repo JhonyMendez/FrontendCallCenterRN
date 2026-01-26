@@ -224,7 +224,7 @@ export default function GestionAgentePage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipo, setFilterTipo] = useState('todos');
-  const [filterEstado, setFilterEstado] = useState('todos');
+  const [filterEstado, setFilterEstado] = useState('activos')
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -391,18 +391,25 @@ export default function GestionAgentePage() {
         params.tipo_agente = filterTipo;
       }
 
-      // Solo aplicar filtro si filterEstado está definido como 'activo' o 'inactivo'
-      if (filterEstado === 'activo') {
-        params.activo = true;
-      } else if (filterEstado === 'inactivo') {
-        params.activo = false;
+      // ⭐ CAMBIO: Usar incluir_eliminados en lugar de activo
+      if (filterEstado === 'activos') {
+        params.incluir_eliminados = false; // Solo NO eliminados
+      } else if (filterEstado === 'eliminados') {
+        params.incluir_eliminados = true;  // Incluir eliminados
+        // Luego filtrar en cliente para mostrar SOLO eliminados
       }
+      // Si es 'todos', no enviamos ningún parámetro
 
       const data = await agenteService.getAll(params);
-
-      // Manejar diferentes estructuras de respuesta
       const agentesArray = Array.isArray(data) ? data : (data?.data || []);
-      setAgentes(agentesArray);
+
+      // ⭐ Si pidió solo eliminados, filtrar en cliente
+      if (filterEstado === 'eliminados') {
+        const soloEliminados = agentesArray.filter(a => a.eliminado === true);
+        setAgentes(soloEliminados);
+      } else {
+        setAgentes(agentesArray);
+      }
 
     } catch (err) {
       console.error('Error al cargar agentes:', err);
@@ -417,7 +424,8 @@ export default function GestionAgentePage() {
     try {
       console.log('📊 Cargando estadísticas desde agentes...');
 
-      const todosAgentes = await agenteService.getAll({});
+      // ⭐ CAMBIO: Obtener solo agentes NO eliminados
+      const todosAgentes = await agenteService.getAll({ incluir_eliminados: false });
 
       const agentesArray = Array.isArray(todosAgentes)
         ? todosAgentes
@@ -904,6 +912,17 @@ export default function GestionAgentePage() {
 
         mensajeError += ' Primero debes eliminar o reasignar estos elementos a otro agente.';
 
+        // ⭐ NUEVO: Obtener ID del usuario actual
+        const userId = await getUserIdFromToken();
+
+        if (!userId) {
+          console.warn("❌ No se pudo obtener el ID del usuario");
+          Alert.alert("Error", "No se pudo identificar al usuario autenticado.");
+          return;
+        }
+
+        await agenteService.delete(agenteToDelete.id_agente, userId);
+
         // Mostrar modal de error
         setErrorMessage(mensajeError);
         setErrorDetails({
@@ -915,7 +934,19 @@ export default function GestionAgentePage() {
       }
 
       // ✅ Si NO tiene contenidos NI categorías, proceder con la eliminación
-      await agenteService.delete(agenteToDelete.id_agente);
+      // Obtener ID del usuario actual
+      // ✅ DESPUÉS
+      const userId = await getUserIdFromToken();
+
+      if (!userId) {
+        console.warn("❌ No se pudo obtener el ID del usuario");
+        Alert.alert("Error", "No se pudo identificar al usuario autenticado.");
+        return;
+      }
+
+      // ⭐ ENVIAR eliminado_por como query parameter
+      await agenteService.delete(agenteToDelete.id_agente, { eliminado_por: userId });
+      await agenteService.delete(agenteToDelete.id_agente, userId);
 
       setSuccessMessage('🗑️ Agente eliminado permanentemente');
       setShowSuccessMessage(true);
@@ -1266,9 +1297,9 @@ export default function GestionAgentePage() {
                     Estado:
                   </Text>
                   {[
+                    { key: 'activos', label: 'Activos', icon: 'checkmark-circle' },
+                    { key: 'eliminados', label: 'Eliminados', icon: 'trash' },
                     { key: 'todos', label: 'Todos', icon: 'apps' },
-                    { key: 'activo', label: 'Activos', icon: 'checkmark-circle' },
-                    { key: 'inactivo', label: 'Inactivos', icon: 'pause-circle' },
                   ].map((filter) => (
                     <TouchableOpacity
                       key={`estado-${filter.key}`}

@@ -1086,7 +1086,15 @@ export default function GestionAgentePage() {
             }
 
             // ✅ Si NO tiene contenidos NI categorías, proceder con la eliminación
-            await agenteService.delete(agenteToDelete.id_agente);
+            const userId = await getUserIdFromToken();
+
+            if (!userId) {
+                console.warn("❌ No se pudo obtener el ID del usuario");
+                Alert.alert("Error", "No se pudo identificar al usuario autenticado.");
+                return;
+            }
+
+            await agenteService.delete(agenteToDelete.id_agente, { eliminado_por: userId });
 
             setSuccessMessage('🗑️ Agente eliminado permanentemente');
             setShowSuccessMessage(true);
@@ -3953,7 +3961,7 @@ export default function GestionAgentePage() {
                                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                         <Text style={modalStyles.label}>Zona Horaria</Text>
                                         <TooltipIcon text="Zona horaria del agente para coordinar horarios de atención. Configurada para Ecuador (America/Guayaquil, GMT-5) y no se puede modificar." />
-                                    </View>                                    
+                                    </View>
                                     <View style={{
                                         backgroundColor: 'rgba(71, 85, 105, 0.3)',
                                         borderWidth: 1,
