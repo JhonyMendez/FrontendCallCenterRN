@@ -35,6 +35,62 @@ import { styles } from '../../styles/GestionUsuariosStyles';
 
 const isWeb = Platform.OS === 'web';
 
+// 🔐 ============ UTILIDADES DE SEGURIDAD ============
+const SecurityUtils = {
+  // Rate Limiter
+  createRateLimiter(maxAttempts, windowMs) {
+    const attempts = {};
+    return {
+      isAllowed(key) {
+        const now = Date.now();
+        if (!attempts[key]) {
+          attempts[key] = [];
+        }
+        attempts[key] = attempts[key].filter(time => now - time < windowMs);
+        if (attempts[key].length >= maxAttempts) {
+          this.logSecurityEvent('RATE_LIMIT_EXCEEDED', { key });
+          return false;
+        }
+        attempts[key].push(now);
+        return true;
+      },
+      logSecurityEvent(eventType, details) {
+        console.warn(`🔒 SECURITY: ${eventType}`, details, new Date().toISOString());
+      }
+    };
+  },
+
+  // Validar ID numérico
+  validateId(id) {
+    const numId = parseInt(id, 10);
+    return !isNaN(numId) && numId > 0;
+  },
+
+  // Detectar XSS
+  detectXssAttempt(text) {
+    if (!text) return false;
+    const xssPatterns = [
+      /<script[^>]*>.*?<\/script>/gi,
+      /on\w+\s*=/gi,
+      /<iframe/gi,
+      /javascript:/gi,
+      /eval\(/gi,
+    ];
+    return xssPatterns.some(pattern => pattern.test(text));
+  },
+
+  // Log de eventos de seguridad
+  logSecurityEvent(eventType, details) {
+    const timestamp = new Date().toISOString();
+    console.warn('🔒 SECURITY EVENT:', {
+      timestamp,
+      eventType,
+      details,
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A',
+    });
+  }
+};
+
 const GestionUsuarioPage = () => {
   // ==================== ESTADOS ====================
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -78,6 +134,7 @@ const GestionUsuarioPage = () => {
   // ==================== ANIMACIONES ====================
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const rateLimiter = useRef(SecurityValidator.createRateLimiter()).current;
+  const rateLimiterOperaciones = useRef(SecurityUtils.createRateLimiter(5, 60000)).current; // 5 operaciones por minuto
 
 
 
@@ -283,11 +340,19 @@ const GestionUsuarioPage = () => {
     }
   };
   const confirmarEliminar = async (usuario) => {
+    // 🔐 Rate limiting
+    if (!rateLimiterOperaciones.isAllowed('confirmarEliminar')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_ELIMINAR', { usuario: usuario?.id_usuario });
+      Alert.alert('⚠️ Demasiados intentos', 'Espera un momento antes de intentar de nuevo');
+      return;
+    }
+
     console.log('🔵 [confirmarEliminar] INICIADO');
     console.log('🔵 Usuario recibido:', usuario);
 
-    if (!usuario || !usuario.id_usuario) {
-      console.log('❌ Usuario inválido, mostrando notificación');
+    // 🔐 Validar usuario
+    if (!usuario || !SecurityUtils.validateId(usuario.id_usuario)) {
+      SecurityUtils.logSecurityEvent('INVALID_USER_DELETE_ATTEMPT', { usuario });
       setModalNotification({
         visible: true,
         message: 'Error: Usuario inválido',
@@ -300,8 +365,15 @@ const GestionUsuarioPage = () => {
     try {
       const miIdUsuario = await getUserIdFromToken();
 
+      // 🔐 Validar ID propio
+      if (!SecurityUtils.validateId(miIdUsuario)) {
+        SecurityUtils.logSecurityEvent('INVALID_CURRENT_USER_ID', { miIdUsuario });
+        throw new Error('No se pudo verificar tu identidad');
+      }
+
       if (usuario.id_usuario === miIdUsuario) {
         console.log('❌ Intento de auto-eliminación bloqueado');
+        SecurityUtils.logSecurityEvent('SELF_DELETE_ATTEMPT', { id_usuario: miIdUsuario });
         setModalNotification({
           visible: true,
           message: '❌ No puedes eliminarte a ti mismo',
@@ -311,15 +383,23 @@ const GestionUsuarioPage = () => {
       }
     } catch (error) {
       console.error('Error obteniendo ID del usuario actual:', error);
+      SecurityUtils.logSecurityEvent('GET_CURRENT_USER_ID_ERROR', { error: error.message });
+      Alert.alert('Error', 'No se pudo verificar tu identidad');
+      return;
     }
 
-    // ✅ NUEVA VALIDACIÓN: Verificar si tiene departamento asignado
+    // ✅ VALIDAR DEPARTAMENTO ASIGNADO
     if (usuario.departamento || usuario.id_departamento) {
-      const nombreDept = usuario.departamento?.nombre || 'un departamento';
+      const nombreDept = SecurityValidator.sanitizeText(
+        usuario.departamento?.nombre || 'un departamento'
+      );
 
       console.log('❌ Usuario tiene departamento asignado:', nombreDept);
+      SecurityUtils.logSecurityEvent('DELETE_USER_WITH_DEPARTMENT', {
+        id_usuario: usuario.id_usuario,
+        departamento: nombreDept
+      });
 
-      // ✅ Mostrar modal bonito en lugar de notificación simple
       setModalDepartamentoAsignado({
         visible: true,
         usuario: usuario,
@@ -328,14 +408,22 @@ const GestionUsuarioPage = () => {
       return;
     }
 
+    // 🔐 Sanitizar nombre de usuario
     const usernameSeguro = SecurityValidator.sanitizeText(usuario.username || 'este usuario');
+
+    // 🔐 Detectar XSS en username
+    if (SecurityUtils.detectXssAttempt(usuario.username)) {
+      SecurityUtils.logSecurityEvent('XSS_IN_USERNAME', {
+        username: usuario.username?.substring(0, 50)
+      });
+    }
 
     console.log('✅ Mostrando modal de confirmación');
 
     setModalConfirm({
       visible: true,
       title: 'Confirmar Eliminación',
-      message: `¿Estás seguro de eliminar al usuario ${usernameSeguro}?\n\nEste usuario será Eliminado permanentemente.`,
+      message: `¿Estás seguro de eliminar al usuario ${usernameSeguro}?\n\nEste usuario será eliminado permanentemente.`,
       onConfirm: () => {
         console.log('🔵 onConfirm ejecutado');
         setModalConfirm({ ...modalConfirm, visible: false });
@@ -349,13 +437,20 @@ const GestionUsuarioPage = () => {
     console.log('🔍 [eliminarUsuario] Iniciando eliminación...');
     console.log('🔍 [eliminarUsuario] ID recibido:', id_usuario);
 
-    // Validar ID
-    const idSeguro = parseInt(id_usuario);
+    // 🔐 Validar ID
+    if (!SecurityUtils.validateId(id_usuario)) {
+      SecurityUtils.logSecurityEvent('INVALID_ID_DELETE', { id_usuario });
+      Alert.alert('Error', 'ID de usuario inválido');
+      return;
+    }
+
+    const idSeguro = parseInt(id_usuario, 10);
     console.log('🔍 [eliminarUsuario] ID parseado:', idSeguro);
 
-    if (isNaN(idSeguro) || idSeguro <= 0) {
-      console.error('❌ ID inválido:', idSeguro);
-      Alert.alert('Error', 'ID de usuario inválido');
+    // 🔐 Rate limiting adicional
+    if (!rateLimiterOperaciones.isAllowed(`eliminar_${idSeguro}`)) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_DELETE_EXECUTE', { id_usuario: idSeguro });
+      Alert.alert('⚠️ Demasiados intentos', 'Espera un momento');
       return;
     }
 
@@ -368,7 +463,9 @@ const GestionUsuarioPage = () => {
 
       console.log('✅ [eliminarUsuario] Respuesta del servicio:', response);
 
-      // Actualizar el estado local para que aparezca como inactivo
+      SecurityUtils.logSecurityEvent('USER_DELETED_SUCCESS', { id_usuario: idSeguro });
+
+      // Actualizar el estado local
       console.log('🔄 [eliminarUsuario] Actualizando estado local...');
       setUsuarios(prevUsuarios => {
         const nuevosUsuarios = prevUsuarios.map(u => {
@@ -401,8 +498,10 @@ const GestionUsuarioPage = () => {
       }
 
       console.error('❌ [eliminarUsuario] ERROR COMPLETO:', error);
-      console.error('❌ [eliminarUsuario] Error.message:', error.message);
-      console.error('❌ [eliminarUsuario] Error.data:', error.data);
+      SecurityUtils.logSecurityEvent('USER_DELETE_ERROR', {
+        id_usuario: idSeguro,
+        error: error.message
+      });
 
       const mensajeError = SecurityValidator.sanitizeText(
         error.message || 'No se pudo eliminar el usuario'
@@ -420,7 +519,16 @@ const GestionUsuarioPage = () => {
 
 
   const confirmarReactivar = (usuario) => {
-    if (!usuario || !usuario.id_usuario) {
+    // 🔐 Rate limiting
+    if (!rateLimiterOperaciones.isAllowed('confirmarReactivar')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_REACTIVAR', { usuario: usuario?.id_usuario });
+      Alert.alert('⚠️ Demasiados intentos', 'Espera un momento');
+      return;
+    }
+
+    // 🔐 Validar usuario
+    if (!usuario || !SecurityUtils.validateId(usuario.id_usuario)) {
+      SecurityUtils.logSecurityEvent('INVALID_USER_REACTIVATE_ATTEMPT', { usuario });
       setModalNotification({
         visible: true,
         message: 'Error: Usuario inválido',
@@ -430,6 +538,13 @@ const GestionUsuarioPage = () => {
     }
 
     const usernameSeguro = SecurityValidator.sanitizeText(usuario.username || 'este usuario');
+
+    // 🔐 Detectar XSS
+    if (SecurityUtils.detectXssAttempt(usuario.username)) {
+      SecurityUtils.logSecurityEvent('XSS_IN_USERNAME_REACTIVATE', {
+        username: usuario.username?.substring(0, 50)
+      });
+    }
 
     setModalConfirm({
       visible: true,
@@ -444,10 +559,19 @@ const GestionUsuarioPage = () => {
   };
 
   const reactivarUsuario = async (id_usuario) => {
-    // Validar ID
-    const idSeguro = parseInt(id_usuario);
-    if (isNaN(idSeguro) || idSeguro <= 0) {
+    // 🔐 Validar ID
+    if (!SecurityUtils.validateId(id_usuario)) {
+      SecurityUtils.logSecurityEvent('INVALID_ID_REACTIVATE', { id_usuario });
       Alert.alert('Error', 'ID de usuario inválido');
+      return;
+    }
+
+    const idSeguro = parseInt(id_usuario, 10);
+
+    // 🔐 Rate limiting adicional
+    if (!rateLimiterOperaciones.isAllowed(`reactivar_${idSeguro}`)) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_REACTIVATE_EXECUTE', { id_usuario: idSeguro });
+      Alert.alert('⚠️ Demasiados intentos', 'Espera un momento');
       return;
     }
 
@@ -456,8 +580,9 @@ const GestionUsuarioPage = () => {
       const response = await usuarioService.reactivar(idSeguro);
 
       console.log('✅ Usuario reactivado:', response);
+      SecurityUtils.logSecurityEvent('USER_REACTIVATED_SUCCESS', { id_usuario: idSeguro });
 
-      // Actualizar el estado local para que aparezca como activo
+      // Actualizar el estado local
       setUsuarios(prevUsuarios =>
         prevUsuarios.map(u =>
           u.id_usuario === idSeguro
@@ -483,6 +608,11 @@ const GestionUsuarioPage = () => {
       }
 
       console.error('❌ Error reactivando usuario:', error);
+      SecurityUtils.logSecurityEvent('USER_REACTIVATE_ERROR', {
+        id_usuario: idSeguro,
+        error: error.message
+      });
+
       const mensajeError = SecurityValidator.sanitizeText(
         error.message || 'No se pudo reactivar el usuario'
       );
@@ -1191,7 +1321,7 @@ const modalStyles = StyleSheet.create({
   },
   notificationOverlay: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 40, 
+    top: Platform.OS === 'ios' ? 50 : 40,
     left: 0,
     right: 0,
     alignItems: 'center',

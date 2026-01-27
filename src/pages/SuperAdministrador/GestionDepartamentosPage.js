@@ -21,6 +21,155 @@ import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles'
 import GestionDepartamentosCard from '../../components/SuperAdministrador/GestionDepartamentosCard';
 import { styles } from '../../styles/gestionDepartamentosStyles';
 
+// 🔐 ============ UTILIDADES DE SEGURIDAD ANTIHACKING ============
+const SecurityUtils = {
+  // 1️⃣ Sanitizar input contra XSS
+  sanitizeInput(text) {
+    if (!text) return '';
+    return text
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<iframe[^>]*>.*?<\/iframe>/gi, '')
+      .replace(/<img[^>]*onerror[^>]*>/gi, '')
+      .replace(/on\w+\s*=/gi, '')
+      .replace(/<[^>]*>/g, '')
+      .trim();
+  },
+
+  // 2️⃣ Validar email
+  isValidEmail(email) {
+    if (!email) return true;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  },
+
+  // 3️⃣ Validar URL
+  isValidUrl(url) {
+    if (!url) return true;
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  // 4️⃣ Validar rango de números
+  validateNumberRange(value, min, max) {
+    const num = parseInt(value, 10);
+    return !isNaN(num) && num >= min && num <= max;
+  },
+
+  // 5️⃣ Sanitizar input contra SQL Injection
+  sanitizeSqlInput(text) {
+    if (!text) return '';
+    return text
+      .replace(/['"];?/g, '')
+      .replace(/--/g, '')
+      .replace(/\/\*/g, '')
+      .replace(/\*\//g, '')
+      .replace(/;/g, '')
+      .trim();
+  },
+
+  // 6️⃣ Crear limitador de velocidad (Rate Limiter)
+  createRateLimiter(maxAttempts, windowMs) {
+    const attempts = {};
+
+    return {
+      isAllowed(key) {
+        const now = Date.now();
+        if (!attempts[key]) {
+          attempts[key] = [];
+        }
+
+        // Limpiar intentos antiguos
+        attempts[key] = attempts[key].filter(time => now - time < windowMs);
+
+        // Verificar si se alcanzó el límite
+        if (attempts[key].length >= maxAttempts) {
+          this.logSecurityEvent('RATE_LIMIT_EXCEEDED', { key, attempts: attempts[key].length });
+          return false;
+        }
+
+        attempts[key].push(now);
+        return true;
+      },
+
+      logSecurityEvent(eventType, details) {
+        console.warn(`🔒 SECURITY: ${eventType}`, details, new Date().toISOString());
+      },
+
+      reset(key) {
+        delete attempts[key];
+      },
+    };
+  },
+
+  // 7️⃣ Log de eventos de seguridad
+  logSecurityEvent(eventType, details) {
+    const timestamp = new Date().toISOString();
+    const logMessage = {
+      timestamp,
+      eventType,
+      details,
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A',
+    };
+    console.warn('🔒 SECURITY EVENT:', logMessage);
+
+    // Aquí podrías enviar a un servidor de logging
+    try {
+      // Opcional: enviar eventos críticos al backend
+      if (['UNAUTHORIZED_ACCESS', 'SQL_INJECTION_ATTEMPT', 'XSS_ATTEMPT'].includes(eventType)) {
+        // await loggingService.logSecurityEvent(logMessage);
+      }
+    } catch (err) {
+      console.error('Error logging security event:', err);
+    }
+  },
+
+  // 8️⃣ Validar longitud de string
+  validateStringLength(str, maxLength) {
+    if (!str) return true;
+    return str.length <= maxLength;
+  },
+
+  // 9️⃣ Validar contraseña fuerte (si aplica)
+  isStrongPassword(password) {
+    if (!password || password.length < 8) return false;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*]/.test(password);
+    return hasUpperCase && hasLowerCase && hasNumbers && hasSpecialChar;
+  },
+
+  // 🔟 Detectar inyección SQL (solo patrones específicos y peligrosos)
+  detectSqlInjection(text) {
+    if (!text) return false;
+    // Solo detectar palabras clave SQL REALES (no guiones normales)
+    const sqlPatterns = [
+      /\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|UNION|WHERE|FROM|BY)\b/i,
+      /\/\*[\s\S]*?\*\//,  // Comentarios SQL /* */
+      /;\s*(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE)/i, // ; seguido de SQL
+      /(['"])\s*(OR|AND)\s*(['"]?1['"]?|true)\s*=/i, // ' OR '1'='1' pattern
+    ];
+    return sqlPatterns.some(pattern => pattern.test(text));
+  },
+
+  // 1️⃣1️⃣ Detectar intentos de XSS
+  detectXssAttempt(text) {
+    if (!text) return false;
+    const xssPatterns = [
+      /<script[^>]*>.*?<\/script>/gi,
+      /on\w+\s*=/gi,
+      /<iframe/gi,
+      /javascript:/gi,
+      /eval\(/gi,
+    ];
+    return xssPatterns.some(pattern => pattern.test(text));
+  },
+};
+
 const isWeb = Platform.OS === 'web';
 const { width } = Dimensions.get('window');
 const isMobile = width < 768;
@@ -136,6 +285,9 @@ function TooltipIcon({ text }) {
 }
 
 export default function GestionDepartamentosPage() {
+  // 🔐 ============ RATE LIMITER ============
+  const rateLimiterRef = React.useRef(SecurityUtils.createRateLimiter(5, 60000)); // 5 intentos en 60 segundos
+
   // ============ STATE ============
   const [departamentos, setDepartamentos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -163,42 +315,77 @@ export default function GestionDepartamentosPage() {
     facultad: '',
   });
 
-  // ============ VALIDACIONES ============
-  const sanitizeInput = (text) => {
-    // Eliminar scripts y tags HTML peligrosos
-    return text
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/<[^>]*>/g, '')
-      .trim();
-  };
+  // ============ FUNCIONES DE VALIDACIÓN Y SEGURIDAD ============
 
   const validateEmail = (email) => {
     if (!email) return true; // Email es opcional
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+    // Detectar intentos de XSS o SQL Injection
+    if (SecurityUtils.detectXssAttempt(email) || SecurityUtils.detectSqlInjection(email)) {
+      SecurityUtils.logSecurityEvent('EMAIL_VALIDATION_SUSPICIOUS', { email });
+      return false;
+    }
+    return SecurityUtils.isValidEmail(email);
   };
 
   const validatePhone = (phone) => {
     if (!phone) return true; // Teléfono es opcional
+    if (SecurityUtils.detectXssAttempt(phone) || SecurityUtils.detectSqlInjection(phone)) {
+      SecurityUtils.logSecurityEvent('PHONE_VALIDATION_SUSPICIOUS', { phone });
+      return false;
+    }
     const phoneRegex = /^[0-9+\-\s()]{7,15}$/;
     return phoneRegex.test(phone);
   };
 
   const validateCodigo = (codigo) => {
-    // Solo letras, números, guiones y guiones bajos
+    if (!codigo) return false;
+
+    // 🔐 PRIMERO validar formato permitido
     const codigoRegex = /^[A-Za-z0-9_-]+$/;
-    return codigoRegex.test(codigo);
+    if (!codigoRegex.test(codigo)) {
+      return false;
+    }
+
+    // 🔐 LUEGO detectar patrones sospechosos (solo XSS, NO SQL injection)
+    // Los guiones normales (-) son válidos en códigos, así que NO validamos SQL injection aquí
+    if (SecurityUtils.detectXssAttempt(codigo)) {
+      SecurityUtils.logSecurityEvent('CODIGO_VALIDATION_SUSPICIOUS', { codigo });
+      return false;
+    }
+
+    return true;
   };
 
   const validateForm = () => {
     const newErrors = {};
+
+    // 🔐 Detectar intentos de ataque en todos los campos
+    Object.keys(formData).forEach(key => {
+      const value = formData[key];
+      if (value && typeof value === 'string') {
+        if (SecurityUtils.detectXssAttempt(value)) {
+          SecurityUtils.logSecurityEvent('XSS_ATTEMPT_DETECTED', { field: key, value: value.substring(0, 50) });
+          newErrors[key] = '⚠️ Contenido sospechoso detectado en este campo';
+        }
+        if (SecurityUtils.detectSqlInjection(value)) {
+          SecurityUtils.logSecurityEvent('SQL_INJECTION_ATTEMPT_DETECTED', { field: key, value: value.substring(0, 50) });
+          newErrors[key] = '⚠️ Caracteres sospechosos detectados en este campo';
+        }
+      }
+    });
+
+    // Si hay intentos de ataque, detener validación
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return false;
+    }
 
     // Nombre (requerido, mínimo 5 caracteres, máximo 100)
     if (!formData.nombre || formData.nombre.trim().length === 0) {
       newErrors.nombre = 'El nombre es obligatorio';
     } else if (formData.nombre.trim().length < 5) {
       newErrors.nombre = 'El nombre debe tener al menos 5 caracteres';
-    } else if (formData.nombre.length > 100) {
+    } else if (!SecurityUtils.validateStringLength(formData.nombre, 100)) {
       newErrors.nombre = 'El nombre no puede exceder 100 caracteres';
     }
 
@@ -207,14 +394,14 @@ export default function GestionDepartamentosPage() {
       newErrors.codigo = 'El código es obligatorio';
     } else if (formData.codigo.trim().length < 3) {
       newErrors.codigo = 'El código debe tener al menos 3 caracteres';
-    } else if (formData.codigo.length > 50) {
+    } else if (!SecurityUtils.validateStringLength(formData.codigo, 50)) {
       newErrors.codigo = 'El código no puede exceder 50 caracteres';
     } else if (!validateCodigo(formData.codigo)) {
       newErrors.codigo = 'El código solo puede contener letras, números, guiones y guiones bajos';
     }
 
     // Facultad (opcional, máximo 100 caracteres)
-    if (formData.facultad && formData.facultad.length > 100) {
+    if (formData.facultad && !SecurityUtils.validateStringLength(formData.facultad, 100)) {
       newErrors.facultad = 'La facultad no puede exceder 100 caracteres';
     }
 
@@ -222,7 +409,7 @@ export default function GestionDepartamentosPage() {
     if (formData.email && !validateEmail(formData.email)) {
       newErrors.email = 'El email no tiene un formato válido';
     }
-    if (formData.email && formData.email.length > 100) {
+    if (formData.email && !SecurityUtils.validateStringLength(formData.email, 100)) {
       newErrors.email = 'El email no puede exceder 100 caracteres';
     }
 
@@ -230,17 +417,17 @@ export default function GestionDepartamentosPage() {
     if (formData.telefono && !validatePhone(formData.telefono)) {
       newErrors.telefono = 'El teléfono no tiene un formato válido';
     }
-    if (formData.telefono && formData.telefono.length > 20) {
+    if (formData.telefono && !SecurityUtils.validateStringLength(formData.telefono, 20)) {
       newErrors.telefono = 'El teléfono no puede exceder 20 caracteres';
     }
 
     // Ubicación (opcional, máximo 200 caracteres)
-    if (formData.ubicacion && formData.ubicacion.length > 200) {
+    if (formData.ubicacion && !SecurityUtils.validateStringLength(formData.ubicacion, 200)) {
       newErrors.ubicacion = 'La ubicación no puede exceder 200 caracteres';
     }
 
     // Descripción (opcional, máximo 500 caracteres)
-    if (formData.descripcion && formData.descripcion.length > 500) {
+    if (formData.descripcion && !SecurityUtils.validateStringLength(formData.descripcion, 500)) {
       newErrors.descripcion = 'La descripción no puede exceder 500 caracteres';
     }
 
@@ -261,10 +448,27 @@ export default function GestionDepartamentosPage() {
   const cargarDepartamentos = async () => {
     try {
       setLoading(true);
-      const data = await departamentoService.getAll({ activo: true });
+
+      // 🔐 Validar parámetros antes de enviar
+      const params = { activo: true };
+
+      if (typeof params.activo !== 'boolean') {
+        SecurityUtils.logSecurityEvent('INVALID_LOAD_PARAMS', { params });
+        throw new Error('Parámetros de carga inválidos');
+      }
+
+      const data = await departamentoService.getAll(params);
+
+      // 🔐 Validar respuesta
+      if (!Array.isArray(data) && data !== null && typeof data !== 'object') {
+        SecurityUtils.logSecurityEvent('INVALID_LOAD_RESPONSE', { data: typeof data });
+        throw new Error('Respuesta del servidor inválida');
+      }
+
       setDepartamentos(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error al cargar departamentos:', err);
+      SecurityUtils.logSecurityEvent('LOAD_DEPARTAMENTOS_ERROR', { error: err.message });
       Alert.alert('Error', 'No se pudieron cargar los departamentos');
       setDepartamentos([]);
     } finally {
@@ -275,40 +479,84 @@ export default function GestionDepartamentosPage() {
   const cargarAgentes = async () => {
     try {
       console.log('📥 Cargando agentes para validación...');
-      const data = await agenteService.getAll({});
-      const agentesArray = Array.isArray(data) ? data : (data?.data || []);
+
+      // 🔐 Agregar límites razonables para prevenir DoS
+      const params = {
+        skip: 0,
+        limit: 1000 // Límite máximo razonable
+      };
+
+      // 🔐 Validar parámetros
+      if (params.skip < 0 || params.limit < 1 || params.limit > 1000) {
+        SecurityUtils.logSecurityEvent('INVALID_AGENTES_PARAMS', { params });
+        throw new Error('Parámetros de carga inválidos');
+      }
+
+      const data = await agenteService.getAll(params);
+
+      // 🔐 Validar y normalizar respuesta
+      let agentesArray = [];
+      if (Array.isArray(data)) {
+        agentesArray = data;
+      } else if (data && Array.isArray(data.data)) {
+        agentesArray = data.data;
+      } else if (data && typeof data === 'object') {
+        SecurityUtils.logSecurityEvent('UNEXPECTED_AGENTES_RESPONSE', {
+          keys: Object.keys(data)
+        });
+      }
+
       setAgentesGlobal(agentesArray);
       console.log('✅ Agentes cargados:', agentesArray.length);
     } catch (err) {
       console.error('Error al cargar agentes:', err);
+      SecurityUtils.logSecurityEvent('LOAD_AGENTES_ERROR', { error: err.message });
       setAgentesGlobal([]);
     }
   };
 
   const handleSubmit = async () => {
-    // Validar formulario
+    // Validar formulario PRIMERO (sin consumir rate limit)
     if (!validateForm()) {
       Alert.alert('Error de validación', 'Por favor, corrige los errores en el formulario');
+      SecurityUtils.logSecurityEvent('FORM_VALIDATION_FAILED', { errors: Object.keys(errors) });
+      return;
+    }
+
+    // 🔐 Rate limiting - máximo 5 intentos por minuto (DESPUÉS de validación)
+    if (!rateLimiterRef.current.isAllowed('handleSubmit')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_SUBMIT', { timestamp: new Date() });
+      Alert.alert('⚠️ Demasiados intentos', 'Por favor, espera un momento antes de intentar de nuevo');
       return;
     }
 
     try {
-      // Sanitizar todos los inputs antes de enviar
+      // Sanitizar todos los inputs antes de enviar usando SecurityUtils
       const sanitizedData = {
-        nombre: sanitizeInput(formData.nombre),
-        codigo: sanitizeInput(formData.codigo),
-        facultad: sanitizeInput(formData.facultad),
-        email: sanitizeInput(formData.email),
-        telefono: sanitizeInput(formData.telefono),
-        ubicacion: sanitizeInput(formData.ubicacion),
-        descripcion: sanitizeInput(formData.descripcion),
-
+        nombre: SecurityUtils.sanitizeInput(formData.nombre),
+        codigo: SecurityUtils.sanitizeInput(formData.codigo),
+        facultad: SecurityUtils.sanitizeInput(formData.facultad),
+        email: SecurityUtils.sanitizeInput(formData.email),
+        telefono: SecurityUtils.sanitizeInput(formData.telefono),
+        ubicacion: SecurityUtils.sanitizeInput(formData.ubicacion),
+        descripcion: SecurityUtils.sanitizeInput(formData.descripcion),
       };
 
+      // 🔐 Log evento de operación
       if (editingDepartamento) {
+        SecurityUtils.logSecurityEvent('DEPARTAMENTO_UPDATE_ATTEMPT', {
+          id: editingDepartamento.id_departamento,
+          fields: Object.keys(sanitizedData)
+        });
         await departamentoService.update(editingDepartamento.id_departamento, sanitizedData);
         setSuccessMessage('✅ Departamento actualizado exitosamente');
+        SecurityUtils.logSecurityEvent('DEPARTAMENTO_UPDATED_SUCCESS', {
+          id: editingDepartamento.id_departamento
+        });
       } else {
+        SecurityUtils.logSecurityEvent('DEPARTAMENTO_CREATE_ATTEMPT', {
+          fields: Object.keys(sanitizedData)
+        });
         await departamentoService.create(sanitizedData);
         setSuccessMessage('✅ Departamento creado exitosamente');
       }
@@ -350,15 +598,42 @@ export default function GestionDepartamentosPage() {
     setErrors({});
     setShowModal(true);
   };
+
   const handleDelete = async (id) => {
     try {
-      console.log('🔍 Verificando departamento ID:', id);
+      // 🔐 VALIDAR ID PRIMERO (antes de rate limiting)
+      if (!id || (typeof id !== 'number' && typeof id !== 'string')) {
+        SecurityUtils.logSecurityEvent('INVALID_DELETE_ID_TYPE', { id, type: typeof id });
+        Alert.alert('Error', 'ID de departamento inválido');
+        return;
+      }
+
+      const numId = parseInt(id, 10);
+      if (isNaN(numId) || numId <= 0) {
+        SecurityUtils.logSecurityEvent('INVALID_DELETE_ID_VALUE', { id, numId });
+        Alert.alert('Error', 'ID de departamento inválido');
+        return;
+      }
+
+      // 🔐 Rate limiting para operaciones de eliminación
+      if (!rateLimiterRef.current.isAllowed(`delete_${numId}`)) {
+        SecurityUtils.logSecurityEvent('RATE_LIMIT_DELETE', { departamentoId: numId });
+        Alert.alert('⚠️ Demasiados intentos', 'Por favor, espera un momento antes de intentar de nuevo');
+        return;
+      }
+
+      SecurityUtils.logSecurityEvent('DELETE_VERIFICATION_START', {
+        departamentoId: numId,
+        timestamp: new Date().toISOString()
+      });
+
+      console.log('🔍 Verificando departamento ID:', numId);
       console.log('📊 Agentes disponibles:', agentesGlobal.length);
 
       // ✅ VALIDACIÓN 1: Verificar agentes asignados (ACTIVOS y NO ELIMINADOS)
       const agentesActivosConEsteDepartamento = agentesGlobal.filter(agente => {
         const tieneDepto = agente.id_departamento &&
-          agente.id_departamento.toString() === id.toString();
+          agente.id_departamento.toString() === numId.toString();
         const estaActivo = agente.activo === true || agente.activo === 1;
         const noEstaEliminado = !agente.eliminado &&
           agente.eliminado !== 1 &&
@@ -375,7 +650,7 @@ export default function GestionDepartamentosPage() {
       let usuariosConEsteDepartamento = [];
       try {
         const responseUsuarios = await usuarioService.listarCompleto({
-          id_departamento: id,
+          id_departamento: numId,
           estado: 'activo'
         });
 
@@ -384,6 +659,10 @@ export default function GestionDepartamentosPage() {
         console.log('📊 Usuarios asignados al departamento:', usuariosConEsteDepartamento.length);
       } catch (error) {
         console.error('❌ Error al verificar usuarios:', error);
+        SecurityUtils.logSecurityEvent('USER_VERIFICATION_ERROR', {
+          departamentoId: numId,
+          error: error.message
+        });
         Alert.alert(
           'Error',
           'No se pudo verificar los usuarios asignados. Por seguridad, no se permitirá la eliminación.'
@@ -394,6 +673,10 @@ export default function GestionDepartamentosPage() {
       // ✅ Si tiene usuarios asignados, mostrar modal de advertencia ESPECÍFICO
       if (usuariosConEsteDepartamento.length > 0) {
         console.log('⚠️ No se puede eliminar - hay usuarios asignados');
+        SecurityUtils.logSecurityEvent('DELETE_BLOCKED_USERS_ASSIGNED', {
+          departamentoId: numId,
+          usuariosCount: usuariosConEsteDepartamento.length
+        });
         setUsuariosAsignados(usuariosConEsteDepartamento);
         setShowWarningModal(true);
         return;
@@ -402,6 +685,10 @@ export default function GestionDepartamentosPage() {
       // ✅ Si tiene agentes ACTIVOS y NO ELIMINADOS, mostrar modal de advertencia
       if (cantidadAgentesActivos > 0) {
         console.log('⚠️ No se puede eliminar - hay agentes activos asignados');
+        SecurityUtils.logSecurityEvent('DELETE_BLOCKED_AGENTS_ASSIGNED', {
+          departamentoId: numId,
+          agentesCount: cantidadAgentesActivos
+        });
         setAgentesAsignados(agentesActivosConEsteDepartamento);
         setShowWarningModal(true);
         return;
@@ -409,11 +696,16 @@ export default function GestionDepartamentosPage() {
 
       // ✅ Si NO tiene usuarios NI agentes activos, permitir eliminación
       console.log('✅ Se puede eliminar - no hay usuarios ni agentes activos');
-      setDepartamentoToDelete(id);
+      SecurityUtils.logSecurityEvent('DELETE_ALLOWED', { departamentoId: numId });
+      setDepartamentoToDelete(numId);
       setShowDeleteModal(true);
 
     } catch (err) {
       console.error('❌ Error al verificar dependencias:', err);
+      SecurityUtils.logSecurityEvent('DELETE_VERIFICATION_ERROR', {
+        error: err.message,
+        stack: err.stack
+      });
       Alert.alert(
         'Error',
         'No se pudo verificar las dependencias del departamento. Por seguridad, no se permitirá la eliminación.'
@@ -423,11 +715,40 @@ export default function GestionDepartamentosPage() {
 
   // Nueva función para confirmar la eliminación
   const confirmDelete = async () => {
-    if (!departamentoToDelete) return;
+    // 🔐 Validar que existe departamentoToDelete
+    if (!departamentoToDelete) {
+      SecurityUtils.logSecurityEvent('DELETE_WITHOUT_ID_ATTEMPT', { timestamp: new Date() });
+      Alert.alert('Error', 'No se especificó el departamento a eliminar');
+      return;
+    }
+
+    // 🔐 Validar tipo y valor del ID
+    const numId = parseInt(departamentoToDelete, 10);
+    if (isNaN(numId) || numId <= 0) {
+      SecurityUtils.logSecurityEvent('INVALID_DELETE_CONFIRMATION_ID', {
+        id: departamentoToDelete,
+        numId,
+        type: typeof departamentoToDelete
+      });
+      Alert.alert('Error', 'ID inválido para eliminación');
+      setShowDeleteModal(false);
+      setDepartamentoToDelete(null);
+      return;
+    }
 
     try {
+      SecurityUtils.logSecurityEvent('DEPARTAMENTO_DELETE_CONFIRMED', {
+        id: numId,
+        timestamp: new Date().toISOString()
+      });
+
       // ✅ ELIMINADO LÓGICO: actualizar activo a false
-      await departamentoService.update(departamentoToDelete, { activo: false });
+      await departamentoService.update(numId, { activo: false });
+
+      SecurityUtils.logSecurityEvent('DEPARTAMENTO_DELETED_SUCCESS', {
+        id: numId,
+        timestamp: new Date().toISOString()
+      });
 
       setSuccessMessage('🗑️ Departamento eliminado correctamente');
       setShowSuccessMessage(true);
@@ -445,6 +766,10 @@ export default function GestionDepartamentosPage() {
       }, 3000);
     } catch (err) {
       console.error('Error al eliminar:', err);
+      SecurityUtils.logSecurityEvent('DEPARTAMENTO_DELETE_ERROR', {
+        id: numId,
+        error: err.message
+      });
       const errorMessage = err?.message || err?.data?.message || 'No se pudo eliminar el departamento';
       Alert.alert('Error', errorMessage);
     }
@@ -472,16 +797,55 @@ export default function GestionDepartamentosPage() {
   };
 
   const handleInputChange = (field, value) => {
+    // 🔐 Validar que value es string y limitar longitud máxima
+    if (typeof value !== 'string') {
+      SecurityUtils.logSecurityEvent('NON_STRING_INPUT_ATTEMPT', { field, type: typeof value });
+      return;
+    }
+
+    // 🔐 Limitar longitud absoluta (máximo 1000 caracteres para prevenir overflow)
+    if (value.length > 1000) {
+      SecurityUtils.logSecurityEvent('INPUT_LENGTH_EXCEEDED', {
+        field,
+        length: value.length
+      });
+      Alert.alert('⚠️ Texto demasiado largo', 'El contenido excede el límite permitido');
+      return;
+    }
+
     // Limpiar error del campo cuando el usuario escribe
     if (errors[field]) {
       setErrors({ ...errors, [field]: null });
     }
+
+    // ✅ NO sanitizar aquí, dejar escribir libremente
+    // La sanitización se hace al enviar (handleSubmit)
     setFormData({ ...formData, [field]: value });
   };
 
-  // Sanitizar búsqueda para prevenir XSS
+  // Sanitizar búsqueda para prevenir XSS y SQL Injection
   const handleSearchChange = (text) => {
-    const sanitized = sanitizeInput(text);
+    // 🔐 Detectar intentos de ataque en búsqueda
+    if (SecurityUtils.detectXssAttempt(text)) {
+      SecurityUtils.logSecurityEvent('XSS_ATTEMPT_IN_SEARCH', {
+        input: text.substring(0, 50),
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('⚠️ Contenido sospechoso', 'Se detectó contenido no permitido en la búsqueda');
+      return;
+    }
+
+    if (SecurityUtils.detectSqlInjection(text)) {
+      SecurityUtils.logSecurityEvent('SQL_INJECTION_ATTEMPT_IN_SEARCH', {
+        input: text.substring(0, 50),
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('⚠️ Caracteres sospechosos', 'Se detectaron caracteres no permitidos en la búsqueda');
+      return;
+    }
+
+    // Sanitizar normalmente
+    const sanitized = SecurityUtils.sanitizeInput(text);
     setSearchTerm(sanitized);
   };
 
