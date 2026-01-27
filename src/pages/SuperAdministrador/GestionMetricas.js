@@ -300,7 +300,7 @@ export default function GestionMetricas() {
 
             const resultado = agentesArray.map(a => ({
                 id: a.id,
-                nombre: a.nombre || 'Sin nombre',
+                nombre: a.nombre_agente || a.nombre || 'Sin nombre',
                 activo: a.activo !== undefined ? a.activo : true
             }));
             return resultado;

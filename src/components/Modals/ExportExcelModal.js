@@ -106,18 +106,47 @@ export default function ExportExcelModal({
         try {
             setLoading(true);
 
-            // Construir parámetros de exportación
-            const params = {
-                id_agente: filtros.id_agente,
-                estado: filtros.estado,
-                origin: filtros.origin,
-                escaladas: filtros.escaladas,
-                fecha_inicio: filtros.fecha_inicio,
-                fecha_fin: filtros.fecha_fin,
-                calificacion_min: filtros.calificacion_min,
-                calificacion_max: filtros.calificacion_max,
-                incluir_visitante: filtros.incluir_visitante
-            };
+            // Construir parámetros de exportación (solo valores válidos)
+            const params = {};
+            
+            // Solo agregar si es un número válido (no null, no "Todos los agentes")
+            if (filtros.id_agente && typeof filtros.id_agente === 'number') {
+                params.id_agente = filtros.id_agente;
+            }
+            
+            // Solo agregar si es un string válido de estado (no null, no "Todos...")
+            if (filtros.estado && !filtros.estado.includes('Todos')) {
+                params.estado = filtros.estado;
+            }
+            
+            // Solo agregar si es un string válido de origen (no null, no "Todos...")
+            if (filtros.origin && !filtros.origin.includes('Todos')) {
+                params.origin = filtros.origin;
+            }
+            
+            // Solo agregar si es explícitamente true
+            if (filtros.escaladas === true) {
+                params.escaladas = true;
+            }
+            
+            // Fechas
+            if (filtros.fecha_inicio) {
+                params.fecha_inicio = filtros.fecha_inicio;
+            }
+            if (filtros.fecha_fin) {
+                params.fecha_fin = filtros.fecha_fin;
+            }
+            
+            // Calificaciones (solo si son números válidos)
+            if (filtros.calificacion_min && typeof filtros.calificacion_min === 'number') {
+                params.calificacion_min = filtros.calificacion_min;
+            }
+            if (filtros.calificacion_max && typeof filtros.calificacion_max === 'number') {
+                params.calificacion_max = filtros.calificacion_max;
+            }
+            
+            // Siempre incluir este parámetro
+            params.incluir_visitante = filtros.incluir_visitante;
 
             console.log('📤 Exportando con parámetros:', params);
 

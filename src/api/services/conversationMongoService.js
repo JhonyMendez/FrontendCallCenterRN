@@ -500,24 +500,45 @@ export const conversationMongoService = {
       const query = new URLSearchParams();
       
       // Filtros básicos
-      if (params.id_agente !== undefined) query.append('id_agente', params.id_agente);
-      if (params.estado) query.append('estado', params.estado);
-      if (params.origin) query.append('origin', params.origin);
-      if (params.escaladas !== undefined) query.append('escaladas', params.escaladas);
-      
+
+      if (params.id_agente !== undefined && params.id_agente !== null) {
+        query.append('id_agente', params.id_agente);
+      }
+      if (params.estado !== undefined && params.estado !== null) {
+        query.append('estado', params.estado);
+      }
+      if (params.origin !== undefined && params.origin !== null) {
+        query.append('origin', params.origin);
+      }
+      if (params.escaladas !== undefined && params.escaladas !== null) {
+        query.append('escaladas', params.escaladas);
+      }
+
       // Filtros adicionales
-      if (params.id_visitante !== undefined) query.append('id_visitante', params.id_visitante);
-      if (params.user_id !== undefined) query.append('user_id', params.user_id);
-      if (params.fecha_inicio) query.append('fecha_inicio', params.fecha_inicio);
-      if (params.fecha_fin) query.append('fecha_fin', params.fecha_fin);
-      if (params.calificacion_min !== undefined) query.append('calificacion_min', params.calificacion_min);
-      if (params.calificacion_max !== undefined) query.append('calificacion_max', params.calificacion_max);
-      
-      // Opción de incluir visitante
-      if (params.incluir_visitante !== undefined) {
+      if (params.id_visitante !== undefined && params.id_visitante !== null) {
+        query.append('id_visitante', params.id_visitante);
+      }
+      if (params.user_id !== undefined && params.user_id !== null) {
+        query.append('user_id', params.user_id);
+      }
+      if (params.fecha_inicio !== undefined && params.fecha_inicio !== null) {
+        query.append('fecha_inicio', params.fecha_inicio);
+      }
+      if (params.fecha_fin !== undefined && params.fecha_fin !== null) {
+        query.append('fecha_fin', params.fecha_fin);
+      }
+      if (params.calificacion_min !== undefined && params.calificacion_min !== null) {
+        query.append('calificacion_min', params.calificacion_min);
+      }
+      if (params.calificacion_max !== undefined && params.calificacion_max !== null) {
+        query.append('calificacion_max', params.calificacion_max);
+      }
+
+      // Opción de incluir visitante (siempre incluir porque tiene default true)
+      if (params.incluir_visitante !== undefined && params.incluir_visitante !== null) {
         query.append('incluir_visitante', params.incluir_visitante);
       }
-      
+            
       const queryString = query.toString();
       const endpoint = queryString
         ? `${ENDPOINTS.CONVERSACIONES_MONGO.EXPORT_EXCEL}?${queryString}`
@@ -528,7 +549,11 @@ export const conversationMongoService = {
       // Para descarga de archivos, no usar apiClient.get
       // Usar fetch directamente para manejar el blob
       const token = await apiClient.getToken();
-      const response = await fetch(endpoint, {
+
+      const fullUrl = `${apiClient.baseURL}${endpoint}`;
+      console.log('🌐 [conversationMongoService] URL completa:', fullUrl);
+
+      const response = await fetch(fullUrl, {
         method: 'GET',
         headers: {
           'Authorization': token ? `Bearer ${token}` : ''
