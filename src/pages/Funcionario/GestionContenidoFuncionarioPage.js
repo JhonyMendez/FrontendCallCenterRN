@@ -25,6 +25,125 @@ import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles'
 import GestionContenidoCard from '../../components/SuperAdministrador/GestionContenidoCard';
 import { styles } from '../../styles/GestionContenidoStyles';
 
+// 🔒 SECURITY: Anti-hacking utilities
+const SecurityUtils = {
+  // ✅ XSS Protection: Remove potentially dangerous HTML/JS
+  sanitizeInput: (text) => {
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+\s*=/gi, '')
+      .replace(/<[^>]*>/g, '')
+      .trim();
+  },
+
+  // ✅ Output Encoding - NUEVO
+  encodeOutput: (text) => {
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;')
+      .replace(/\//g, '&#x2F;');
+  },
+
+  // ✅ Validate email format
+  isValidEmail: (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  },
+
+  // ✅ Validate URL format
+  isValidUrl: (url) => {
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  // ✅ Validate numbers and prevent negative overflow
+  validateNumberRange: (value, min = -999999, max = 999999) => {
+    const num = Number(value);
+    return !isNaN(num) && num >= min && num <= max;
+  },
+
+  // ✅ Remove SQL injection patterns
+  sanitizeSqlInput: (text) => {
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/('|"|;|--|\*|%|_)/g, '')
+      .trim();
+  },
+
+  // ✅ Rate limiting - Prevent brute force attacks
+  createRateLimiter: (maxAttempts = 5, windowMs = 60000) => {
+    const attempts = new Map();
+    return {
+      isAllowed: (key) => {
+        const now = Date.now();
+        if (!attempts.has(key)) {
+          attempts.set(key, []);
+        }
+        const userAttempts = attempts.get(key);
+        const recentAttempts = userAttempts.filter(time => now - time < windowMs);
+        if (recentAttempts.length >= maxAttempts) {
+          return false;
+        }
+        recentAttempts.push(now);
+        attempts.set(key, recentAttempts);
+        return true;
+      }
+    };
+  },
+
+  // ✅ Logging for security audit
+  logSecurityEvent: (eventType, details) => {
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+      timestamp,
+      eventType,
+      details,
+      userAgent: Platform.OS
+    };
+    console.warn(`🔒 SECURITY [${eventType}]:`, logEntry);
+  },
+
+  // ✅ Validate input length to prevent buffer overflow
+  validateStringLength: (str, maxLength = 5000) => {
+    return typeof str === 'string' && str.length <= maxLength;
+  },
+
+  // ✅ NUEVO: Generar token CSRF
+  generateCSRFToken: () => {
+    const array = new Uint8Array(32);
+    if (Platform.OS === 'web' && window.crypto) {
+      window.crypto.getRandomValues(array);
+    } else {
+      for (let i = 0; i < array.length; i++) {
+        array[i] = Math.floor(Math.random() * 256);
+      }
+    }
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  },
+
+  // ✅ NUEVO: Validar token CSRF
+  validateCSRFToken: (token) => {
+    return typeof token === 'string' && token.length === 64;
+  },
+
+  // ✅ Validate date format
+  validateDateFormat: (date) => {
+    if (!date) return false;
+    const timestamp = Date.parse(date);
+    return !isNaN(timestamp);
+  },
+};
 
 const ESTADOS = ['activo', 'inactivo'];
 
@@ -389,6 +508,8 @@ const GestionContenidoPage = () => {
   const [showPickerInicio, setShowPickerInicio] = useState(false);
   const [showPickerFin, setShowPickerFin] = useState(false);
 
+  // 🔒 SECURITY: Rate limiters con useRef
+  const rateLimiterRef = useRef(SecurityUtils.createRateLimiter(5, 60000));
 
   const [formData, setFormData] = useState({
     id_contenido: null,
@@ -451,11 +572,7 @@ const GestionContenidoPage = () => {
   };
   const isWeb = Platform.OS === 'web';
   const sanitizeInput = (text) => {
-
-    return text
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/<[^>]*>/g, '')
-      .trim();
+    return SecurityUtils.sanitizeInput(text);
   };
 
 
@@ -605,22 +722,61 @@ const GestionContenidoPage = () => {
 
   const cargarContenidos = async () => {
     try {
+      // 🔒 SECURITY: Rate limiting
+      if (!rateLimiterRef.current.isAllowed('cargarContenidos')) {
+        SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', { function: 'cargarContenidos' });
+        mostrarNotificacionError('Demasiadas solicitudes. Por favor, espera un momento.');
+        return;
+      }
+
+      SecurityUtils.logSecurityEvent('LOAD_CONTENTS_START', { function: 'cargarContenidos' });
+
       const permisos = agentesPermitidos.find(p => p.id_agente === selectedAgente);
 
       if (!permisos || !permisos.puede_ver_contenido) {
         mostrarNotificacionError(
           'No tienes permisos para ver contenidos de este agente. Contacta a tu administrador.'
         );
+        SecurityUtils.logSecurityEvent('PERMISSION_DENIED', { 
+          function: 'cargarContenidos',
+          agentId: selectedAgente 
+        });
         setContenidos([]);
         return;
       }
 
       const params = filtroEstado ? { estado: filtroEstado } : {};
       const data = await contenidoService.getByAgente(selectedAgente, params);
-      setContenidos(data);
+
+      // 🔒 SECURITY: Validate response is array
+      if (!Array.isArray(data)) {
+        throw new Error('Formato de datos inválido');
+      }
+
+      // 🔒 SECURITY: Sanitize and validate contents
+      const contentsValidated = data
+        .filter(c => c && typeof c === 'object' && c.id_contenido)
+        .map(c => ({
+          ...c,
+          titulo: SecurityUtils.sanitizeInput(c.titulo || ''),
+          contenido: SecurityUtils.sanitizeInput(c.contenido || ''),
+          resumen: SecurityUtils.sanitizeInput(c.resumen || ''),
+          palabras_clave: SecurityUtils.sanitizeInput(c.palabras_clave || ''),
+          etiquetas: SecurityUtils.sanitizeInput(c.etiquetas || '')
+        }));
+
+      setContenidos(contentsValidated);
+      SecurityUtils.logSecurityEvent('LOAD_CONTENTS_SUCCESS', { 
+        function: 'cargarContenidos',
+        contentsLoaded: contentsValidated.length 
+      });
 
     } catch (error) {
       console.error('Error cargando contenidos:', error);
+      SecurityUtils.logSecurityEvent('LOAD_CONTENTS_ERROR', { 
+        function: 'cargarContenidos',
+        error: error.message 
+      });
       Alert.alert('Error', 'No se pudieron cargar los contenidos');
     }
   };
@@ -642,11 +798,30 @@ const GestionContenidoPage = () => {
   };
 
   const abrirModal = async (contenido = null) => {
+    // � SECURITY: Rate limiting
+    if (!rateLimiterRef.current.isAllowed('abrirModal')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', { 
+        function: 'abrirModal',
+        mode: contenido ? 'EDIT' : 'CREATE',
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('⚠️ Seguridad', 'Demasiadas solicitudes. Por favor, espera un momento.');
+      return;
+    }
+
     // 🔥 NUEVO: Verificar permisos antes de abrir modal
     const agenteId = contenido ? contenido.id_agente : selectedAgente;
     const permisos = agentesPermitidos.find(p => p.id_agente === agenteId);
 
     if (contenido && (!permisos || !permisos.puede_editar_contenido)) {
+      SecurityUtils.logSecurityEvent('MODAL_PERMISSION_DENIED', {
+        function: 'abrirModal',
+        mode: 'EDIT',
+        id_contenido: contenido.id_contenido,
+        id_agente: agenteId,
+        reason: 'NO_EDIT_PERMISSION',
+        timestamp: new Date().toISOString()
+      });
       mostrarNotificacionError(
         'No tienes permisos para editar contenidos de este agente. Contacta a tu administrador para solicitar acceso.'
       );
@@ -654,6 +829,13 @@ const GestionContenidoPage = () => {
     }
 
     if (!contenido && (!permisos || !permisos.puede_crear_contenido)) {
+      SecurityUtils.logSecurityEvent('MODAL_PERMISSION_DENIED', {
+        function: 'abrirModal',
+        mode: 'CREATE',
+        id_agente: agenteId,
+        reason: 'NO_CREATE_PERMISSION',
+        timestamp: new Date().toISOString()
+      });
       mostrarNotificacionError(
         'No tienes permisos para crear contenidos en este agente. Contacta a tu administrador para solicitar acceso.'
       );
@@ -661,6 +843,14 @@ const GestionContenidoPage = () => {
     }
 
     if (contenido) {
+      SecurityUtils.logSecurityEvent('MODAL_OPENED', {
+        function: 'abrirModal',
+        mode: 'EDIT',
+        id_contenido: contenido.id_contenido,
+        titulo: contenido.titulo,
+        timestamp: new Date().toISOString()
+      });
+
       setEditando(true);
 
       try {
@@ -685,10 +875,24 @@ const GestionContenidoPage = () => {
         setModalVisible(true);
 
       } catch (error) {
+        SecurityUtils.logSecurityEvent('MODAL_ERROR', {
+          function: 'abrirModal',
+          mode: 'EDIT',
+          id_contenido: contenido.id_contenido,
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
         console.error('Error cargando categorías para edición:', error);
         Alert.alert('Error', 'No se pudieron cargar las categorías del agente');
       }
     } else {
+      SecurityUtils.logSecurityEvent('MODAL_OPENED', {
+        function: 'abrirModal',
+        mode: 'CREATE',
+        id_agente: selectedAgente,
+        timestamp: new Date().toISOString()
+      });
+
       setEditando(false);
       setFormData({
         id_contenido: null,
@@ -732,7 +936,14 @@ const GestionContenidoPage = () => {
   const guardarContenido = async () => {
     console.log('🚀 ========== INICIO guardarContenido ==========');
 
-    // 🔥 NUEVA: Función de validación con mensajes
+    // � SECURITY: Rate limiting
+    if (!rateLimiterRef.current.isAllowed('guardarContenido')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', { function: 'guardarContenido' });
+      Alert.alert('⚠️ Seguridad', 'Demasiadas solicitudes. Por favor, espera un momento.');
+      return;
+    }
+
+    // �🔥 NUEVA: Función de validación con mensajes
     const validarFormulario = () => {
       const nuevosErrores = {
         id_categoria: '',
@@ -827,6 +1038,12 @@ const GestionContenidoPage = () => {
     // 🔥 FUNCIÓN INTERNA para el guardado real
     const guardarContenidoReal = async () => {
       try {
+        SecurityUtils.logSecurityEvent('SAVE_EXECUTING', {
+          function: 'guardarContenidoReal',
+          mode: editando ? 'EDIT' : 'CREATE',
+          timestamp: new Date().toISOString()
+        });
+
         const categoriaSeleccionada = categorias.find(
           cat => cat.id_categoria === formData.id_categoria
         );
@@ -857,10 +1074,28 @@ const GestionContenidoPage = () => {
         if (editando) {
           console.log('✏️ Modo EDICIÓN - ID:', formData.id_contenido);
           await contenidoService.update(formData.id_contenido, dataToSend);
-          mostrarNotificacionExito(' Contenido actualizado correctamente');
+          
+          SecurityUtils.logSecurityEvent('SAVE_SUCCESS', {
+            function: 'guardarContenidoReal',
+            mode: 'EDIT',
+            id_contenido: formData.id_contenido,
+            titulo: formData.titulo,
+            timestamp: new Date().toISOString()
+          });
+          
+          mostrarNotificacionExito('Contenido actualizado correctamente');
         } else {
           console.log('➕ Modo CREACIÓN');
           await contenidoService.create(dataToSend);
+          
+          SecurityUtils.logSecurityEvent('SAVE_SUCCESS', {
+            function: 'guardarContenidoReal',
+            mode: 'CREATE',
+            titulo: formData.titulo,
+            id_categoria: formData.id_categoria,
+            timestamp: new Date().toISOString()
+          });
+          
           mostrarNotificacionExito('Contenido creado correctamente');
         }
 
@@ -870,6 +1105,14 @@ const GestionContenidoPage = () => {
         console.log('✅ Contenidos recargados');
 
       } catch (error) {
+        SecurityUtils.logSecurityEvent('SAVE_ERROR', {
+          function: 'guardarContenidoReal',
+          error: error.message,
+          errorCode: error.code,
+          mode: editando ? 'EDIT' : 'CREATE',
+          timestamp: new Date().toISOString()
+        });
+        
         console.error('❌ Error:', error);
         Alert.alert('Error', error.message || 'No se pudo guardar el contenido');
       }
@@ -947,9 +1190,21 @@ const GestionContenidoPage = () => {
 
     // 🔥 VALIDAR PRIMERO
     if (!validarFormulario()) {
+      SecurityUtils.logSecurityEvent('SAVE_VALIDATION_FAILED', { 
+        function: 'guardarContenido',
+        formDataKeys: Object.keys(formData),
+        timestamp: new Date().toISOString()
+      });
       Alert.alert('Campos incompletos', 'Por favor completa todos los campos obligatorios marcados en rojo');
       return;
     }
+
+    SecurityUtils.logSecurityEvent('SAVE_VALIDATION_SUCCESS', {
+      function: 'guardarContenido',
+      titulo: formData.titulo,
+      id_categoria: formData.id_categoria,
+      timestamp: new Date().toISOString()
+    });
 
     //Detectar contenido duplicado/similar
     const similares = detectarContenidoSimilar();
@@ -981,6 +1236,14 @@ const GestionContenidoPage = () => {
     }
 
     // Si todo está bien, guardar
+    SecurityUtils.logSecurityEvent('SAVE_ATTEMPT', {
+      function: 'guardarContenido',
+      mode: editando ? 'EDIT' : 'CREATE',
+      id_contenido: editando ? formData.id_contenido : 'NEW',
+      titulo: formData.titulo,
+      timestamp: new Date().toISOString()
+    });
+    
     await guardarContenidoReal();
 
     console.log('🏁 ========== FIN guardarContenido ==========');
@@ -1024,9 +1287,25 @@ const GestionContenidoPage = () => {
   const eliminarContenido = (id) => {
     console.log('🗑️ Intentando eliminar ID:', id);
 
+    // 🔒 SECURITY: Rate limiting
+    if (!rateLimiterRef.current.isAllowed('eliminarContenido')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', { 
+        function: 'eliminarContenido',
+        id_contenido: id,
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('⚠️ Seguridad', 'Demasiadas solicitudes de eliminación. Por favor, espera un momento.');
+      return;
+    }
+
     // Buscar el contenido
     const contenido = contenidos.find(c => c.id_contenido === id);
     if (!contenido) {
+      SecurityUtils.logSecurityEvent('DELETE_CONTENT_NOT_FOUND', {
+        function: 'eliminarContenido',
+        id_contenido: id,
+        timestamp: new Date().toISOString()
+      });
       console.error('❌ Contenido no encontrado');
       return;
     }
@@ -1039,18 +1318,40 @@ const GestionContenidoPage = () => {
 
     // ✅ VERIFICAR SI TIENE PERMISOS
     if (!permisos) {
+      SecurityUtils.logSecurityEvent('DELETE_PERMISSION_DENIED', {
+        function: 'eliminarContenido',
+        id_contenido: id,
+        id_agente: contenido.id_agente,
+        reason: 'NO_AGENT_PERMISSIONS',
+        timestamp: new Date().toISOString()
+      });
       console.error('❌ No se encontraron permisos para este agente');
       mostrarNotificacionError('No tienes permisos asignados para este agente.');
       return;
     }
 
     if (!permisos.puede_eliminar_contenido) {
+      SecurityUtils.logSecurityEvent('DELETE_PERMISSION_DENIED', {
+        function: 'eliminarContenido',
+        id_contenido: id,
+        id_agente: contenido.id_agente,
+        reason: 'NO_DELETE_PERMISSION',
+        puede_eliminar_contenido: permisos.puede_eliminar_contenido,
+        timestamp: new Date().toISOString()
+      });
       console.error('❌ Sin permiso para eliminar');
       mostrarNotificacionError('No tienes permisos para eliminar contenidos de este agente.');
       return;
     }
 
     // ✅ SI TIENE PERMISOS, ABRIR MODAL
+    SecurityUtils.logSecurityEvent('DELETE_INITIATED', {
+      function: 'eliminarContenido',
+      id_contenido: id,
+      titulo: contenido.titulo,
+      timestamp: new Date().toISOString()
+    });
+    
     console.log('✅ Permisos OK, abriendo modal de confirmación');
     setContenidoAEliminar(id);
     setModalEliminarVisible(true);
@@ -1058,6 +1359,23 @@ const GestionContenidoPage = () => {
 
   const confirmarEliminacion = async () => {
     console.log('✅ Confirmando eliminación del ID:', contenidoAEliminar);
+
+    // 🔒 SECURITY: Rate limiting
+    if (!rateLimiterRef.current.isAllowed('confirmarEliminacion')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', { 
+        function: 'confirmarEliminacion',
+        id_contenido: contenidoAEliminar,
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('⚠️ Seguridad', 'Demasiadas solicitudes de confirmación. Por favor, espera un momento.');
+      return;
+    }
+
+    SecurityUtils.logSecurityEvent('DELETE_CONFIRMED', {
+      function: 'confirmarEliminacion',
+      id_contenido: contenidoAEliminar,
+      timestamp: new Date().toISOString()
+    });
 
     // Guardar ID antes de cerrar modal
     const idAEliminar = contenidoAEliminar;
@@ -1070,6 +1388,14 @@ const GestionContenidoPage = () => {
       // Intentar eliminar
       console.log('🗑️ Llamando a softDelete...');
       const resultado = await contenidoService.softDelete(idAEliminar);
+      
+      SecurityUtils.logSecurityEvent('DELETE_SUCCESS', {
+        function: 'confirmarEliminacion',
+        id_contenido: idAEliminar,
+        resultado: resultado ? 'OK' : 'UNKNOWN',
+        timestamp: new Date().toISOString()
+      });
+      
       console.log('✅ Respuesta del servidor:', resultado);
 
       // Actualizar lista localmente (inmediato)
@@ -1097,6 +1423,14 @@ const GestionContenidoPage = () => {
       }, 500);
 
     } catch (error) {
+      SecurityUtils.logSecurityEvent('DELETE_ERROR', {
+        function: 'confirmarEliminacion',
+        id_contenido: idAEliminar,
+        error: error.message,
+        errorCode: error.code,
+        timestamp: new Date().toISOString()
+      });
+      
       // Intentar recargar para ver el estado real
       try {
         await cargarContenidos();

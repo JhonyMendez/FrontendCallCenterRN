@@ -7,7 +7,7 @@ const getBaseURL = () => {
   const API_PATH = '/api/v1';
   
   // 🔧 CONFIGURACIÓN DE IPs Y URLs
-  const LOCAL_IP = '192.168.5.12'; 
+  const LOCAL_IP = '192.168.5.3'; 
   const LOCAL_PORT = '8000';
   const NGROK_URL = 'https://untranscribable-nonhedonistically-stetson.ngrok-free.dev';
   

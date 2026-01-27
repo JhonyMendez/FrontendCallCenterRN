@@ -21,8 +21,50 @@ import GestionCategoriaCard from '../../components/SuperAdministrador/GestionCat
 import { styles } from '../../styles/gestionCategoriaStyles';
 // 🔒 SECURITY: Anti-hacking utilities - VERSIÓN COMPLETA
 const SecurityUtils = {
+  // ✅ Create a rate limiter (attempts per time window)
+  createRateLimiter: (maxAttempts, timeWindowMs) => {
+    let attempts = 0;
+    let lastReset = Date.now();
+    return () => {
+      const now = Date.now();
+      if (now - lastReset > timeWindowMs) {
+        attempts = 0;
+        lastReset = now;
+      }
+      attempts++;
+      return attempts <= maxAttempts;
+    };
+  },
+
+  // ✅ Validate positive integer IDs
+  validateId: (id) => {
+    return Number.isInteger(id) && id > 0;
+  },
+
+  // ✅ Validate string length (1-500 chars max)
+  validateString: (str, minLength = 1, maxLength = 500) => {
+    if (typeof str !== 'string') return false;
+    const trimmed = str.trim();
+    return trimmed.length >= minLength && trimmed.length <= maxLength;
+  },
+
+  // ✅ XSS Detection: Check for common attack patterns
+  detectXssAttempt: (text) => {
+    if (typeof text !== 'string') return false;
+    const xssPatterns = [
+      /<script\b/gi,
+      /on\w+\s*=/gi,  // Event handlers like onload=, onclick=, etc.
+      /<iframe/gi,
+      /javascript:/gi,
+      /eval\s*\(/gi,
+      /onerror\s*=/gi,
+      /onload\s*=/gi
+    ];
+    return xssPatterns.some(pattern => pattern.test(text));
+  },
+
   // ✅ XSS Protection: Remove potentially dangerous HTML/JS
-  sanitizeInput: (text) => {
+  sanitizeText: (text) => {
     if (typeof text !== 'string') return '';
     return text
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
@@ -90,29 +132,6 @@ const SecurityUtils = {
       userAgent: Platform.OS
     };
     console.warn(`🔒 SECURITY [${eventType}]:`, logEntry);
-  },
-
-  // ✅ Validate input length to prevent buffer overflow
-  validateStringLength: (str, maxLength = 5000) => {
-    return typeof str === 'string' && str.length <= maxLength;
-  },
-
-  // ✅ Generar token CSRF
-  generateCSRFToken: () => {
-    const array = new Uint8Array(32);
-    if (Platform.OS === 'web' && window.crypto) {
-      window.crypto.getRandomValues(array);
-    } else {
-      for (let i = 0; i < array.length; i++) {
-        array[i] = Math.floor(Math.random() * 256);
-      }
-    }
-    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
-  },
-
-  // ✅ Validar token CSRF
-  validateCSRFToken: (token) => {
-    return typeof token === 'string' && token.length === 64;
   }
 };
 
@@ -412,7 +431,7 @@ export default function GestionCategoriaPage() {
   // ============ VALIDACIONES ============
   // 🔒 SECURITY: Usar SecurityUtils centralizado
   const sanitizeInput = (text) => {
-    return SecurityUtils.sanitizeInput(text);
+    return SecurityUtils.sanitizeText(text);
   };
 
 
@@ -509,12 +528,27 @@ export default function GestionCategoriaPage() {
   // ============ FUNCIONES ============
   const cargarAgentes = async () => {
     try {
+      // 🔒 SECURITY: Rate limiting
+      if (!rateLimiterRef.current('cargarAgentes')) {
+        SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', {
+          function: 'cargarAgentes',
+          operation: 'load_agents'
+        });
+        Alert.alert('Seguridad', 'Demasiadas solicitudes. Por favor, espere.');
+        return;
+      }
+
       setLoadingAgentes(true);
+      SecurityUtils.logSecurityEvent('LOAD_AGENTS_START', { function: 'cargarAgentes' });
+      
       const data = await agenteService.getAll({ activo: true });
 
       // 🔒 SECURITY: Validar que sea un array
       if (!Array.isArray(data)) {
-        SecurityUtils.logSecurityEvent('INVALID_DATA_FORMAT', { function: 'cargarAgentes' });
+        SecurityUtils.logSecurityEvent('INVALID_DATA_FORMAT', { 
+          function: 'cargarAgentes',
+          receivedType: typeof data 
+        });
         throw new Error('Formato de datos inválido');
       }
 
@@ -525,21 +559,35 @@ export default function GestionCategoriaPage() {
           if (!agente || typeof agente !== 'object') return false;
           if (!agente.id_agente || !agente.nombre_agente) return false;
           // 🔒 Validar ID numérico
-          if (!SecurityUtils.validateNumberRange(agente.id_agente, 1)) return false;
+          if (!SecurityUtils.validateId(agente.id_agente)) return false;
+          // 🔒 Detectar XSS en nombre del agente
+          if (SecurityUtils.detectXssAttempt(agente.nombre_agente)) {
+            SecurityUtils.logSecurityEvent('XSS_ATTEMPT_DETECTED', { 
+              field: 'nombre_agente',
+              value: agente.nombre_agente.substring(0, 50) 
+            });
+            return false;
+          }
           return true;
         })
         .map(agente => ({
           ...agente,
-          nombre_agente: SecurityUtils.sanitizeInput(agente.nombre_agente || ''),
-          area_especialidad: SecurityUtils.sanitizeInput(agente.area_especialidad || ''),
+          nombre_agente: SecurityUtils.sanitizeText(agente.nombre_agente || ''),
+          area_especialidad: SecurityUtils.sanitizeText(agente.area_especialidad || ''),
           id_agente: parseInt(agente.id_agente) || 0,
         }));
 
       setAgentes(agentesValidos);
-      SecurityUtils.logSecurityEvent('AGENTS_LOADED', { count: agentesValidos.length });
+      SecurityUtils.logSecurityEvent('LOAD_AGENTS_SUCCESS', { 
+        function: 'cargarAgentes',
+        agentsLoaded: agentesValidos.length 
+      });
     } catch (err) {
       console.error('Error al cargar agentes:', err);
-      SecurityUtils.logSecurityEvent('LOAD_AGENTS_ERROR', { message: err.message });
+      SecurityUtils.logSecurityEvent('LOAD_AGENTS_ERROR', { 
+        function: 'cargarAgentes',
+        error: err.message 
+      });
       Alert.alert('Error', 'No se pudieron cargar los agentes');
       setAgentes([]);
     } finally {
@@ -549,15 +597,32 @@ export default function GestionCategoriaPage() {
 
   const cargarCategorias = async () => {
     try {
+      // 🔒 SECURITY: Rate limiting on load operations
+      if (!rateLimiterRef.current('cargarCategorias')) {
+        SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', {
+          function: 'cargarCategorias',
+          operation: 'load',
+          limit: '5 per 60s'
+        });
+        Alert.alert('Seguridad', 'Demasiadas solicitudes. Por favor, espere un momento.');
+        return;
+      }
+
       setLoading(true);
+      SecurityUtils.logSecurityEvent('LOAD_CATEGORIES_START', { function: 'cargarCategorias' });
+      
       const data = await categoriaService.getAll();
 
-      // Validar que la respuesta sea un array
+      // 🔒 SECURITY: Validate response structure
       if (!Array.isArray(data)) {
+        SecurityUtils.logSecurityEvent('INVALID_DATA_FORMAT', { 
+          function: 'cargarCategorias',
+          receivedType: typeof data 
+        });
         throw new Error('Formato de datos inválido');
       }
 
-      // Filtrar y sanitizar categorías
+      // 🔒 SECURITY: Filtrar y sanitizar categorías
       const categoriasActivas = data
         .filter(cat => {
           // Validar estructura del objeto
@@ -573,22 +638,30 @@ export default function GestionCategoriaPage() {
         })
         .map(cat => ({
           ...cat,
-          // Sanitizar campos de texto
-          nombre: sanitizeInput(cat.nombre || ''),
-          descripcion: sanitizeInput(cat.descripcion || ''),
-          // Validar campos numéricos
+          // 🔒 Sanitizar campos de texto
+          nombre: SecurityUtils.sanitizeText(cat.nombre || ''),
+          descripcion: SecurityUtils.sanitizeText(cat.descripcion || ''),
+          // 🔒 Validar campos numéricos
           id_categoria: parseInt(cat.id_categoria) || 0,
           id_agente: parseInt(cat.id_agente) || null,
           id_categoria_padre: cat.id_categoria_padre ? parseInt(cat.id_categoria_padre) : null,
           orden: parseInt(cat.orden) || 0,
-          // Validar booleanos
+          // 🔒 Validar booleanos
           activo: Boolean(cat.activo),
           eliminado: Boolean(cat.eliminado),
         }));
 
       setCategorias(categoriasActivas);
+      SecurityUtils.logSecurityEvent('LOAD_CATEGORIES_SUCCESS', { 
+        function: 'cargarCategorias',
+        categoriesLoaded: categoriasActivas.length 
+      });
     } catch (err) {
       console.error('Error al cargar categorías:', err);
+      SecurityUtils.logSecurityEvent('LOAD_CATEGORIES_ERROR', { 
+        function: 'cargarCategorias',
+        error: err.message 
+      });
       Alert.alert('Error', 'No se pudieron cargar las categorías');
       setCategorias([]);
     } finally {
@@ -598,39 +671,31 @@ export default function GestionCategoriaPage() {
 
 
   const handleSubmit = async () => {
-    // 🔒 SECURITY: Rate limiting check
-    const now = Date.now();
-    if (now - lastActionTime < ACTION_COOLDOWN) {
-      SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', { action: 'handleSubmit' });
-      Alert.alert('⚠️ Espera', 'Intenta nuevamente en un momento');
-      return;
-    }
-    setLastActionTime(now);
-
-    // 🔒 SECURITY: Validate rate limiter
-    const rateLimitKey = `handleSubmit_${formData.id_agente || 'nuevo'}`;
-    if (!rateLimiterRef.current.isAllowed(rateLimitKey)) {
-      SecurityUtils.logSecurityEvent('BRUTE_FORCE_ATTEMPT', {
-        action: 'handleSubmit',
-        agentId: formData.id_agente,
-        timestamp: new Date().toISOString()
+    // 🔒 SECURITY: Rate limiting check on operations
+    if (!rateLimiterRef.current('handleSubmit')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', { 
+        function: 'handleSubmit',
+        operation: 'save_category',
+        limit: '5 per 60s'
       });
-      Alert.alert(
-        '❌ Acceso Bloqueado',
-        'Has excedido el límite de 5 intentos por minuto. Espera un momento antes de reintentar.'
-      );
+      Alert.alert('⚠️ Seguridad', 'Demasiadas solicitudes. Por favor, intenta nuevamente en un momento.');
       return;
     }
 
     if (!validateForm()) {
+      SecurityUtils.logSecurityEvent('FORM_VALIDATION_FAILED', { 
+        function: 'handleSubmit',
+        errorCount: Object.keys(errors).length 
+      });
       Alert.alert('Error de validación', 'Por favor, corrige los errores en el formulario');
       return;
     }
 
     try {
+      // 🔒 SECURITY: Sanitize all input data
       const sanitizedData = {
-        nombre: sanitizeInput(formData.nombre),
-        descripcion: sanitizeInput(formData.descripcion),
+        nombre: SecurityUtils.sanitizeText(formData.nombre),
+        descripcion: SecurityUtils.sanitizeText(formData.descripcion),
         icono: formData.icono,
         color: formData.color,
         orden: (() => {
@@ -644,10 +709,10 @@ export default function GestionCategoriaPage() {
         eliminado: formData.eliminado || false,
         id_agente: (() => {
           const id = parseInt(formData.id_agente);
-          if (isNaN(id) || id <= 0) {
+          if (!SecurityUtils.validateId(id)) {
             throw new Error('ID de agente inválido');
           }
-          // Verificar que el agente existe en la lista
+          // 🔒 SECURITY: Verificar que el agente existe en la lista
           const agenteExiste = agentes.some(a => a.id_agente === id);
           if (!agenteExiste) {
             throw new Error('El agente seleccionado no existe');
@@ -658,17 +723,17 @@ export default function GestionCategoriaPage() {
           if (!formData.id_categoria_padre) return null;
 
           const id = parseInt(formData.id_categoria_padre);
-          if (isNaN(id) || id <= 0) {
+          if (!SecurityUtils.validateId(id)) {
             throw new Error('ID de categoría padre inválido');
           }
 
-          // Verificar que la categoría padre existe
+          // 🔒 SECURITY: Verificar que la categoría padre existe
           const categoriaExiste = categorias.some(c => c.id_categoria === id);
           if (!categoriaExiste) {
             throw new Error('La categoría padre seleccionada no existe');
           }
 
-          // Verificar que pertenece al mismo agente
+          // 🔒 SECURITY: Verificar que pertenece al mismo agente
           const categoriaPadre = categorias.find(c => c.id_categoria === id);
           if (categoriaPadre && categoriaPadre.id_agente !== formData.id_agente) {
             throw new Error('La categoría padre debe pertenecer al mismo agente');
@@ -680,9 +745,10 @@ export default function GestionCategoriaPage() {
 
       // 🔒 SECURITY: Log sanitized data
       SecurityUtils.logSecurityEvent('CATEGORIA_SAVE_ATTEMPT', {
-        editing: !!editingCategoria,
+        operation: editingCategoria ? 'update' : 'create',
         id_agente: sanitizedData.id_agente,
-        nombre: sanitizedData.nombre.substring(0, 20) + '...'
+        nombre: sanitizedData.nombre.substring(0, 20) + '...',
+        timestamp: new Date().toISOString()
       });
 
       if (editingCategoria) {
@@ -692,7 +758,8 @@ export default function GestionCategoriaPage() {
           if (subcategorias.length > 0) {
             SecurityUtils.logSecurityEvent('AGENT_CHANGE_BLOCKED', {
               categoriaId: editingCategoria.id_categoria,
-              subcategoriasCount: subcategorias.length
+              subcategoriasCount: subcategorias.length,
+              function: 'handleSubmit'
             });
             setErrorModalMessage(
               `No puedes cambiar el agente de esta categoría porque tiene ${subcategorias.length} subcategoría${subcategorias.length === 1 ? '' : 's'} asociada${subcategorias.length === 1 ? '' : 's'}. Primero debes eliminar o mover las subcategorías.`
@@ -703,30 +770,38 @@ export default function GestionCategoriaPage() {
         }
 
         // 🔒 SECURITY: Log update action
-        SecurityUtils.logSecurityEvent('CATEGORIA_UPDATE', {
+        SecurityUtils.logSecurityEvent('CATEGORIA_UPDATE_START', {
           id: editingCategoria.id_categoria,
           changes: {
             nombre: sanitizedData.nombre !== editingCategoria.nombre,
             agente: sanitizedData.id_agente !== editingCategoria.id_agente,
             activo: sanitizedData.activo !== editingCategoria.activo
-          }
+          },
+          timestamp: new Date().toISOString()
         });
 
         await categoriaService.update(editingCategoria.id_categoria, sanitizedData);
         setSuccessMessage('✅ Categoría actualizada exitosamente');
+        SecurityUtils.logSecurityEvent('CATEGORIA_UPDATE_SUCCESS', { 
+          id: editingCategoria.id_categoria 
+        });
 
         // 🔥 CRÍTICO: Recargar INMEDIATAMENTE después de actualizar
         await cargarCategorias();
 
       } else {
         // 🔒 SECURITY: Log create action
-        SecurityUtils.logSecurityEvent('CATEGORIA_CREATE', {
+        SecurityUtils.logSecurityEvent('CATEGORIA_CREATE_START', {
           id_agente: sanitizedData.id_agente,
-          nombre: sanitizedData.nombre.substring(0, 20) + '...'
+          nombre: sanitizedData.nombre.substring(0, 20) + '...',
+          timestamp: new Date().toISOString()
         });
 
         await categoriaService.create(sanitizedData);
         setSuccessMessage('✅ Categoría creada exitosamente');
+        SecurityUtils.logSecurityEvent('CATEGORIA_CREATE_SUCCESS', { 
+          id_agente: sanitizedData.id_agente 
+        });
 
         // 🔥 CRÍTICO: Recargar INMEDIATAMENTE después de crear
         await cargarCategorias();
@@ -743,6 +818,11 @@ export default function GestionCategoriaPage() {
 
     } catch (err) {
       console.error('Error al guardar:', err);
+      SecurityUtils.logSecurityEvent('CATEGORIA_SAVE_ERROR', { 
+        operation: editingCategoria ? 'update' : 'create',
+        error: err.message,
+        timestamp: new Date().toISOString()
+      });
       const errorMessage = err?.message || err?.data?.message || 'No se pudo guardar la categoría';
       Alert.alert('Error', errorMessage);
     }
@@ -766,15 +846,38 @@ export default function GestionCategoriaPage() {
   };
 
   const handleDelete = (id) => {
+    // 🔒 SECURITY: Rate limiting on delete operations
+    if (!rateLimiterRef.current('handleDelete')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', {
+        function: 'handleDelete',
+        operation: 'delete',
+        limit: '5 per 60s'
+      });
+      Alert.alert('Seguridad', 'Demasiadas solicitudes de eliminación. Por favor, espere.');
+      return;
+    }
+
     // 🔒 SECURITY: Validate ID
-    if (!SecurityUtils.validateNumberRange(id, 1)) {
+    if (!SecurityUtils.validateId(id)) {
       Alert.alert('Error', 'ID de categoría inválido');
-      SecurityUtils.logSecurityEvent('INVALID_ID_DELETE', { id });
+      SecurityUtils.logSecurityEvent('INVALID_ID_DELETE', { id, function: 'handleDelete' });
+      return;
+    }
+
+    // 🔒 SECURITY: Verificar que la categoría existe
+    const categoriaExiste = categorias.some(c => c.id_categoria === id);
+    if (!categoriaExiste) {
+      SecurityUtils.logSecurityEvent('DELETE_NONEXISTENT_CATEGORY', { id, function: 'handleDelete' });
+      Alert.alert('Error', 'La categoría no existe');
       return;
     }
 
     // Guardar la categoría a eliminar y mostrar modal
-    SecurityUtils.logSecurityEvent('DELETE_MODAL_OPENED', { id });
+    SecurityUtils.logSecurityEvent('DELETE_MODAL_OPENED', { 
+      id, 
+      function: 'handleDelete',
+      timestamp: new Date().toISOString()
+    });
     setCategoriaToDelete(id);
     setShowDeleteModal(true);
   };
@@ -782,11 +885,27 @@ export default function GestionCategoriaPage() {
   const confirmDelete = async () => {
     if (!categoriaToDelete) return;
 
+    // 🔒 SECURITY: Rate limiting on confirm delete
+    if (!rateLimiterRef.current('confirmDelete')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', {
+        function: 'confirmDelete',
+        operation: 'confirm_delete',
+        limit: '5 per 60s'
+      });
+      Alert.alert('Seguridad', 'Demasiadas solicitudes. Por favor, espere.');
+      setShowDeleteModal(false);
+      setCategoriaToDelete(null);
+      return;
+    }
+
     // 🔒 SECURITY: Validar que el ID es un número válido
     const id = parseInt(categoriaToDelete);
-    if (isNaN(id) || id <= 0 || !SecurityUtils.validateNumberRange(id, 1)) {
+    if (!SecurityUtils.validateId(id)) {
       Alert.alert('Error', 'ID de categoría inválido');
-      SecurityUtils.logSecurityEvent('INVALID_DELETE_ID', { id: categoriaToDelete });
+      SecurityUtils.logSecurityEvent('INVALID_DELETE_ID', { 
+        id: categoriaToDelete,
+        function: 'confirmDelete'
+      });
       setShowDeleteModal(false);
       setCategoriaToDelete(null);
       return;
@@ -795,21 +914,37 @@ export default function GestionCategoriaPage() {
     // 🔒 SECURITY: Verificar que la categoría existe antes de eliminar
     const categoriaExiste = categorias.some(c => c.id_categoria === id);
     if (!categoriaExiste) {
-      Alert.alert('Error', 'La categoría no existe');
-      SecurityUtils.logSecurityEvent('DELETE_NONEXISTENT', { id });
+      Alert.alert('Error', 'La categoría no existe o ya fue eliminada');
+      SecurityUtils.logSecurityEvent('DELETE_NONEXISTENT_CATEGORY', { 
+        id,
+        function: 'confirmDelete'
+      });
       setShowDeleteModal(false);
       setCategoriaToDelete(null);
       return;
     }
 
     try {
+      SecurityUtils.logSecurityEvent('DELETE_CATEGORY_START', { 
+        id,
+        function: 'confirmDelete',
+        timestamp: new Date().toISOString()
+      });
+
       // ✅ Eliminado lógico
       await categoriaService.delete(id);
+      
       setSuccessMessage('🗑️ Categoría eliminada correctamente');
       setShowSuccessMessage(true);
       setShowDeleteModal(false);
       setCategoriaToDelete(null);
-      SecurityUtils.logSecurityEvent('CATEGORIA_DELETED', { id });
+      
+      SecurityUtils.logSecurityEvent('CATEGORIA_DELETED_SUCCESS', { 
+        id,
+        function: 'confirmDelete',
+        timestamp: new Date().toISOString()
+      });
+      
       await cargarCategorias();
 
       setTimeout(() => {
@@ -817,7 +952,12 @@ export default function GestionCategoriaPage() {
       }, 3000);
     } catch (err) {
       console.error('Error al eliminar:', err);
-      SecurityUtils.logSecurityEvent('DELETE_ERROR', { id, message: err.message });
+      SecurityUtils.logSecurityEvent('DELETE_CATEGORY_ERROR', { 
+        id, 
+        message: err.message,
+        function: 'confirmDelete',
+        timestamp: new Date().toISOString()
+      });
 
       // ✅ Cerrar modal de confirmación
       setShowDeleteModal(false);
@@ -918,9 +1058,37 @@ export default function GestionCategoriaPage() {
   };
 
   const handleSearchChange = (text) => {
-    // NO sanitizar el término de búsqueda mientras el usuario escribe
-    // Solo limitamos la longitud
-    setSearchTerm(text.substring(0, 100));
+    // 🔒 SECURITY: Rate limiting on search
+    if (!rateLimiterRef.current('handleSearch')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', {
+        function: 'handleSearchChange',
+        operation: 'search',
+        limit: '30 per 60s'
+      });
+      return;
+    }
+
+    // 🔒 SECURITY: Detectar intento de XSS
+    if (SecurityUtils.detectXssAttempt(text)) {
+      SecurityUtils.logSecurityEvent('XSS_ATTEMPT_DETECTED', {
+        function: 'handleSearchChange',
+        attempt: text.substring(0, 100)
+      });
+      Alert.alert('Seguridad', 'Se detectó un intento sospechoso. Por favor, revise su entrada.');
+      return;
+    }
+
+    // 🔒 SECURITY: Sanitizar término de búsqueda
+    const sanitized = SecurityUtils.sanitizeText(text);
+    
+    // Limitar longitud
+    const limited = sanitized.substring(0, 100);
+    
+    setSearchTerm(limited);
+    SecurityUtils.logSecurityEvent('SEARCH_PERFORMED', {
+      function: 'handleSearchChange',
+      searchLength: limited.length
+    });
   };
 
 

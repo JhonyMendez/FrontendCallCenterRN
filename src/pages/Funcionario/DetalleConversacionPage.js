@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -16,10 +17,84 @@ import FuncionarioSidebar from '../../components/Sidebar/sidebarFuncionario';
 import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles';
 import { styles } from '../../styles/DetalleConversacionStyles';
 
+// 🔐 ============ UTILIDADES DE SEGURIDAD ============
+const SecurityUtils = {
+    createRateLimiter(maxAttempts, windowMs) {
+        const attempts = {};
+        return {
+            isAllowed(key) {
+                const now = Date.now();
+                if (!attempts[key]) {
+                    attempts[key] = [];
+                }
+                attempts[key] = attempts[key].filter(time => now - time < windowMs);
+                if (attempts[key].length >= maxAttempts) {
+                    this.logSecurityEvent('RATE_LIMIT_EXCEEDED', { key, attempts: attempts[key].length });
+                    return false;
+                }
+                attempts[key].push(now);
+                return true;
+            }
+        };
+    },
+
+    validateId(id) {
+        if (!id) return false;
+        const numId = parseInt(id, 10);
+        return !isNaN(numId) && numId > 0;
+    },
+
+    validateString(str, maxLength = 500) {
+        if (!str || typeof str !== 'string') return false;
+        if (str.trim().length === 0) return false;
+        if (str.length > maxLength) return false;
+        return true;
+    },
+
+    detectXssAttempt(text) {
+        if (!text) return false;
+        const xssPatterns = [
+            /<script[^>]*>.*?<\/script>/gi,
+            /on\w+\s*=/gi,
+            /<iframe/gi,
+            /javascript:/gi,
+            /eval\(/gi,
+            /onerror\s*=/gi,
+            /onload\s*=/gi,
+        ];
+        return xssPatterns.some(pattern => pattern.test(text));
+    },
+
+    sanitizeText(text) {
+        if (!text) return '';
+        return text
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;')
+            .replace(/\//g, '&#x2F;')
+            .trim();
+    },
+
+    logSecurityEvent(eventType, details) {
+        const timestamp = new Date().toISOString();
+        console.warn('🔒 SECURITY EVENT:', {
+            timestamp,
+            eventType,
+            details,
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A',
+        });
+    }
+};
+
 const DetalleConversacionPage = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
   const flatListRef = useRef(null);
+  
+  // 🔐 Rate limiters para operaciones críticas
+  const rateLimiterEnvio = useRef(SecurityUtils.createRateLimiter(10, 60000)).current; // 10 mensajes/minuto
+  const rateLimiterVerificacion = useRef(SecurityUtils.createRateLimiter(20, 60000)).current; // 20 verificaciones/minuto
   
   const [mensaje, setMensaje] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -40,20 +115,98 @@ const DetalleConversacionPage = () => {
     },
   ]);
 
-  const visitante = params.visitante || 'Visitante Anónimo';
-  const codigo = params.codigo || 'XXXX-0000';
+  // 🔐 Validar y sanitizar parámetros al inicializar
+  const visitante = params.visitante ? SecurityUtils.sanitizeText(String(params.visitante)) : 'Visitante Anónimo';
+  const codigo = params.codigo ? SecurityUtils.sanitizeText(String(params.codigo)) : 'XXXX-0000';
 
+  // 🔐 Función para cargar y validar mensajes
+  const cargarMensajes = () => {
+    try {
+      // 🔐 Validar que no sea acceso demasiado frecuente
+      if (!rateLimiterVerificacion.isAllowed('cargarMensajes')) {
+        SecurityUtils.logSecurityEvent('RATE_LIMIT_CARGAR_MENSAJES', {
+          razon: 'demasiadas_cargas'
+        });
+        return;
+      }
+
+      // Los mensajes vienen desde el estado local (simulado)
+      // En producción, aquí se traerían de la API
+      SecurityUtils.logSecurityEvent('MENSAJES_CARGADOS', {
+        cantidad: mensajes.length,
+        visitante: visitante
+      });
+    } catch (error) {
+      console.error('❌ Error cargando mensajes:', error);
+      SecurityUtils.logSecurityEvent('ERROR_LOAD_MESSAGES', {
+        error: error.message
+      });
+    }
+  };
+
+  // 🔐 Validar que los parámetros son válidos
   useEffect(() => {
+    // Detectar XSS en visitante y código
+    if (params.visitante && SecurityUtils.detectXssAttempt(params.visitante)) {
+      SecurityUtils.logSecurityEvent('XSS_ATTEMPT_VISITANTE', { visitante: params.visitante });
+      Alert.alert('Error de Seguridad', 'Se detectó un intento de inyección maliciosa.');
+      router.back();
+      return;
+    }
+
+    if (params.codigo && SecurityUtils.detectXssAttempt(params.codigo)) {
+      SecurityUtils.logSecurityEvent('XSS_ATTEMPT_CODIGO', { codigo: params.codigo });
+      Alert.alert('Error de Seguridad', 'Se detectó un intento de inyección maliciosa.');
+      router.back();
+      return;
+    }
+
+    // 🔐 Cargar mensajes de forma segura
+    cargarMensajes();
+
+    // 🔐 Scroll al final
     setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: false });
     }, 100);
   }, []);
 
   const enviarMensaje = () => {
-    if (mensaje.trim()) {
+    try {
+      // 🔐 Rate limiting: máx 10 mensajes por minuto
+      if (!rateLimiterEnvio.isAllowed('enviarMensaje')) {
+        SecurityUtils.logSecurityEvent('RATE_LIMIT_ENVIAR_MENSAJE', {
+          razon: 'demasiados_mensajes'
+        });
+        Alert.alert('Límite excedido', 'Estás escribiendo demasiado rápido. Espera un momento.');
+        return;
+      }
+
+      // 🔐 Validar que el mensaje no esté vacío
+      if (!SecurityUtils.validateString(mensaje, 500)) {
+        SecurityUtils.logSecurityEvent('INVALID_MESSAGE_FORMAT', {
+          razon: 'mensaje_invalido',
+          length: mensaje.length
+        });
+        Alert.alert('Mensaje inválido', 'El mensaje debe tener entre 1 y 500 caracteres.');
+        return;
+      }
+
+      // 🔐 Detectar intentos XSS en el mensaje
+      if (SecurityUtils.detectXssAttempt(mensaje)) {
+        SecurityUtils.logSecurityEvent('XSS_ATTEMPT_MESSAGE', {
+          razon: 'xss_pattern_detected',
+          mensaje: mensaje.substring(0, 100)
+        });
+        Alert.alert('Seguridad', 'Se detectó un intento de inyección maliciosa. Por favor, revisa tu mensaje.');
+        return;
+      }
+
+      // 🔐 Sanitizar el mensaje
+      const mensajeSanitizado = SecurityUtils.sanitizeText(mensaje);
+
       const nuevoMensaje = {
         id: Date.now().toString(),
-        texto: mensaje.trim(),
+        texto: mensajeSanitizado,
         tipo: 'enviado',
         hora: new Date().toLocaleTimeString('es-ES', {
           hour: '2-digit',
@@ -62,12 +215,25 @@ const DetalleConversacionPage = () => {
         autor: 'Funcionario',
       };
 
+      // 🔐 Log de evento: Mensaje enviado exitosamente
+      SecurityUtils.logSecurityEvent('MESSAGE_SENT', {
+        id: nuevoMensaje.id,
+        length: mensajeSanitizado.length
+      });
+
       setMensajes([...mensajes, nuevoMensaje]);
       setMensaje('');
 
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
+    } catch (error) {
+      console.error('❌ Error enviando mensaje:', error);
+      SecurityUtils.logSecurityEvent('ERROR_SEND_MESSAGE', {
+        error: error.message,
+        stack: error.stack
+      });
+      Alert.alert('Error', 'Ocurrió un error al enviar el mensaje. Intenta de nuevo.');
     }
   };
 

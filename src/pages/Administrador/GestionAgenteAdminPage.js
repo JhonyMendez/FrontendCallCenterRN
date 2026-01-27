@@ -27,6 +27,74 @@ import { getUserIdFromToken } from "../../components/utils/authHelper";
 import SecurityValidator from '../../components/utils/SecurityValidator';
 import { getStatIconColor, modalStyles, styles } from '../../styles/gestionAgenteStyles';
 
+// 🔐 ============ UTILIDADES DE SEGURIDAD ANTIHACKING ============
+const SecurityUtils = {
+  // Rate Limiter
+  createRateLimiter(maxAttempts, windowMs) {
+    const attempts = {};
+    return {
+      isAllowed(key) {
+        const now = Date.now();
+        if (!attempts[key]) {
+          attempts[key] = [];
+        }
+        attempts[key] = attempts[key].filter(time => now - time < windowMs);
+        if (attempts[key].length >= maxAttempts) {
+          this.logSecurityEvent('RATE_LIMIT_EXCEEDED', { key });
+          return false;
+        }
+        attempts[key].push(now);
+        return true;
+      },
+      logSecurityEvent(eventType, details) {
+        console.warn(`🔒 SECURITY: ${eventType}`, details, new Date().toISOString());
+      }
+    };
+  },
+
+  // Validar ID numérico
+  validateId(id) {
+    const numId = parseInt(id, 10);
+    return !isNaN(numId) && numId > 0;
+  },
+
+  // Detectar XSS
+  detectXssAttempt(text) {
+    if (!text) return false;
+    const xssPatterns = [
+      /<script[^>]*>.*?<\/script>/gi,
+      /on\w+\s*=/gi,
+      /<iframe/gi,
+      /javascript:/gi,
+      /eval\(/gi,
+    ];
+    return xssPatterns.some(pattern => pattern.test(text));
+  },
+
+  // Detectar SQL Injection (solo patrones específicos y peligrosos)
+  detectSqlInjection(text) {
+    if (!text) return false;
+    const sqlPatterns = [
+      /\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|UNION|WHERE|FROM|BY)\b/i,
+      /\/\*[\s\S]*?\*\//,
+      /;\s*(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE)/i,
+      /(['"])\s*(OR|AND)\s*(['"]?1['"]?|true)\s*=/i,
+    ];
+    return sqlPatterns.some(pattern => pattern.test(text));
+  },
+
+  // Log de eventos de seguridad
+  logSecurityEvent(eventType, details) {
+    const timestamp = new Date().toISOString();
+    console.warn('🔒 SECURITY EVENT:', {
+      timestamp,
+      eventType,
+      details,
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A',
+    });
+  }
+};
+
 // ============ AGREGAR ESTO ============
 function TooltipIcon({ text }) {
   const [showTooltip, setShowTooltip] = useState(false);
@@ -218,6 +286,9 @@ const isMobile = width < 768;
 const isWeb = Platform.OS === 'web';
 
 export default function GestionAgentePage() {
+  // 🔐 ============ RATE LIMITER ============
+  const rateLimiterRef = useRef(SecurityUtils.createRateLimiter(5, 60000)); // 5 intentos en 60 segundos
+
   // ============ STATE ============
   const [agentes, setAgentes] = useState([]);
   const [departamentos, setDepartamentos] = useState([]);
@@ -748,9 +819,17 @@ export default function GestionAgentePage() {
 
   // Guardar agente (crear o actualizar)
   const handleSaveForm = async () => {
-
+    // Validar formulario PRIMERO (sin consumir rate limit)
     if (!validateForm()) {
       Alert.alert('Error de validación', 'Por favor, corrige los errores en el formulario');
+      SecurityUtils.logSecurityEvent('FORM_VALIDATION_FAILED_AGENTE', { errors: Object.keys(formErrors) });
+      return;
+    }
+
+    // 🔐 Rate limiting - máximo 5 intentos por minuto (DESPUÉS de validación)
+    if (!rateLimiterRef.current.isAllowed('handleSaveForm')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_SUBMIT_AGENTE', { timestamp: new Date() });
+      Alert.alert('⚠️ Demasiados intentos', 'Por favor, espera un momento antes de intentar de nuevo');
       return;
     }
 
@@ -760,6 +839,7 @@ export default function GestionAgentePage() {
 
     if (!userId) {
       console.warn("❌ No se pudo obtener el ID del usuario desde el token");
+      SecurityUtils.logSecurityEvent('INVALID_USER_ID_AGENTE_SAVE', { userId });
       Alert.alert("Error", "No se pudo identificar al usuario autenticado.");
       return;
     }
@@ -823,9 +903,29 @@ export default function GestionAgentePage() {
       // ENVIAR AL BACKEND
       let response;
       if (formMode === 'create') {
+        SecurityUtils.logSecurityEvent('AGENTE_CREATE_ATTEMPT', {
+          nombre: formData.nombre_agente,
+          especialidad: formData.area_especialidad,
+          timestamp: new Date().toISOString()
+        });
         response = await agenteService.create(dataToSave);
+        SecurityUtils.logSecurityEvent('AGENTE_CREATED_SUCCESS', {
+          agenteId: response?.id_agente,
+          nombre: formData.nombre_agente,
+          timestamp: new Date().toISOString()
+        });
       } else {
+        SecurityUtils.logSecurityEvent('AGENTE_UPDATE_ATTEMPT', {
+          agenteId: selectedAgente.id_agente,
+          nombre: formData.nombre_agente,
+          timestamp: new Date().toISOString()
+        });
         response = await agenteService.update(selectedAgente.id_agente, dataToSave);
+        SecurityUtils.logSecurityEvent('AGENTE_UPDATED_SUCCESS', {
+          agenteId: selectedAgente.id_agente,
+          nombre: formData.nombre_agente,
+          timestamp: new Date().toISOString()
+        });
       }
 
       // Éxito
@@ -862,9 +962,31 @@ export default function GestionAgentePage() {
   };
 
   const confirmarEliminacion = async () => {
-    if (!agenteToDelete) return;
+    if (!agenteToDelete) {
+      SecurityUtils.logSecurityEvent('DELETE_WITHOUT_ID_AGENTE', { timestamp: new Date() });
+      return;
+    }
 
     try {
+      // 🔐 Rate limiting para eliminación
+      if (!rateLimiterRef.current.isAllowed(`delete_agente_${agenteToDelete.id_agente}`)) {
+        SecurityUtils.logSecurityEvent('RATE_LIMIT_DELETE_AGENTE', { agenteId: agenteToDelete.id_agente });
+        Alert.alert('⚠️ Demasiados intentos', 'Por favor, espera un momento antes de intentar de nuevo');
+        return;
+      }
+
+      // 🔐 Validar que el ID sea válido (número)
+      if (!SecurityUtils.validateId(agenteToDelete.id_agente)) {
+        SecurityUtils.logSecurityEvent('INVALID_AGENTE_DELETE_ID', { id: agenteToDelete.id_agente });
+        Alert.alert('Error', 'ID de agente inválido');
+        return;
+      }
+
+      SecurityUtils.logSecurityEvent('AGENTE_DELETE_VERIFICATION_START', { 
+        agenteId: agenteToDelete.id_agente,
+        timestamp: new Date().toISOString()
+      });
+
       // ✅ VALIDACIÓN 1: Verificar si tiene contenidos asociados
       const responseContenidos = await contenidoService.getByAgente(
         agenteToDelete.id_agente
@@ -886,6 +1008,25 @@ export default function GestionAgentePage() {
 
       // ❌ Si tiene contenidos O categorías, no permitir eliminar
       if (tieneContenidos || tieneCategorias) {
+        // Registrar intento de eliminación bloqueado
+        if (tieneContenidos && tieneCategorias) {
+          SecurityUtils.logSecurityEvent('DELETE_BLOCKED_CONTENIDOS_AND_CATEGORIAS_AGENTE', {
+            agenteId: agenteToDelete.id_agente,
+            contenidosCount: contenidosAsociados.length,
+            categoriasCount: categoriasAsociadas.length
+          });
+        } else if (tieneContenidos) {
+          SecurityUtils.logSecurityEvent('DELETE_BLOCKED_CONTENIDOS_AGENTE', {
+            agenteId: agenteToDelete.id_agente,
+            contenidosCount: contenidosAsociados.length
+          });
+        } else {
+          SecurityUtils.logSecurityEvent('DELETE_BLOCKED_CATEGORIAS_AGENTE', {
+            agenteId: agenteToDelete.id_agente,
+            categoriasCount: categoriasAsociadas.length
+          });
+        }
+
         // Cerrar modal de confirmación
         setShowDeleteModal(false);
 
@@ -917,6 +1058,7 @@ export default function GestionAgentePage() {
 
         if (!userId) {
           console.warn("❌ No se pudo obtener el ID del usuario");
+          SecurityUtils.logSecurityEvent('INVALID_USER_ID_ON_DELETE_AGENTE', { userId });
           Alert.alert("Error", "No se pudo identificar al usuario autenticado.");
           return;
         }
@@ -934,12 +1076,19 @@ export default function GestionAgentePage() {
       }
 
       // ✅ Si NO tiene contenidos NI categorías, proceder con la eliminación
+      // Registrar que se permite la eliminación
+      SecurityUtils.logSecurityEvent('AGENTE_DELETE_ALLOWED', {
+        agenteId: agenteToDelete.id_agente,
+        nombre: agenteToDelete.nombre_agente
+      });
+
       // Obtener ID del usuario actual
       // ✅ DESPUÉS
       const userId = await getUserIdFromToken();
 
       if (!userId) {
         console.warn("❌ No se pudo obtener el ID del usuario");
+        SecurityUtils.logSecurityEvent('INVALID_USER_ID_ON_DELETE_AGENTE', { userId });
         Alert.alert("Error", "No se pudo identificar al usuario autenticado.");
         return;
       }
@@ -947,6 +1096,14 @@ export default function GestionAgentePage() {
       // ⭐ ENVIAR eliminado_por como query parameter
       await agenteService.delete(agenteToDelete.id_agente, { eliminado_por: userId });
       await agenteService.delete(agenteToDelete.id_agente, userId);
+
+      // Registrar eliminación exitosa
+      SecurityUtils.logSecurityEvent('AGENTE_DELETED_SUCCESS', {
+        agenteId: agenteToDelete.id_agente,
+        nombre: agenteToDelete.nombre_agente,
+        eliminadoPor: userId,
+        timestamp: new Date().toISOString()
+      });
 
       setSuccessMessage('🗑️ Agente eliminado permanentemente');
       setShowSuccessMessage(true);
@@ -1021,8 +1178,47 @@ export default function GestionAgentePage() {
   // ============ UTILIDADES ============
 
   const handleSearchChange = (text) => {
+    // 🔐 Validación de longitud mínima (al menos 2 caracteres para búsqueda)
+    if (text.length > 0 && text.length < 2) {
+      return;
+    }
+
+    // 🔐 Detectar intentos de ataque en búsqueda
+    if (SecurityUtils.detectXssAttempt(text)) {
+      SecurityUtils.logSecurityEvent('XSS_ATTEMPT_IN_AGENTE_SEARCH', { 
+        input: text.substring(0, 50),
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('⚠️ Contenido sospechoso', 'Se detectó contenido no permitido en la búsqueda');
+      return;
+    }
+
+    if (SecurityUtils.detectSqlInjection(text)) {
+      SecurityUtils.logSecurityEvent('SQL_INJECTION_ATTEMPT_IN_AGENTE_SEARCH', { 
+        input: text.substring(0, 50),
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('⚠️ Caracteres sospechosos', 'Se detectaron caracteres no permitidos en la búsqueda');
+      return;
+    }
+
+    // 🔐 Validar conteo de palabras (máximo 15 palabras para prevenir ataques)
+    const wordCount = text.trim().split(/\s+/).length;
+    if (wordCount > 15) {
+      SecurityUtils.logSecurityEvent('EXCESSIVE_WORDS_IN_SEARCH', { 
+        wordCount,
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('⚠️ Búsqueda muy larga', 'Máximo 15 palabras permitidas en la búsqueda');
+      return;
+    }
+
     const sanitized = SecurityValidator.sanitizeText(text);
     const truncated = SecurityValidator.truncateText(sanitized, 100);
+    SecurityUtils.logSecurityEvent('VALID_SEARCH_AGENTE', { 
+      textLength: truncated.length,
+      wordCount
+    });
     setSearchTerm(truncated);
   };
 

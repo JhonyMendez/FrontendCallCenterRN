@@ -34,6 +34,85 @@ import { styles } from '../../styles/GestionUsuariosStyles';
 
 const isWeb = Platform.OS === 'web';
 
+// 🔐 ============ UTILIDADES DE SEGURIDAD ============
+const SecurityUtils = {
+    // Rate Limiter
+    createRateLimiter(maxAttempts, windowMs) {
+        const attempts = {};
+        return {
+            isAllowed(key) {
+                const now = Date.now();
+                if (!attempts[key]) {
+                    attempts[key] = [];
+                }
+                attempts[key] = attempts[key].filter(time => now - time < windowMs);
+                if (attempts[key].length >= maxAttempts) {
+                    this.logSecurityEvent('RATE_LIMIT_EXCEEDED', { key, attempts: attempts[key].length });
+                    return false;
+                }
+                attempts[key].push(now);
+                return true;
+            }
+        };
+    },
+
+    // Validar ID numérico
+    validateId(id) {
+        const numId = parseInt(id, 10);
+        return !isNaN(numId) && numId > 0;
+    },
+
+    // Validar estructura de objeto usuario COMPLETA
+    validateUserObject(user) {
+        if (!user || typeof user !== 'object') {
+            return false;
+        }
+        if (!user.id_usuario || !this.validateId(user.id_usuario)) {
+            return false;
+        }
+        if (!user.username || typeof user.username !== 'string') {
+            return false;
+        }
+        // Validar que tenga roles como array
+        if (!Array.isArray(user.roles)) {
+            return false;
+        }
+        // Validar estructura de persona si existe
+        if (user.persona) {
+            if (typeof user.persona !== 'object' || !user.persona.nombre || !user.persona.apellido) {
+                return false;
+            }
+        }
+        return true;
+    },
+
+    // Detectar XSS
+    detectXssAttempt(text) {
+        if (!text) return false;
+        const xssPatterns = [
+            /<script[^>]*>.*?<\/script>/gi,
+            /on\w+\s*=/gi,
+            /<iframe/gi,
+            /javascript:/gi,
+            /eval\(/gi,
+            /onerror\s*=/gi,
+            /onload\s*=/gi,
+        ];
+        return xssPatterns.some(pattern => pattern.test(text));
+    },
+
+    // Log de eventos de seguridad
+    logSecurityEvent(eventType, details) {
+        const timestamp = new Date().toISOString();
+        console.warn('🔒 SECURITY EVENT:', {
+            timestamp,
+            eventType,
+            details,
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A',
+        });
+    }
+};
+
 const GestionUsuarioPage = () => {
   // ==================== ESTADOS ====================
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -76,7 +155,10 @@ const GestionUsuarioPage = () => {
 
   // ==================== ANIMACIONES ====================
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const rateLimiter = useRef(SecurityValidator.createRateLimiter()).current;
+  // ✅ Rate limiter para búsquedas: 30 intentos por minuto
+  const rateLimiterBusqueda = useRef(SecurityUtils.createRateLimiter(30, 60000)).current;
+  // ✅ Rate limiter para operaciones críticas: 5 intentos por minuto
+  const rateLimiterOperaciones = useRef(SecurityUtils.createRateLimiter(5, 60000)).current;
 
 
 
@@ -109,20 +191,34 @@ const GestionUsuarioPage = () => {
 
 
   const filtrarUsuarios = () => {
-    const limiteCheck = rateLimiter.check(30);
-    if (!limiteCheck.allowed) {
-      Alert.alert('Límite excedido', limiteCheck.message);
+    // ✅ Rate limiting para búsquedas: 30 intentos por minuto
+    if (!rateLimiterBusqueda.isAllowed('filtrarUsuarios')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_FILTRAR_USUARIOS', { 
+        action: 'filtrar',
+        razon: 'demasiadas_busquedas' 
+      });
+      Alert.alert('Límite excedido', 'Demasiados intentos de búsqueda. Por favor, intente más tarde.');
       return;
     }
 
     const lista = Array.isArray(usuarios) ? usuarios : [];
     let resultado = [...lista];
 
-    // ✅ FILTRAR INACTIVOS (ya está en tu código)
+    // ✅ FILTRAR INACTIVOS
     resultado = resultado.filter(u => u.estado?.toLowerCase() !== 'inactivo');
 
     // Filtrar por búsqueda
     if (busqueda.trim()) {
+      // ✅ Detectar intento XSS en búsqueda - con validación más completa
+      if (SecurityUtils.detectXssAttempt(busqueda)) {
+        SecurityUtils.logSecurityEvent('XSS_ATTEMPT_SEARCH', { 
+          busqueda,
+          razon: 'xss_pattern_detected'
+        });
+        Alert.alert('Error de Seguridad', 'Se detectó un intento de inyección maliciosa.');
+        return;
+      }
+
       const busquedaLower = SecurityValidator.sanitizeText(busqueda).toLowerCase();
 
       resultado = resultado.filter(u => {
@@ -137,19 +233,22 @@ const GestionUsuarioPage = () => {
           apellido.includes(busquedaLower) ||
           username.includes(busquedaLower) ||
           email.includes(busquedaLower) ||
-          cedula.includes(busqueda); // Cédula sin toLowerCase
+          cedula.includes(busqueda);
       });
     }
 
     // Filtrar por rol
     if (filtroRol !== 'todos') {
       const rolIdSeguro = parseInt(filtroRol);
-      if (!isNaN(rolIdSeguro)) {
-        resultado = resultado.filter(u =>
-          Array.isArray(u.roles) &&
-          u.roles.some(r => r.id_rol === rolIdSeguro)
-        );
+      if (isNaN(rolIdSeguro) || rolIdSeguro <= 0) {
+        SecurityUtils.logSecurityEvent('INVALID_FILTER_ROL_ID', { filtroRol });
+        return;
       }
+
+      resultado = resultado.filter(u =>
+        Array.isArray(u.roles) &&
+        u.roles.some(r => r.id_rol === rolIdSeguro)
+      );
     }
 
     setUsuariosFiltrados(resultado);
@@ -164,7 +263,19 @@ const GestionUsuarioPage = () => {
         cargarRoles()
       ]);
     } catch (error) {
+      // 🔐 Manejo de token expirado
+      if (error?.isTokenExpired) {
+        SecurityUtils.logSecurityEvent('TOKEN_EXPIRED_LOAD_INITIAL_DATA', {});
+        console.log('🔒 Token expirado - SessionContext manejará');
+        setLoading(false);
+        return;
+      }
+
       console.error('Error cargando datos:', error);
+      SecurityUtils.logSecurityEvent('ERROR_LOAD_INITIAL_DATA', {
+        error: error.message,
+        stack: error.stack
+      });
       Alert.alert('Error', 'No se pudieron cargar los datos');
     } finally {
       setLoading(false);
@@ -173,18 +284,67 @@ const GestionUsuarioPage = () => {
 
   const cargarUsuarios = async () => {
     try {
+      // ✅ Rate limiting para carga de usuarios
+      if (!rateLimiterOperaciones.isAllowed('cargarUsuarios')) {
+        SecurityUtils.logSecurityEvent('RATE_LIMIT_CARGAR_USUARIOS', { 
+          action: 'cargarUsuarios',
+          razon: 'demasiadas_solicitudes' 
+        });
+        Alert.alert('Error de Seguridad', 'Demasiadas solicitudes. Por favor, intente más tarde.');
+        return;
+      }
+
+      // 🔐 Validar parámetros de paginación
       const skipSeguro = Math.max(0, parseInt(skip) || 0);
       const limitSeguro = Math.max(1, Math.min(200, parseInt(limit) || 50));
+
+      if (skipSeguro < 0 || limitSeguro < 1 || limitSeguro > 200) {
+        SecurityUtils.logSecurityEvent('INVALID_PAGINATION_PARAMS', { skip: skipSeguro, limit: limitSeguro });
+        throw new Error('Parámetros de paginación inválidos');
+      }
 
       const response = await usuarioService.listarCompleto({
         skip: skipSeguro,
         limit: limitSeguro
       });
 
+      // 🔐 Validar estructura de respuesta del backend
+      if (!response || !Array.isArray(response.usuarios)) {
+        SecurityUtils.logSecurityEvent('INVALID_BACKEND_RESPONSE_USUARIOS', { response });
+        throw new Error('Respuesta del servidor inválida');
+      }
+
       const listaUsuarios = Array.isArray(response.usuarios) ? response.usuarios : [];
 
-      // ✅ FILTRAR: Solo mostrar usuarios que SOLO tienen roles de Funcionario
+      // ✅ Validar datos de usuarios antes de mostrar (XSS prevention)
       const usuariosFiltrados = listaUsuarios.filter(usuario => {
+        // Validar estructura básica del usuario
+        if (!SecurityUtils.validateUserObject(usuario)) {
+          SecurityUtils.logSecurityEvent('INVALID_USER_OBJECT', { 
+            id_usuario: usuario?.id_usuario,
+            razon: 'estructura_invalida'
+          });
+          return false;
+        }
+
+        // Detectar intentos XSS en username
+        if (SecurityUtils.detectXssAttempt(usuario.username)) {
+          SecurityUtils.logSecurityEvent('XSS_ATTEMPT_USERNAME', { 
+            id_usuario: usuario.id_usuario,
+            username: usuario.username 
+          });
+          return false;
+        }
+
+        // Detectar intentos XSS en email
+        if (SecurityUtils.detectXssAttempt(usuario.email)) {
+          SecurityUtils.logSecurityEvent('XSS_ATTEMPT_EMAIL', { 
+            id_usuario: usuario.id_usuario,
+            email: usuario.email 
+          });
+          return false;
+        }
+
         const rolesUsuario = usuario.roles || [];
 
         // Si no tiene roles, no mostrarlo
@@ -205,9 +365,20 @@ const GestionUsuarioPage = () => {
       });
 
       setUsuarios(usuariosFiltrados);
-      setTotalUsuarios(usuariosFiltrados.length); // ✅ Actualizar total con usuarios filtrados
+      setTotalUsuarios(usuariosFiltrados.length);
     } catch (error) {
+      // 🔐 Manejo de token expirado
+      if (error?.isTokenExpired) {
+        SecurityUtils.logSecurityEvent('TOKEN_EXPIRED_CARGAR_USUARIOS', {});
+        console.log('🔒 Token expirado - SessionContext manejará');
+        return;
+      }
+
       console.error('❌ Error cargando usuarios:', error);
+      SecurityUtils.logSecurityEvent('ERROR_CARGAR_USUARIOS', {
+        error: error.message,
+        stack: error.stack
+      });
       throw error;
     }
   };
@@ -220,11 +391,19 @@ const GestionUsuarioPage = () => {
         solo_activos: true
       });
 
+      // 🔐 Validar respuesta del backend
+      if (!response) {
+        SecurityUtils.logSecurityEvent('INVALID_BACKEND_RESPONSE_ROLES', { response });
+        throw new Error('Respuesta del servidor inválida');
+      }
+
       let listaRoles = [];
       if (Array.isArray(response)) {
         listaRoles = response;
       } else if (response && Array.isArray(response.data)) {
         listaRoles = response.data;
+      } else {
+        throw new Error('Formato de respuesta de roles inválido');
       }
 
       // ✅ FILTRAR: Solo mostrar roles de Funcionario (nivel >= 3)
@@ -243,7 +422,18 @@ const GestionUsuarioPage = () => {
 
       setRoles(rolesValidos);
     } catch (error) {
+      // 🔐 Manejo de token expirado
+      if (error?.isTokenExpired) {
+        SecurityUtils.logSecurityEvent('TOKEN_EXPIRED_CARGAR_ROLES', {});
+        console.log('🔒 Token expirado - SessionContext manejará');
+        return;
+      }
+
       console.error('Error cargando roles:', error);
+      SecurityUtils.logSecurityEvent('ERROR_CARGAR_ROLES', {
+        error: error.message,
+        stack: error.stack
+      });
       throw error;
     }
   };
@@ -359,23 +549,57 @@ const GestionUsuarioPage = () => {
     console.log('🔍 [eliminarUsuario] Iniciando eliminación...');
     console.log('🔍 [eliminarUsuario] ID recibido:', id_usuario);
 
-    const idSeguro = parseInt(id_usuario);
-    console.log('🔍 [eliminarUsuario] ID parseado:', idSeguro);
-
-    if (isNaN(idSeguro) || idSeguro <= 0) {
-      console.error('❌ ID inválido:', idSeguro);
-      Alert.alert('Error', 'ID de usuario inválido');
+    // ✅ Validar ID con SecurityUtils
+    if (!SecurityUtils.validateId(id_usuario)) {
+      console.error('❌ ID inválido:', id_usuario);
+      SecurityUtils.logSecurityEvent('INVALID_DELETE_ID', { 
+        id_usuario,
+        razon: 'id_no_numerico_o_negativo'
+      });
+      Alert.alert('Error de Seguridad', 'ID de usuario inválido');
       return;
     }
+
+    const idSeguro = parseInt(id_usuario);
+    console.log('🔍 [eliminarUsuario] ID parseado:', idSeguro);
 
     console.log('✅ [eliminarUsuario] ID validado, llamando al servicio...');
     setLoading(true);
 
     try {
+      // ✅ Rate limiting para operaciones: máx 5 eliminaciones por minuto
+      if (!rateLimiterOperaciones.isAllowed(`delete_${idSeguro}`)) {
+        SecurityUtils.logSecurityEvent('RATE_LIMIT_DELETE_USER', { 
+          id_usuario: idSeguro,
+          razon: 'demasiados_intentos_eliminacion'
+        });
+        Alert.alert('Error de Seguridad', 'Demasiados intentos de eliminación. Por favor, intente más tarde.');
+        setLoading(false);
+        return;
+      }
+
+      // 🔐 Validar que el usuario existe en la lista antes de eliminarlo
+      const usuarioAEliminar = usuarios.find(u => u.id_usuario === idSeguro);
+      if (!usuarioAEliminar || !SecurityUtils.validateUserObject(usuarioAEliminar)) {
+        SecurityUtils.logSecurityEvent('INVALID_USER_DELETE_ATTEMPT', { 
+          id_usuario: idSeguro,
+          razon: 'usuario_no_encontrado_o_invalido'
+        });
+        Alert.alert('Error', 'El usuario no existe o es inválido');
+        setLoading(false);
+        return;
+      }
+
       console.log('📤 [eliminarUsuario] Llamando a usuarioService.delete...');
       const response = await usuarioService.delete(idSeguro);
 
       console.log('✅ [eliminarUsuario] Respuesta del servicio:', response);
+
+      // ✅ Log de seguridad: Usuario eliminado exitosamente
+      SecurityUtils.logSecurityEvent('USER_DELETED', { 
+        id_usuario: idSeguro,
+        username: usuarioAEliminar.username
+      });
 
       // Actualizar el estado local para que aparezca como inactivo
       console.log('🔄 [eliminarUsuario] Actualizando estado local...');
@@ -403,9 +627,23 @@ const GestionUsuarioPage = () => {
       console.log('✅ [eliminarUsuario] Proceso completado');
 
     } catch (error) {
+      // 🔐 Manejo de token expirado
+      if (error?.isTokenExpired) {
+        SecurityUtils.logSecurityEvent('TOKEN_EXPIRED_DELETE_USER', { id_usuario: idSeguro });
+        console.log('🔒 Token expirado - SessionContext manejará');
+        setLoading(false);
+        return;
+      }
+
       console.error('❌ [eliminarUsuario] ERROR COMPLETO:', error);
       console.error('❌ [eliminarUsuario] Error.message:', error.message);
       console.error('❌ [eliminarUsuario] Error.data:', error.data);
+
+      SecurityUtils.logSecurityEvent('ERROR_DELETE_USER', {
+        id_usuario: idSeguro,
+        error: error.message,
+        stack: error.stack
+      });
 
       const mensajeError = SecurityValidator.sanitizeText(
         error.message || 'No se pudo eliminar el usuario'
@@ -446,17 +684,52 @@ const GestionUsuarioPage = () => {
   };
 
   const reactivarUsuario = async (id_usuario) => {
-    const idSeguro = parseInt(id_usuario);
-    if (isNaN(idSeguro) || idSeguro <= 0) {
-      Alert.alert('Error', 'ID de usuario inválido');
+    // ✅ Validar ID con SecurityUtils
+    if (!SecurityUtils.validateId(id_usuario)) {
+      SecurityUtils.logSecurityEvent('INVALID_REACTIVATE_ID', { 
+        id_usuario,
+        razon: 'id_no_numerico_o_negativo'
+      });
+      Alert.alert('Error de Seguridad', 'ID de usuario inválido');
       return;
     }
 
+    const idSeguro = parseInt(id_usuario);
+
     setLoading(true);
     try {
+      // ✅ Rate limiting para operaciones: máx 5 reactivaciones por minuto
+      if (!rateLimiterOperaciones.isAllowed(`reactivate_${idSeguro}`)) {
+        SecurityUtils.logSecurityEvent('RATE_LIMIT_REACTIVATE_USER', { 
+          id_usuario: idSeguro,
+          razon: 'demasiados_intentos_reactivacion'
+        });
+        Alert.alert('Error de Seguridad', 'Demasiados intentos de reactivación. Por favor, intente más tarde.');
+        setLoading(false);
+        return;
+      }
+
+      // 🔐 Validar que el usuario existe en la lista antes de reactivarlo
+      const usuarioAReactivar = usuarios.find(u => u.id_usuario === idSeguro);
+      if (!usuarioAReactivar || !SecurityUtils.validateUserObject(usuarioAReactivar)) {
+        SecurityUtils.logSecurityEvent('INVALID_USER_REACTIVATE_ATTEMPT', { 
+          id_usuario: idSeguro,
+          razon: 'usuario_no_encontrado_o_invalido'
+        });
+        Alert.alert('Error', 'El usuario no existe o es inválido');
+        setLoading(false);
+        return;
+      }
+
       const response = await usuarioService.reactivar(idSeguro);
 
       console.log('✅ Usuario reactivado:', response);
+
+      // ✅ Log de seguridad: Usuario reactivado exitosamente
+      SecurityUtils.logSecurityEvent('USER_REACTIVATED', { 
+        id_usuario: idSeguro,
+        username: usuarioAReactivar.username
+      });
 
       // Actualizar el estado local para que aparezca como activo
       setUsuarios(prevUsuarios =>
@@ -477,7 +750,22 @@ const GestionUsuarioPage = () => {
         type: 'success'
       });
     } catch (error) {
+      // 🔐 Manejo de token expirado
+      if (error?.isTokenExpired) {
+        SecurityUtils.logSecurityEvent('TOKEN_EXPIRED_REACTIVATE_USER', { id_usuario: idSeguro });
+        console.log('🔒 Token expirado - SessionContext manejará');
+        setLoading(false);
+        return;
+      }
+
       console.error('❌ Error reactivando usuario:', error);
+      
+      SecurityUtils.logSecurityEvent('ERROR_REACTIVATE_USER', {
+        id_usuario: idSeguro,
+        error: error.message,
+        stack: error.stack
+      });
+
       const mensajeError = SecurityValidator.sanitizeText(
         error.message || 'No se pudo reactivar el usuario'
       );

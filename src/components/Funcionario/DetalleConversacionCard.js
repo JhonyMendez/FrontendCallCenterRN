@@ -1,10 +1,31 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 const DetalleConversacionCard = ({ mensaje }) => {
   const { texto, tipo, hora, autor } = mensaje;
   const esEnviado = tipo === 'enviado';
+
+  // 🔐 Sanitizar el texto del mensaje para evitar XSS
+  const textoSanitizado = useMemo(() => {
+    if (!texto) return '';
+    // Reemplazar caracteres HTML especiales
+    return String(texto)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;');
+  }, [texto]);
+
+  // 🔐 Sanitizar el autor del mensaje
+  const autorSanitizado = useMemo(() => {
+    if (!autor) return '';
+    return String(autor)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }, [autor]);
 
   return (
     <View
@@ -21,7 +42,7 @@ const DetalleConversacionCard = ({ mensaje }) => {
 
       <View style={styles.mensajeContenido}>
         {!esEnviado && (
-          <Text style={styles.mensajeAutor}>{autor}</Text>
+          <Text style={styles.mensajeAutor}>{autorSanitizado}</Text>
         )}
         <View
           style={[
@@ -35,7 +56,7 @@ const DetalleConversacionCard = ({ mensaje }) => {
               esEnviado ? styles.textoEnviado : styles.textoRecibido,
             ]}
           >
-            {texto}
+            {textoSanitizado}
           </Text>
         </View>
         <Text style={[styles.mensajeHora, esEnviado && styles.mensajeHoraEnviado]}>

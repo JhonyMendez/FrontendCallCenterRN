@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { apiClient } from '../../api/client';
 import { agenteService } from '../../api/services/agenteService';
@@ -23,12 +23,72 @@ import { dashboardStyles } from '../../styles/dashboardSuperAdminStyles';
 
 const isWeb = Platform.OS === 'web';
 
+// 🔐 ============ UTILIDADES DE SEGURIDAD ============
+const SecurityUtils = {
+    createRateLimiter(maxAttempts, windowMs) {
+        const attempts = {};
+        return {
+            isAllowed(key) {
+                const now = Date.now();
+                if (!attempts[key]) {
+                    attempts[key] = [];
+                }
+                attempts[key] = attempts[key].filter(time => now - time < windowMs);
+                if (attempts[key].length >= maxAttempts) {
+                    this.logSecurityEvent('RATE_LIMIT_EXCEEDED', { key, attempts: attempts[key].length });
+                    return false;
+                }
+                attempts[key].push(now);
+                return true;
+            }
+        };
+    },
+
+    validateId(id) {
+        const numId = parseInt(id, 10);
+        return !isNaN(numId) && numId > 0;
+    },
+
+    validateUserObject(user) {
+        if (!user || typeof user !== 'object') return false;
+        if (!user.id_usuario || !this.validateId(user.id_usuario)) return false;
+        if (!user.username || typeof user.username !== 'string') return false;
+        return true;
+    },
+
+    detectXssAttempt(text) {
+        if (!text) return false;
+        const xssPatterns = [
+            /<script[^>]*>.*?<\/script>/gi,
+            /on\w+\s*=/gi,
+            /<iframe/gi,
+            /javascript:/gi,
+            /eval\(/gi,
+            /onerror\s*=/gi,
+            /onload\s*=/gi,
+        ];
+        return xssPatterns.some(pattern => pattern.test(text));
+    },
+
+    logSecurityEvent(eventType, details) {
+        const timestamp = new Date().toISOString();
+        console.warn('🔒 SECURITY EVENT:', {
+            timestamp,
+            eventType,
+            details,
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A',
+        });
+    }
+};
+
 export default function DashboardPageFuncionario() {
   const router = useRouter();
 
   // State
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  // 🔐 Rate limiters
+  const rateLimiter = useRef(SecurityUtils.createRateLimiter(5, 60000)).current;
   const [usuario, setUsuario] = useState({
     nombre_completo: '',
     username: '',
@@ -55,6 +115,16 @@ export default function DashboardPageFuncionario() {
       setLoading(true);
       console.log('🔄 [Dashboard Funcionario] Iniciando carga de datos...');
 
+      // 🔐 Rate limiting
+      if (!rateLimiter.isAllowed('cargarDatos')) {
+        SecurityUtils.logSecurityEvent('RATE_LIMIT_LOAD_DASHBOARD_FUNCIONARIO', {
+          razon: 'demasiadas_solicitudes'
+        });
+        console.log('⚠️ Rate limit excedido en cargarDatos');
+        setLoading(false);
+        return;
+      }
+
       // ⭐ ESTRATEGIA 1: Primero intentar desde localStorage (MÁS RÁPIDO)
       console.log('🔄 [Dashboard Funcionario] Intentando cargar desde localStorage...');
       let usuarioConfigLoaded = false;
@@ -68,23 +138,26 @@ export default function DashboardPageFuncionario() {
           if (data) {
             const parsed = JSON.parse(data);
             console.log(`📦 [Dashboard Funcionario] Datos en ${clave}:`, parsed);
-            console.log(`📦 [Dashboard Funcionario] parsed.usuario:`, parsed.usuario);
-            console.log(`📦 [Dashboard Funcionario] parsed.rolPrincipal:`, parsed.rolPrincipal);
-
-            // 🔍 DIAGNÓSTICO COMPLETO
-            console.log('🔍 CAMPOS DISPONIBLES EN parsed.usuario:');
-            console.log('  - id_usuario:', parsed.usuario?.id_usuario);
-            console.log('  - nombre:', parsed.usuario?.nombre);
-            console.log('  - apellido:', parsed.usuario?.apellido);
-            console.log('  - nombre_completo:', parsed.usuario?.nombre_completo);
-            console.log('  - nombreCompleto:', parsed.usuario?.nombreCompleto);
-            console.log('  - username:', parsed.usuario?.username);
-            console.log('  - email:', parsed.usuario?.email);
-            console.log('🔍 ROLES DISPONIBLES:');
-            console.log('  - parsed.roles:', parsed.roles);
-            console.log('  - parsed.usuario.roles:', parsed.usuario?.roles);
 
             if (parsed.usuario) {
+              // 🔐 Validar estructura del usuario
+              if (!SecurityUtils.validateUserObject(parsed.usuario)) {
+                SecurityUtils.logSecurityEvent('INVALID_USER_STRUCTURE_FUNCIONARIO', {
+                  source: 'localStorage',
+                  razon: 'estructura_invalida'
+                });
+                continue;
+              }
+
+              // 🔐 Detectar XSS en campos críticos
+              if (SecurityUtils.detectXssAttempt(parsed.usuario.username) ||
+                  SecurityUtils.detectXssAttempt(parsed.usuario.email)) {
+                SecurityUtils.logSecurityEvent('XSS_ATTEMPT_DASHBOARD_FUNCIONARIO', {
+                  username: parsed.usuario.username
+                });
+                continue;
+              }
+
               const usuarioConfig = {
                 id_usuario: parsed.usuario.id_usuario,
                 nombre_completo: parsed.usuario.nombre_completo ||
@@ -95,7 +168,6 @@ export default function DashboardPageFuncionario() {
                   `${parsed.usuario.primer_nombre || ''} ${parsed.usuario.primer_apellido || ''}`.trim() ||
                   parsed.usuario.username ||
                   'Funcionario',
-                // ⭐ Intentar múltiples variantes del username
                 username: parsed.usuario.username ||
                   parsed.usuario.userName ||
                   parsed.usuario.user_name ||
@@ -114,6 +186,9 @@ export default function DashboardPageFuncionario() {
           }
         }
       } catch (localStorageError) {
+        SecurityUtils.logSecurityEvent('ERROR_PARSING_LOCALSTORAGE_FUNCIONARIO', {
+          error: localStorageError.message
+        });
         console.warn('⚠️ [Dashboard Funcionario] Error leyendo localStorage:', localStorageError);
       }
 
@@ -124,56 +199,28 @@ export default function DashboardPageFuncionario() {
         console.log('📦 [Dashboard Funcionario] Datos de sesión:', datosSesion);
 
         if (datosSesion && datosSesion.usuario) {
-          const usuarioConfig = {
-            id_usuario: datosSesion.usuario.id_usuario,
-            nombre_completo: datosSesion.usuario.nombre_completo || 'Funcionario',
-            username: datosSesion.usuario.username || 'funcionario',
-            role: datosSesion.rolPrincipal?.nombre_rol || 'Funcionario'
-          };
-          console.log('✅ [Dashboard Funcionario] Usuario configurado desde authService:', usuarioConfig);
-          setUsuario(usuarioConfig);
-          usuarioConfigLoaded = true;
-        }
-      }
-
-      // ⭐ ESTRATEGIA 3: Obtener desde el token decodificado o API
-      if (!usuarioConfigLoaded) {
-        console.log('🔄 [Dashboard Funcionario] Intentando obtener desde API /usuarios/perfil...');
-
-        try {
-          const response = await apiClient.get('/usuarios/perfil');
-          console.log('📦 [API] Respuesta de /usuarios/perfil:', response);
-
-          if (response?.data) {
-            const usuario = response.data;
-
-            usuarioConfig = {
-              id_usuario: usuario.id_usuario,
-              nombre_completo: usuario.nombre_completo ||
-                usuario.nombreCompleto ||
-                `${usuario.nombre || ''} ${usuario.apellido || ''}`.trim() ||
-                `${usuario.persona?.nombre || ''} ${usuario.persona?.apellido || ''}`.trim() ||
-                'Funcionario',
-              username: usuario.username ||
-                usuario.email?.split('@')[0] ||
-                'funcionario',
-              role: usuario.roles?.[0]?.nombre_rol ||
-                usuario.rol?.nombre_rol ||
-                usuario.role ||
-                'Funcionario'
+          // 🔐 Validar estructura del usuario
+          if (SecurityUtils.validateUserObject(datosSesion.usuario)) {
+            const usuarioConfig = {
+              id_usuario: datosSesion.usuario.id_usuario,
+              nombre_completo: datosSesion.usuario.nombre_completo || 'Funcionario',
+              username: datosSesion.usuario.username || 'funcionario',
+              role: datosSesion.rolPrincipal?.nombre_rol || 'Funcionario'
             };
-
-            console.log('✅ [API] Usuario configurado desde /usuarios/perfil:', usuarioConfig);
+            console.log('✅ [Dashboard Funcionario] Usuario configurado desde authService:', usuarioConfig);
             setUsuario(usuarioConfig);
             usuarioConfigLoaded = true;
+          } else {
+            SecurityUtils.logSecurityEvent('INVALID_USER_FROM_AUTHSERVICE_FUNCIONARIO', {});
           }
-        } catch (apiError) {
-          console.warn('⚠️ Error obteniendo perfil desde API:', apiError);
         }
       }
 
       if (!usuarioConfigLoaded) {
         console.warn('⚠️ [Dashboard Funcionario] No se pudo obtener información del usuario');
+        SecurityUtils.logSecurityEvent('USER_CONFIG_FAILED_FUNCIONARIO', {
+          razon: 'no_user_data_available'
+        });
       }
 
       // Cargar estadísticas en paralelo desde el backend
@@ -181,6 +228,10 @@ export default function DashboardPageFuncionario() {
 
       console.log('📤 [Dashboard Funcionario] Llamando a usuarioService.listarCompleto()...');
       const usuarios = await usuarioService.listarCompleto({ limit: 1 }).catch((err) => {
+        if (err?.isTokenExpired) {
+          SecurityUtils.logSecurityEvent('TOKEN_EXPIRED_USUARIOS_FUNCIONARIO', {});
+          throw err;
+        }
         console.error('❌ [Dashboard Funcionario] Error al cargar usuarios:', err);
         return { total: 0 };
       });
@@ -188,6 +239,10 @@ export default function DashboardPageFuncionario() {
 
       console.log('📤 [Dashboard Funcionario] Llamando a agenteService.getAll()...');
       const agentes = await agenteService.getAll().catch((err) => {
+        if (err?.isTokenExpired) {
+          SecurityUtils.logSecurityEvent('TOKEN_EXPIRED_AGENTES_FUNCIONARIO', {});
+          throw err;
+        }
         console.error('❌ [Dashboard Funcionario] Error al cargar agentes:', err);
         return [];
       });
@@ -195,6 +250,10 @@ export default function DashboardPageFuncionario() {
 
       console.log('📤 [Dashboard Funcionario] Llamando a departamentoService.getAll()...');
       const departamentos = await departamentoService.getAll().catch((err) => {
+        if (err?.isTokenExpired) {
+          SecurityUtils.logSecurityEvent('TOKEN_EXPIRED_DEPARTAMENTOS_FUNCIONARIO', {});
+          throw err;
+        }
         console.error('❌ [Dashboard Funcionario] Error al cargar departamentos:', err);
         return [];
       });
@@ -205,10 +264,10 @@ export default function DashboardPageFuncionario() {
         totalUsuarios: usuarios.total || 0,
         totalAgentes: Array.isArray(agentes) ? agentes.length : (agentes.total || 0),
         totalDepartamentos: Array.isArray(departamentos) ? departamentos.length : 0,
-        conversacionesHoy: 0, // TODO: Implementar endpoint en backend
-        interaccionesHoy: 0, // TODO: Implementar endpoint en backend
-        ticketsAbiertos: 0, // TODO: Implementar endpoint en backend
-        satisfaccion: 0 // TODO: Implementar endpoint en backend
+        conversacionesHoy: 0,
+        interaccionesHoy: 0,
+        ticketsAbiertos: 0,
+        satisfaccion: 0
       };
 
       console.log('📊 [Dashboard Funcionario] Actualizando stats:', newStats);
@@ -216,8 +275,19 @@ export default function DashboardPageFuncionario() {
 
       console.log('✅ [Dashboard Funcionario] Datos cargados correctamente');
     } catch (error) {
+      // 🔐 Manejo de token expirado
+      if (error?.isTokenExpired) {
+        SecurityUtils.logSecurityEvent('TOKEN_EXPIRED_DASHBOARD_FUNCIONARIO', {});
+        console.log('🔒 Token expirado - SessionContext manejará');
+        setLoading(false);
+        return;
+      }
+
       console.error('❌ [Dashboard Funcionario] Error CRÍTICO cargando datos:', error);
-      console.error('❌ [Dashboard Funcionario] Stack trace:', error.stack);
+      SecurityUtils.logSecurityEvent('ERROR_LOAD_DASHBOARD_FUNCIONARIO', {
+        error: error.message,
+        stack: error.stack
+      });
     } finally {
       console.log('🏁 [Dashboard Funcionario] Finalizando carga (loading = false)');
       setLoading(false);

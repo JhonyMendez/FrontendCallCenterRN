@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -29,52 +29,213 @@ import { styles } from '../../styles/GestionAsignacionUsStyles';
 const isWeb = Platform.OS === 'web';
 
 // ============ FUNCIONES DE SEGURIDAD ============
-// Función de sanitización de texto
-const sanitizeInput = (input) => {
-  if (!input) return '';
-  return input
-    .replace(/<script[^>]*>.*?<\/script>/gi, '')
-    .replace(/<[^>]+>/g, '')
-    .replace(/[<>'"]/g, '')
-    .substring(0, 100);
+const SecurityUtils = {
+  // 1️⃣ Sanitizar input contra XSS
+  sanitizeInput(text) {
+    if (!text) return '';
+    return text
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<iframe[^>]*>.*?<\/iframe>/gi, '')
+      .replace(/<img[^>]*onerror[^>]*>/gi, '')
+      .replace(/on\w+\s*=/gi, '')
+      .replace(/<[^>]*>/g, '')
+      .trim();
+  },
+
+  // 2️⃣ Validar email
+  isValidEmail(email) {
+    if (!email) return true;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  },
+
+  // 3️⃣ Validar URL
+  isValidUrl(url) {
+    if (!url) return true;
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  // 4️⃣ Validar rango de números
+  validateNumberRange(value, min, max) {
+    const num = parseInt(value, 10);
+    return !isNaN(num) && num >= min && num <= max;
+  },
+
+  // 5️⃣ Sanitizar input contra SQL Injection
+  sanitizeSqlInput(text) {
+    if (!text) return '';
+    return text
+      .replace(/['"];?/g, '')
+      .replace(/--/g, '')
+      .replace(/\/\*/g, '')
+      .replace(/\*\//g, '')
+      .replace(/;/g, '')
+      .trim();
+  },
+
+  // 6️⃣ Crear limitador de velocidad (Rate Limiter)
+  createRateLimiter(maxAttempts, windowMs) {
+    const attempts = {};
+
+    return {
+      isAllowed(key) {
+        const now = Date.now();
+        if (!attempts[key]) {
+          attempts[key] = [];
+        }
+
+        // Limpiar intentos antiguos
+        attempts[key] = attempts[key].filter(time => now - time < windowMs);
+
+        // Verificar si se alcanzó el límite
+        if (attempts[key].length >= maxAttempts) {
+          this.logSecurityEvent('RATE_LIMIT_EXCEEDED', { key, attempts: attempts[key].length });
+          return false;
+        }
+
+        attempts[key].push(now);
+        return true;
+      },
+
+      logSecurityEvent(eventType, details) {
+        console.warn(`🔒 SECURITY: ${eventType}`, details, new Date().toISOString());
+      },
+
+      reset(key) {
+        delete attempts[key];
+      },
+    };
+  },
+
+  // 7️⃣ Log de eventos de seguridad
+  logSecurityEvent(eventType, details) {
+    const timestamp = new Date().toISOString();
+    const logMessage = {
+      timestamp,
+      eventType,
+      details,
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A',
+    };
+    console.warn('🔒 SECURITY EVENT:', logMessage);
+
+    // Aquí podrías enviar a un servidor de logging
+    try {
+      // Opcional: enviar eventos críticos al backend
+      if (['UNAUTHORIZED_ACCESS', 'SQL_INJECTION_ATTEMPT', 'XSS_ATTEMPT'].includes(eventType)) {
+        // await loggingService.logSecurityEvent(logMessage);
+      }
+    } catch (err) {
+      console.error('Error logging security event:', err);
+    }
+  },
+
+  // 8️⃣ Validar longitud de string
+  validateStringLength(str, maxLength) {
+    if (!str) return true;
+    return str.length <= maxLength;
+  },
+
+  // 9️⃣ Validar contraseña fuerte (si aplica)
+  isStrongPassword(password) {
+    if (!password || password.length < 8) return false;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*]/.test(password);
+    return hasUpperCase && hasLowerCase && hasNumbers && hasSpecialChar;
+  },
+
+  // 🔟 Detectar inyección SQL (solo patrones específicos y peligrosos)
+  detectSqlInjection(text) {
+    if (!text) return false;
+    // Solo detectar palabras clave SQL REALES (no guiones normales)
+    const sqlPatterns = [
+      /\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|UNION|WHERE|FROM|BY)\b/i,
+      /\/\*[\s\S]*?\*\//,  // Comentarios SQL /* */
+      /;\s*(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE)/i, // ; seguido de SQL
+      /(['"])\s*(OR|AND)\s*(['"]?1['"]?|true)\s*=/i, // ' OR '1'='1' pattern
+    ];
+    return sqlPatterns.some(pattern => pattern.test(text));
+  },
+
+  // 1️⃣1️⃣ Detectar intentos de XSS
+  detectXssAttempt(text) {
+    if (!text) return false;
+    const xssPatterns = [
+      /<script[^>]*>.*?<\/script>/gi,
+      /on\w+\s*=/gi,
+      /<iframe/gi,
+      /javascript:/gi,
+      /eval\(/gi,
+    ];
+    return xssPatterns.some(pattern => pattern.test(text));
+  },
+
+  // 1️⃣2️⃣ Validar ID numérico
+  validateId(id) {
+    const numId = Number(id);
+    return !isNaN(numId) && numId > 0 && Number.isInteger(numId) ? numId : null;
+  },
+
+  // 1️⃣3️⃣ Validar usuario
+  validarUsuario(usuario) {
+    if (!usuario || typeof usuario !== 'object') return false;
+    return (
+      this.validateId(usuario.id_usuario) !== null &&
+      usuario.persona &&
+      typeof usuario.persona === 'object' &&
+      usuario.persona.nombre &&
+      usuario.persona.apellido
+    );
+  },
+
+  // 1️⃣4️⃣ Validar departamento
+  validarDepartamento(depto) {
+    if (!depto || typeof depto !== 'object') return false;
+    return (
+      this.validateId(depto.id_departamento) !== null &&
+      depto.nombre &&
+      typeof depto.nombre === 'string'
+    );
+  },
 };
 
-// Validación de IDs numéricos
+// Función de sanitización de texto (wrapper)
+const sanitizeInput = (input) => {
+  return SecurityUtils.sanitizeInput(input).substring(0, 100);
+};
+
+// Validación de IDs numéricos (wrapper)
 const validateNumericId = (id) => {
-  const numId = Number(id);
-  return !isNaN(numId) && numId > 0 && Number.isInteger(numId) ? numId : null;
+  return SecurityUtils.validateId(id);
 };
 
 // Validación de arrays de IDs
 const validateIdArray = (ids) => {
   if (!Array.isArray(ids)) return [];
-  return ids.filter(id => validateNumericId(id) !== null).map(id => Number(id));
+  return ids.filter(id => SecurityUtils.validateId(id) !== null).map(id => Number(id));
 };
 
-// Validar usuario
+// Validar usuario (wrapper)
 const validarUsuario = (usuario) => {
-  if (!usuario || typeof usuario !== 'object') return false;
-  return (
-    validateNumericId(usuario.id_usuario) !== null &&
-    usuario.persona &&
-    typeof usuario.persona === 'object' &&
-    usuario.persona.nombre &&
-    usuario.persona.apellido
-  );
+  return SecurityUtils.validarUsuario(usuario);
 };
 
-// Validar departamento
+// Validar departamento (wrapper)
 const validarDepartamento = (depto) => {
-  if (!depto || typeof depto !== 'object') return false;
-  return (
-    validateNumericId(depto.id_departamento) !== null &&
-    depto.nombre &&
-    typeof depto.nombre === 'string'
-  );
+  return SecurityUtils.validarDepartamento(depto);
 };
 
 export default function GestionAsignacionUsPage() {
   const router = useRouter();
+
+  // 🔐 Rate limiter ref
+  const rateLimiterRef = useRef(SecurityUtils.createRateLimiter(5, 60000));
 
   // State
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -113,22 +274,6 @@ export default function GestionAsignacionUsPage() {
   const [mostrarModalRevocacion, setMostrarModalRevocacion] = useState(false);
   const [usuarioARevocar, setUsuarioARevocar] = useState(null);
   const [loadingRevocacion, setLoadingRevocacion] = useState(false);
-
-  // Rate limiting
-  const [ultimaAccion, setUltimaAccion] = useState(0);
-
-  const puedeEjecutarAccion = () => {
-    const ahora = Date.now();
-    const tiempoMinimo = 1000;
-
-    if (ahora - ultimaAccion < tiempoMinimo) {
-      Alert.alert('⚠️', 'Espera un momento antes de realizar otra acción');
-      return false;
-    }
-
-    setUltimaAccion(ahora);
-    return true;
-  };
 
   useEffect(() => {
     cargarDepartamentos();
@@ -281,16 +426,25 @@ export default function GestionAsignacionUsPage() {
 
   const handleMoverUsuarios = async () => {
     // ✅ Rate limiting
-    if (!puedeEjecutarAccion()) return;
+    if (!rateLimiterRef.current.isAllowed('handleMoverUsuarios')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_MOVE_USUARIOS', { timestamp: new Date() });
+      Alert.alert('⚠️ Demasiados intentos', 'Por favor, espera un momento antes de intentar de nuevo');
+      return;
+    }
 
     // ✅ Validar IDs seleccionados
     const idsValidados = validateIdArray(selectedUsuarios);
     if (idsValidados.length === 0) {
+      SecurityUtils.logSecurityEvent('MOVE_USUARIOS_NO_VALID_IDS', { ids: selectedUsuarios });
       Alert.alert('⚠️', 'No hay usuarios válidos seleccionados');
       return;
     }
 
     if (idsValidados.length !== selectedUsuarios.length) {
+      SecurityUtils.logSecurityEvent('MOVE_USUARIOS_PARTIAL_VALID_IDS', { 
+        totalSelected: selectedUsuarios.length,
+        validIds: idsValidados.length
+      });
       Alert.alert('⚠️', 'Algunos IDs de usuarios no son válidos');
       return;
     }
@@ -304,6 +458,7 @@ export default function GestionAsignacionUsPage() {
 
       const deptoValidado = validateNumericId(selectedDepartamento);
       if (!deptoValidado) {
+        SecurityUtils.logSecurityEvent('MOVE_USUARIOS_INVALID_DEPT_ID', { deptId: selectedDepartamento });
         Alert.alert('⚠️', 'ID de departamento destino inválido');
         return;
       }
@@ -323,6 +478,10 @@ export default function GestionAsignacionUsPage() {
     const selectedDeptoValidado = validateNumericId(selectedDepartamento);
 
     if (!nuevoDeptoValidado || !selectedDeptoValidado) {
+      SecurityUtils.logSecurityEvent('MOVE_USUARIOS_INVALID_DEPT_IDS', { 
+        newDeptId: nuevoDepartamento,
+        selectedDeptId: selectedDepartamento
+      });
       window.alert('❌ IDs de departamento inválidos');
       return;
     }
@@ -335,13 +494,27 @@ export default function GestionAsignacionUsPage() {
     const nombreDepartamentoDestino = getDepartamentoNombre(nuevoDeptoValidado);
 
     if (!nombreDepartamentoDestino) {
+      SecurityUtils.logSecurityEvent('MOVE_USUARIOS_DEPT_NOT_FOUND', { deptId: nuevoDeptoValidado });
       window.alert('❌ No se encontró el departamento destino');
       return;
     }
 
     const confirmar = window.confirm(`¿Mover ${idsValidados.length} usuario(s) a ${nombreDepartamentoDestino}?`);
 
-    if (!confirmar) return;
+    if (!confirmar) {
+      SecurityUtils.logSecurityEvent('MOVE_USUARIOS_CANCELLED_BY_USER', { 
+        usuariosCount: idsValidados.length,
+        destinoDept: nuevoDeptoValidado
+      });
+      return;
+    }
+
+    SecurityUtils.logSecurityEvent('MOVE_USUARIOS_ATTEMPT', {
+      usuariosCount: idsValidados.length,
+      origenDept: selectedDeptoValidado,
+      destinoDept: nuevoDeptoValidado,
+      usuariosIds: idsValidados
+    });
 
     try {
       setLoading(true);
@@ -354,6 +527,12 @@ export default function GestionAsignacionUsPage() {
 
       const resultados = await Promise.all(promesas);
 
+      SecurityUtils.logSecurityEvent('MOVE_USUARIOS_SUCCESS', {
+        usuariosCount: idsValidados.length,
+        destinoDept: nuevoDeptoValidado,
+        nombreDept: nombreDepartamentoDestino
+      });
+
       window.alert(`✅ ${idsValidados.length} usuario(s) movido(s) correctamente a ${nombreDepartamentoDestino}`);
 
       await cargarUsuariosDepartamento(selectedDepartamento);
@@ -361,6 +540,10 @@ export default function GestionAsignacionUsPage() {
       setNuevoDepartamento(null);
 
     } catch (error) {
+      SecurityUtils.logSecurityEvent('MOVE_USUARIOS_ERROR', {
+        usuariosCount: idsValidados.length,
+        error: error.message
+      });
       console.error('❌ Error moviendo usuarios:', error);
       window.alert('❌ Error: ' + (error.message || 'No se pudieron mover los usuarios'));
     } finally {
@@ -371,7 +554,11 @@ export default function GestionAsignacionUsPage() {
   const handleConfirmarConPermisos = async (permisos) => {
     try {
       // ✅ Rate limiting
-      if (!puedeEjecutarAccion()) return;
+      if (!rateLimiterRef.current.isAllowed('handleConfirmarConPermisos')) {
+        SecurityUtils.logSecurityEvent('RATE_LIMIT_PERMISOS', { timestamp: new Date() });
+        Alert.alert('⚠️ Demasiados intentos', 'Por favor, espera un momento antes de intentar de nuevo');
+        return;
+      }
 
       // ✅ VALIDACIÓN: Verificar estructura de permisos
       const permisosRequeridos = [
@@ -393,6 +580,7 @@ export default function GestionAsignacionUsPage() {
       );
 
       if (!permisosValidos) {
+        SecurityUtils.logSecurityEvent('PERMISOS_INVALID_STRUCTURE', { permisos });
         Alert.alert('❌ Error', 'Estructura de permisos inválida');
         return;
       }
@@ -406,15 +594,20 @@ export default function GestionAsignacionUsPage() {
         const idAgenteValidado = validateNumericId(usuarioEditandoPermisos.agente.id_agente);
 
         if (!idUsuarioValidado || !idAgenteValidado) {
+          SecurityUtils.logSecurityEvent('PERMISOS_EDIT_INVALID_IDS', {
+            usuarioId: usuarioEditandoPermisos.usuario.id_usuario,
+            agenteId: usuarioEditandoPermisos.agente.id_agente
+          });
           Alert.alert('❌ Error', 'IDs de usuario o agente inválidos');
           setLoading(false);
           return;
         }
 
-        console.log('📝 Modo edición activado');
-        console.log('📝 Usuario:', idUsuarioValidado);
-        console.log('📝 Agente:', idAgenteValidado);
-        console.log('📝 Nuevos permisos:', permisos);
+        SecurityUtils.logSecurityEvent('PERMISOS_UPDATE_ATTEMPT', {
+          usuarioId: idUsuarioValidado,
+          agenteId: idAgenteValidado,
+          permisosCount: Object.values(permisos).filter(v => v === true).length
+        });
 
         try {
           await usuarioAgenteService.actualizar(
@@ -435,6 +628,12 @@ export default function GestionAsignacionUsPage() {
             }
           );
 
+          SecurityUtils.logSecurityEvent('PERMISOS_UPDATE_SUCCESS', {
+            usuarioId: idUsuarioValidado,
+            agenteId: idAgenteValidado,
+            nombreUsuario: `${usuarioEditandoPermisos.usuario.persona?.nombre} ${usuarioEditandoPermisos.usuario.persona?.apellido}`
+          });
+
           // Limpiar estados
           setModoEdicion(false);
           setUsuarioEditandoPermisos(null);
@@ -449,6 +648,10 @@ export default function GestionAsignacionUsPage() {
 
           return;
         } catch (error) {
+          SecurityUtils.logSecurityEvent('PERMISOS_UPDATE_ERROR', {
+            usuarioId: idUsuarioValidado,
+            error: error.message
+          });
           console.error('❌ Error actualizando permisos:', error);
           Alert.alert('Error', 'No se pudieron actualizar los permisos');
           setLoading(false);
@@ -459,6 +662,7 @@ export default function GestionAsignacionUsPage() {
       // ✅ VALIDACIÓN: IDs de usuarios
       const idsValidados = validateIdArray(selectedUsuarios);
       if (idsValidados.length === 0) {
+        SecurityUtils.logSecurityEvent('PERMISOS_ASSIGN_NO_VALID_USERS', { idsValidados });
         Alert.alert('❌ Error', 'No hay usuarios válidos para asignar');
         setLoading(false);
         return;
@@ -467,6 +671,7 @@ export default function GestionAsignacionUsPage() {
       // ✅ VALIDACIÓN: ID de departamento
       const deptoValidado = validateNumericId(selectedDepartamento);
       if (!deptoValidado) {
+        SecurityUtils.logSecurityEvent('PERMISOS_ASSIGN_INVALID_DEPT', { deptId: selectedDepartamento });
         Alert.alert('❌ Error', 'ID de departamento inválido');
         setLoading(false);
         return;
@@ -476,6 +681,12 @@ export default function GestionAsignacionUsPage() {
       const usuariosAsignados = idsValidados.length;
       const nombreDept = departamentoActual?.nombre;
       const idsUsuarios = [...idsValidados];
+
+      SecurityUtils.logSecurityEvent('PERMISOS_ASSIGN_ATTEMPT', {
+        usuariosCount: idsUsuarios.length,
+        departamento: deptoValidado,
+        permisosCount: Object.values(permisos).filter(v => v === true).length
+      });
 
       console.log('🔍 Iniciando asignación de usuarios:', idsUsuarios);
       console.log('🔍 Departamento destino:', deptoValidado, '-', nombreDept);
@@ -500,6 +711,11 @@ export default function GestionAsignacionUsPage() {
         // ✅ PRIMERO: Recargar datos
         await cargarUsuariosDepartamento(selectedDepartamento);
         await cargarUsuariosSinDepartamento();
+
+        SecurityUtils.logSecurityEvent('PERMISOS_ASSIGN_NO_AGENTS', {
+          usuariosCount: usuariosAsignados,
+          departamento: deptoValidado
+        });
 
         // ✅ SEGUNDO: Limpiar estados (esto cierra la vista de asignación)
         setMostrarAsignacionSinDept(false);
@@ -554,6 +770,13 @@ export default function GestionAsignacionUsPage() {
         console.log('✅ Asignaciones completadas:', resultados.length);
       }
 
+      SecurityUtils.logSecurityEvent('PERMISOS_ASSIGN_SUCCESS', {
+        usuariosCount: idsUsuarios.length,
+        agentesCount: agentes.length,
+        asignacionesCount: promesasPermisos.length,
+        departamento: deptoValidado
+      });
+
       // ✅ PRIMERO: Recargar datos
       await cargarUsuariosDepartamento(selectedDepartamento);
       await cargarUsuariosSinDepartamento();
@@ -576,6 +799,10 @@ export default function GestionAsignacionUsPage() {
       );
 
     } catch (error) {
+      SecurityUtils.logSecurityEvent('PERMISOS_ASSIGN_ERROR', {
+        error: error.message,
+        usuariosCount: selectedUsuarios.length
+      });
       console.error('❌ Error asignando usuarios:', error);
       console.error('❌ Stack:', error.stack);
 
@@ -785,14 +1012,22 @@ export default function GestionAsignacionUsPage() {
   };
 
   const confirmarRevocacion = async () => {
-    if (!usuarioARevocar) return;
+    if (!usuarioARevocar) {
+      SecurityUtils.logSecurityEvent('REVOCACION_NO_USER_SELECTED', { timestamp: new Date() });
+      return;
+    }
 
     // ✅ Rate limiting
-    if (!puedeEjecutarAccion()) return;
+    if (!rateLimiterRef.current.isAllowed('confirmarRevocacion')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_REVOCACION', { timestamp: new Date() });
+      Alert.alert('⚠️ Demasiados intentos', 'Por favor, espera un momento antes de intentar de nuevo');
+      return;
+    }
 
     // ✅ Validar usuario
     const idUsuarioValidado = validateNumericId(usuarioARevocar.id_usuario);
     if (!idUsuarioValidado) {
+      SecurityUtils.logSecurityEvent('REVOCACION_INVALID_USER_ID', { userId: usuarioARevocar.id_usuario });
       Alert.alert('Error', 'ID de usuario inválido');
       return;
     }
@@ -802,11 +1037,17 @@ export default function GestionAsignacionUsPage() {
 
       const nombreUsuario = `${usuarioARevocar.persona?.nombre} ${usuarioARevocar.persona?.apellido}`;
 
+      SecurityUtils.logSecurityEvent('REVOCACION_ATTEMPT', {
+        usuarioId: idUsuarioValidado,
+        nombreUsuario: nombreUsuario
+      });
+
       // 1. Obtener agentes del departamento
       const idDepartamento = usuarioARevocar.departamento?.id_departamento || usuarioARevocar.id_departamento;
       const idDepartamentoValidado = validateNumericId(idDepartamento);
 
       if (!idDepartamentoValidado) {
+        SecurityUtils.logSecurityEvent('REVOCACION_INVALID_DEPT_ID', { deptId: idDepartamento });
         Alert.alert('Error', 'Departamento inválido');
         setLoadingRevocacion(false);
         return;
@@ -828,6 +1069,11 @@ export default function GestionAsignacionUsPage() {
 
         await Promise.all(promesasEliminar);
         console.log('✅ Registros eliminados de usuario_agente:', agentes.length, 'agente(s)');
+
+        SecurityUtils.logSecurityEvent('REVOCACION_AGENT_RECORDS_DELETED', {
+          usuarioId: idUsuarioValidado,
+          agentesCount: agentes.length
+        });
       }
 
       // 3. Remover departamento del usuario
@@ -837,12 +1083,24 @@ export default function GestionAsignacionUsPage() {
 
       console.log('✅ Departamento removido del usuario');
 
+      SecurityUtils.logSecurityEvent('REVOCACION_DEPT_REMOVED', {
+        usuarioId: idUsuarioValidado,
+        departamentoId: idDepartamentoValidado
+      });
+
       // 4. Recargar datos
       await cargarUsuariosDepartamento(selectedDepartamento);
 
       setLoadingRevocacion(false);
       setMostrarModalRevocacion(false);
       setUsuarioARevocar(null);
+
+      SecurityUtils.logSecurityEvent('REVOCACION_SUCCESS', {
+        usuarioId: idUsuarioValidado,
+        nombreUsuario: nombreUsuario,
+        departamentoId: idDepartamentoValidado,
+        timestamp: new Date().toISOString()
+      });
 
       Alert.alert(
         '✅ Revocación Exitosa',
@@ -851,6 +1109,10 @@ export default function GestionAsignacionUsPage() {
       );
 
     } catch (error) {
+      SecurityUtils.logSecurityEvent('REVOCACION_ERROR', {
+        usuarioId: usuarioARevocar?.id_usuario,
+        error: error.message
+      });
       console.error('❌ Error revocando asignación:', error);
       setLoadingRevocacion(false);
       Alert.alert('Error', 'No se pudo revocar la asignación: ' + error.message);
@@ -864,6 +1126,25 @@ export default function GestionAsignacionUsPage() {
   const getDepartamentosFiltrados = () => {
     if (!busquedaDept.trim()) return departamentos;
 
+    // 🔐 Detectar intentos de ataque en búsqueda
+    if (SecurityUtils.detectXssAttempt(busquedaDept)) {
+      SecurityUtils.logSecurityEvent('XSS_ATTEMPT_IN_DEPT_SEARCH', { 
+        input: busquedaDept.substring(0, 50),
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('⚠️ Contenido sospechoso', 'Se detectó contenido no permitido en la búsqueda');
+      return [];
+    }
+
+    if (SecurityUtils.detectSqlInjection(busquedaDept)) {
+      SecurityUtils.logSecurityEvent('SQL_INJECTION_ATTEMPT_IN_DEPT_SEARCH', { 
+        input: busquedaDept.substring(0, 50),
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('⚠️ Caracteres sospechosos', 'Se detectaron caracteres no permitidos en la búsqueda');
+      return [];
+    }
+
     const busqueda = busquedaDept.toLowerCase();
     return departamentos.filter(d =>
       d.nombre.toLowerCase().includes(busqueda) ||
@@ -874,6 +1155,25 @@ export default function GestionAsignacionUsPage() {
 
   const getUsuariosFiltrados = () => {
     if (!busquedaUsuario.trim()) return usuarios;
+
+    // 🔐 Detectar intentos de ataque en búsqueda
+    if (SecurityUtils.detectXssAttempt(busquedaUsuario)) {
+      SecurityUtils.logSecurityEvent('XSS_ATTEMPT_IN_USER_SEARCH', { 
+        input: busquedaUsuario.substring(0, 50),
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('⚠️ Contenido sospechoso', 'Se detectó contenido no permitido en la búsqueda');
+      return [];
+    }
+
+    if (SecurityUtils.detectSqlInjection(busquedaUsuario)) {
+      SecurityUtils.logSecurityEvent('SQL_INJECTION_ATTEMPT_IN_USER_SEARCH', { 
+        input: busquedaUsuario.substring(0, 50),
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('⚠️ Caracteres sospechosos', 'Se detectaron caracteres no permitidos en la búsqueda');
+      return [];
+    }
 
     const busqueda = busquedaUsuario.toLowerCase();
     return usuarios.filter(u =>

@@ -28,6 +28,108 @@ import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles'
 import { getUserIdFromToken } from '../../components/utils/authHelper';
 import { useNotificaciones } from '../../hooks/useNotificaciones'; // 🔥 NUEVO
 
+// 🔒 SECURITY: Anti-hacking utilities
+const SecurityUtils = {
+  sanitizeInput: (text) => {
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+\s*=/gi, '')
+      .replace(/<[^>]*>/g, '')
+      .trim();
+  },
+
+  encodeOutput: (text) => {
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;')
+      .replace(/\//g, '&#x2F;');
+  },
+
+  isValidEmail: (email) => {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return regex.test(email);
+  },
+
+  isValidUrl: (url) => {
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  validateNumberRange: (num, min = 0, max = Infinity) => {
+    const n = parseInt(num);
+    return !isNaN(n) && n >= min && n <= max;
+  },
+
+  validateStringLength: (str, min = 0, max = Infinity) => {
+    return typeof str === 'string' && str.length >= min && str.length <= max;
+  },
+
+  sanitizeSqlInput: (input) => {
+    if (typeof input !== 'string') return '';
+    return input
+      .replace(/'/g, "''")
+      .replace(/"/g, '\\"')
+      .replace(/;/g, '')
+      .replace(/--/g, '')
+      .replace(/\/\*/g, '')
+      .replace(/\*\//g, '');
+  },
+
+  createRateLimiter: (maxAttempts = 5, timeWindowMs = 60000) => {
+    const attempts = new Map();
+    return {
+      attempts,
+      isAllowed: (key) => {
+        const now = Date.now();
+        const userAttempts = attempts.get(key) || [];
+        const recentAttempts = userAttempts.filter(time => now - time < timeWindowMs);
+
+        if (recentAttempts.length >= maxAttempts) {
+          return false;
+        }
+
+        recentAttempts.push(now);
+        attempts.set(key, recentAttempts);
+        return true;
+      }
+    };
+  },
+
+  logSecurityEvent: (eventType, details = {}) => {
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      eventType,
+      details,
+      userAgent: Platform.OS
+    };
+    console.log('🔒 SECURITY EVENT:', JSON.stringify(logEntry, null, 2));
+  },
+
+  validateDateFormat: (dateStr) => {
+    const date = new Date(dateStr);
+    return date instanceof Date && !isNaN(date);
+  },
+
+  generateCSRFToken: () => {
+    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  },
+
+  validateCSRFToken: (token) => {
+    return typeof token === 'string' && token.length > 0;
+  }
+};
+
 const GestionConversacionesPage = () => {
   const router = useRouter();
   const [conversaciones, setConversaciones] = useState([]);
@@ -60,6 +162,14 @@ const GestionConversacionesPage = () => {
 
   const isWeb = Platform.OS === 'web';
   const flatListRef = useRef(null);
+  const rateLimiterRef = useRef(null);
+
+  // 🔒 SECURITY: Initialize rate limiter on mount
+  useEffect(() => {
+    if (!rateLimiterRef.current) {
+      rateLimiterRef.current = SecurityUtils.createRateLimiter(5, 60000);
+    }
+  }, []);
 
   // ============================================
   // OBTENER DATOS DEL USUARIO AUTENTICADO
@@ -113,6 +223,25 @@ const GestionConversacionesPage = () => {
   const cargarConversaciones = async () => {
     if (!userId) return;
 
+    // 🔒 SECURITY: Rate limiting
+    if (!rateLimiterRef.current.isAllowed('cargarConversaciones')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', { 
+        function: 'cargarConversaciones',
+        userId,
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('⚠️ Seguridad', 'Demasiadas solicitudes. Por favor, espera un momento.');
+      return;
+    }
+
+    SecurityUtils.logSecurityEvent('LOAD_CONVERSATIONS_START', {
+      function: 'cargarConversaciones',
+      vista: vistaActual,
+      filtro: filtroEstado,
+      userId,
+      timestamp: new Date().toISOString()
+    });
+
     try {
       setLoading(true);
 
@@ -161,8 +290,21 @@ const GestionConversacionesPage = () => {
         const conversacionesOrdenadas = escalamientoService.ordenarPorPrioridad(conversacionesFiltradas);
 
         setConversaciones(conversacionesOrdenadas);
+
+        SecurityUtils.logSecurityEvent('LOAD_CONVERSATIONS_SUCCESS', {
+          function: 'cargarConversaciones',
+          count: conversacionesOrdenadas.length,
+          userId,
+          timestamp: new Date().toISOString()
+        });
       }
     } catch (error) {
+      SecurityUtils.logSecurityEvent('LOAD_CONVERSATIONS_ERROR', {
+        function: 'cargarConversaciones',
+        error: error.message,
+        userId,
+        timestamp: new Date().toISOString()
+      });
       console.error('Error al cargar conversaciones:', error);
       Alert.alert('Error', 'No se pudieron cargar las conversaciones');
     } finally {
@@ -219,6 +361,37 @@ const GestionConversacionesPage = () => {
       return;
     }
 
+    // 🔒 SECURITY: Rate limiting
+    if (!rateLimiterRef.current.isAllowed('handleTomarConversacion')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', { 
+        function: 'handleTomarConversacion',
+        sessionId: conversacion.sessionId,
+        userId,
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('⚠️ Seguridad', 'Intentas tomar muchas conversaciones muy rápido. Por favor, espera.');
+      return;
+    }
+
+    // 🔒 SECURITY: Validate session ID
+    if (!SecurityUtils.validateStringLength(conversacion.sessionId, 5, 100)) {
+      SecurityUtils.logSecurityEvent('INVALID_SESSION_ID', {
+        function: 'handleTomarConversacion',
+        sessionId: conversacion.sessionId,
+        userId,
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('Error', 'ID de sesión inválido');
+      return;
+    }
+
+    SecurityUtils.logSecurityEvent('TAKE_CONVERSATION_ATTEMPT', {
+      function: 'handleTomarConversacion',
+      sessionId: conversacion.sessionId,
+      userId,
+      timestamp: new Date().toISOString()
+    });
+
     try {
       const response = await escalamientoService.tomarConversacion(conversacion.sessionId, {
         id_usuario: userId,
@@ -226,6 +399,13 @@ const GestionConversacionesPage = () => {
       });
 
       if (response.success) {
+        SecurityUtils.logSecurityEvent('TAKE_CONVERSATION_SUCCESS', {
+          function: 'handleTomarConversacion',
+          sessionId: conversacion.sessionId,
+          userId,
+          timestamp: new Date().toISOString()
+        });
+
         // 🔥 Reproducir sonido de éxito
         await notificacionService.soloSonido('mensaje');
         
@@ -237,6 +417,13 @@ const GestionConversacionesPage = () => {
         }
       }
     } catch (error) {
+      SecurityUtils.logSecurityEvent('TAKE_CONVERSATION_ERROR', {
+        function: 'handleTomarConversacion',
+        sessionId: conversacion.sessionId,
+        error: error.message,
+        userId,
+        timestamp: new Date().toISOString()
+      });
       console.error('Error tomando conversación:', error);
       Alert.alert('Error', error.response?.data?.detail || 'No se pudo tomar la conversación');
     }
@@ -245,22 +432,73 @@ const GestionConversacionesPage = () => {
   const handleTransferirConversacion = async (idUsuarioDestino, motivo) => {
     if (!conversacionSeleccionada) return;
 
+    // 🔒 SECURITY: Rate limiting
+    if (!rateLimiterRef.current.isAllowed('handleTransferirConversacion')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', { 
+        function: 'handleTransferirConversacion',
+        sessionId: conversacionSeleccionada.sessionId,
+        userId,
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('⚠️ Seguridad', 'Demasiadas transferencias. Por favor, espera un momento.');
+      return;
+    }
+
+    // 🔒 SECURITY: Validate user ID and reason
+    if (!SecurityUtils.validateNumberRange(idUsuarioDestino, 1) || !SecurityUtils.validateStringLength(motivo || '', 0, 500)) {
+      SecurityUtils.logSecurityEvent('TRANSFER_VALIDATION_FAILED', {
+        function: 'handleTransferirConversacion',
+        sessionId: conversacionSeleccionada.sessionId,
+        destinyUserId: idUsuarioDestino,
+        userId,
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('Error', 'Datos de transferencia inválidos');
+      return;
+    }
+
+    // 🔒 SECURITY: Sanitize reason
+    const motivoSanitizado = SecurityUtils.sanitizeInput(motivo || 'Transferencia de conversación');
+
+    SecurityUtils.logSecurityEvent('TRANSFER_ATTEMPT', {
+      function: 'handleTransferirConversacion',
+      sessionId: conversacionSeleccionada.sessionId,
+      destinyUserId: idUsuarioDestino,
+      userId,
+      timestamp: new Date().toISOString()
+    });
+
     try {
       const response = await escalamientoService.transferirConversacion(
         conversacionSeleccionada.sessionId,
         {
           id_usuario_destino: idUsuarioDestino,
-          motivo: motivo || 'Transferencia de conversación'
+          motivo: motivoSanitizado
         }
       );
 
       if (response.success) {
+        SecurityUtils.logSecurityEvent('TRANSFER_SUCCESS', {
+          function: 'handleTransferirConversacion',
+          sessionId: conversacionSeleccionada.sessionId,
+          destinyUserId: idUsuarioDestino,
+          userId,
+          timestamp: new Date().toISOString()
+        });
+
         Alert.alert('✅ Éxito', 'Conversación transferida correctamente');
         setMostrarModalTransferir(false);
         handleVolverLista();
         cargarConversaciones();
       }
     } catch (error) {
+      SecurityUtils.logSecurityEvent('TRANSFER_ERROR', {
+        function: 'handleTransferirConversacion',
+        sessionId: conversacionSeleccionada.sessionId,
+        error: error.message,
+        userId,
+        timestamp: new Date().toISOString()
+      });
       console.error('Error transfiriendo conversación:', error);
       Alert.alert('Error', 'No se pudo transferir la conversación');
     }
@@ -269,13 +507,54 @@ const GestionConversacionesPage = () => {
   const handleEnviarMensaje = async () => {
     if (!mensajeTexto.trim() || !conversacionSeleccionada || !userId) return;
 
+    // 🔒 SECURITY: Rate limiting
+    if (!rateLimiterRef.current.isAllowed('handleEnviarMensaje')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', { 
+        function: 'handleEnviarMensaje',
+        sessionId: conversacionSeleccionada.sessionId,
+        userId,
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('⚠️ Seguridad', 'Envías mensajes demasiado rápido. Por favor, espera un momento.');
+      return;
+    }
+
+    // 🔒 SECURITY: Sanitize message
+    const mensajeSanitizado = SecurityUtils.sanitizeInput(mensajeTexto.trim());
+    
+    if (!mensajeSanitizado || mensajeSanitizado.length === 0) {
+      SecurityUtils.logSecurityEvent('MESSAGE_SANITIZATION_FAILED', {
+        function: 'handleEnviarMensaje',
+        sessionId: conversacionSeleccionada.sessionId,
+        userId,
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('⚠️ Mensaje inválido', 'El mensaje contiene caracteres no permitidos.');
+      return;
+    }
+
+    SecurityUtils.logSecurityEvent('MESSAGE_SEND_ATTEMPT', {
+      function: 'handleEnviarMensaje',
+      sessionId: conversacionSeleccionada.sessionId,
+      messageLength: mensajeSanitizado.length,
+      userId,
+      timestamp: new Date().toISOString()
+    });
+
     try {
       setEnviando(true);
 
       await escalamientoService.responder(conversacionSeleccionada.sessionId, {
-        mensaje: mensajeTexto.trim(),
+        mensaje: mensajeSanitizado,
         id_usuario: userId,
         nombre_usuario: userName
+      });
+
+      SecurityUtils.logSecurityEvent('MESSAGE_SEND_SUCCESS', {
+        function: 'handleEnviarMensaje',
+        sessionId: conversacionSeleccionada.sessionId,
+        userId,
+        timestamp: new Date().toISOString()
       });
 
       setMensajeTexto('');
@@ -283,6 +562,13 @@ const GestionConversacionesPage = () => {
 
       setTimeout(() => scrollToEnd(), 200);
     } catch (error) {
+      SecurityUtils.logSecurityEvent('MESSAGE_SEND_ERROR', {
+        function: 'handleEnviarMensaje',
+        sessionId: conversacionSeleccionada.sessionId,
+        error: error.message,
+        userId,
+        timestamp: new Date().toISOString()
+      });
       console.error('Error enviando mensaje:', error);
       Alert.alert('Error', 'No se pudo enviar el mensaje');
     } finally {
@@ -295,10 +581,67 @@ const GestionConversacionesPage = () => {
   };
 
   const confirmarResolver = async (calificacion = null, comentario = null) => {
+    if (!conversacionSeleccionada) return;
+
+    // 🔒 SECURITY: Rate limiting
+    if (!rateLimiterRef.current.isAllowed('confirmarResolver')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', { 
+        function: 'confirmarResolver',
+        sessionId: conversacionSeleccionada.sessionId,
+        userId,
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('⚠️ Seguridad', 'Demasiadas resoluciones. Por favor, espera un momento.');
+      return;
+    }
+
+    // 🔒 SECURITY: Validate rating (1-5) and sanitize comment
+    if (calificacion && !SecurityUtils.validateNumberRange(calificacion, 1, 5)) {
+      SecurityUtils.logSecurityEvent('RESOLVE_VALIDATION_FAILED', {
+        function: 'confirmarResolver',
+        sessionId: conversacionSeleccionada.sessionId,
+        calificacion,
+        userId,
+        reason: 'INVALID_RATING',
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('Error', 'Calificación debe ser entre 1 y 5');
+      return;
+    }
+
+    const comentarioSanitizado = SecurityUtils.sanitizeInput(comentario || '');
+    if (comentarioSanitizado && !SecurityUtils.validateStringLength(comentarioSanitizado, 0, 500)) {
+      SecurityUtils.logSecurityEvent('RESOLVE_VALIDATION_FAILED', {
+        function: 'confirmarResolver',
+        sessionId: conversacionSeleccionada.sessionId,
+        userId,
+        reason: 'COMMENT_TOO_LONG',
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert('Error', 'El comentario es demasiado largo (máximo 500 caracteres)');
+      return;
+    }
+
+    SecurityUtils.logSecurityEvent('RESOLVE_ATTEMPT', {
+      function: 'confirmarResolver',
+      sessionId: conversacionSeleccionada.sessionId,
+      calificacion,
+      userId,
+      timestamp: new Date().toISOString()
+    });
+
     try {
       await escalamientoService.resolver(conversacionSeleccionada.sessionId, {
         calificacion,
-        comentario
+        comentario: comentarioSanitizado
+      });
+
+      SecurityUtils.logSecurityEvent('RESOLVE_SUCCESS', {
+        function: 'confirmarResolver',
+        sessionId: conversacionSeleccionada.sessionId,
+        calificacion,
+        userId,
+        timestamp: new Date().toISOString()
       });
 
       Alert.alert('✅ Éxito', 'Conversación marcada como resuelta');
@@ -306,6 +649,13 @@ const GestionConversacionesPage = () => {
       handleVolverLista();
       cargarConversaciones();
     } catch (error) {
+      SecurityUtils.logSecurityEvent('RESOLVE_ERROR', {
+        function: 'confirmarResolver',
+        sessionId: conversacionSeleccionada.sessionId,
+        error: error.message,
+        userId,
+        timestamp: new Date().toISOString()
+      });
       console.error('Error resolviendo conversación:', error);
       Alert.alert('Error', 'No se pudo resolver la conversación');
     }

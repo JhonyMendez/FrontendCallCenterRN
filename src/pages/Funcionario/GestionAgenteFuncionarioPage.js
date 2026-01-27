@@ -216,6 +216,71 @@ function TooltipIcon({ text }) {
     );
 }
 
+// 🔐 ============ SECURITY UTILS ============
+const SecurityUtils = {
+    // Rate limiter factory
+    createRateLimiter: (maxAttempts, timeWindow) => {
+        let attempts = [];
+        return {
+            isAllowed: (key) => {
+                const now = Date.now();
+                attempts = attempts.filter(t => now - t < timeWindow);
+                if (attempts.length < maxAttempts) {
+                    attempts.push(now);
+                    return true;
+                }
+                return false;
+            }
+        };
+    },
+
+    // Validar ID
+    validateId: (id) => {
+        return typeof id === 'number' && id > 0;
+    },
+
+    // Validar string
+    validateString: (str, maxLength = 500) => {
+        return typeof str === 'string' &&
+            str.length > 0 &&
+            str.length <= maxLength;
+    },
+
+    // Detectar XSS - 7 patrones comunes
+    detectXssAttempt: (text) => {
+        const xssPatterns = [
+            /<script/i,
+            /on\w+\s*=/i,
+            /<iframe/i,
+            /javascript:/i,
+            /eval\(/i,
+            /onerror=/i,
+            /onload=/i,
+        ];
+        return xssPatterns.some(pattern => pattern.test(String(text)));
+    },
+
+    // Sanitizar texto
+    sanitizeText: (text) => {
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;');
+    },
+
+    // Logging de eventos de seguridad
+    logSecurityEvent: (eventType, details = {}) => {
+        console.log(`🔐 ${eventType}:`, {
+            timestamp: new Date().toISOString(),
+            event: eventType,
+            details,
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A'
+        });
+    }
+};
+
 export default function GestionAgentePage() {
     // ============ STATE ============
     const [agentes, setAgentes] = useState([]);
@@ -303,6 +368,10 @@ export default function GestionAgentePage() {
     const iconos = ['🤖', '🧠', '💼', '📊', '🎯', '🔧', '📚', '💡', '🌟', '⚡', '🎨', '🔬'];
     // ✅ Detectar plataforma
     const isWeb = Platform.OS === 'web';
+
+    // 🔐 Rate limiters para operaciones críticas
+    const rateLimiterBusqueda = useRef(SecurityUtils.createRateLimiter(30, 60000)).current; // 30 búsquedas/minuto
+    const rateLimiterOperaciones = useRef(SecurityUtils.createRateLimiter(5, 60000)).current; // 5 operaciones/minuto
 
     // ============ VERIFICAR PERMISOS ============
     const verificarPermisoGestionUsuarios = async () => {
@@ -462,18 +531,36 @@ export default function GestionAgentePage() {
             setLoading(true);
             setEstadoCarga('cargando');
 
+            // 🔐 Rate limiting: máx 5 operaciones/minuto
+            if (!rateLimiterOperaciones.isAllowed('cargarAgentes')) {
+                SecurityUtils.logSecurityEvent('RATE_LIMIT_CARGAR_AGENTES', {
+                    razon: 'demasiadas_cargas'
+                });
+                Alert.alert('Límite excedido', 'Estás recargando demasiado rápido. Por favor espera un momento.');
+                setLoading(false);
+                return;
+            }
+
             // 1️⃣ Obtener ID del usuario actual
             const idUsuarioActual = await authService.getUsuarioId();
 
             if (!idUsuarioActual) {
                 setEstadoCarga('sin_departamento');
                 setMensajeError('No se pudo obtener el usuario actual. Por favor inicia sesión nuevamente.');
+                SecurityUtils.logSecurityEvent('ERROR_LOAD_AGENTS', {
+                    razon: 'no_user_id'
+                });
                 setLoading(false);
                 return;
             }
 
             // 2️⃣ Obtener datos del usuario para verificar su departamento
             const usuarioData = await authService.getUsuarioActual();
+
+            // 🔐 Validar estructura del usuario
+            if (!usuarioData || typeof usuarioData !== 'object') {
+                throw new Error('Datos de usuario inválidos');
+            }
 
             console.log('👤 Usuario actual COMPLETO:', JSON.stringify(usuarioData, null, 2));
             console.log('🔍 ID Usuario:', usuarioData?.id_usuario);
@@ -485,12 +572,14 @@ export default function GestionAgentePage() {
                 usuarioData?.departamento?.id_departamento ||
                 usuarioData?.departamento_id;
 
-            console.log('🔍 ID Departamento detectado:', idDepartamento);
-
-            if (!idDepartamento) {
-                console.log('❌ Usuario SIN departamento');
+            // 🔐 Validar que el ID de departamento sea válido
+            if (!idDepartamento || !SecurityUtils.validateId(parseInt(idDepartamento))) {
+                console.log('❌ Usuario SIN departamento o departamento inválido');
                 setEstadoCarga('sin_departamento');
                 setMensajeError('No tienes un departamento asignado. Por favor contacta a un administrador para que te asigne uno.');
+                SecurityUtils.logSecurityEvent('INVALID_DEPARTMENT_ID', {
+                    idDepartamento
+                });
                 setLoading(false);
                 return;
             }
@@ -502,6 +591,11 @@ export default function GestionAgentePage() {
             const data = await agenteService.getAll();
             const agentesArray = Array.isArray(data) ? data : (data?.data || []);
 
+            // 🔐 Validar respuesta de la API
+            if (!Array.isArray(agentesArray)) {
+                throw new Error('Respuesta inválida de la API de agentes');
+            }
+
             // 5️⃣ Filtrar solo el agente del departamento del usuario
             const agenteDelDepartamento = agentesArray.find(
                 agente => agente.id_departamento &&
@@ -511,10 +605,27 @@ export default function GestionAgentePage() {
             console.log('🔍 Buscando agente para departamento:', idDepartamento);
             console.log('🎯 Agente encontrado:', agenteDelDepartamento);
 
+            // 🔐 Validar que el agente tenga estructura correcta
+            if (agenteDelDepartamento) {
+                if (!agenteDelDepartamento.id_agente) {
+                    throw new Error('Agente sin ID válido');
+                }
+                // 🔐 Detectar XSS en nombre del agente
+                if (SecurityUtils.detectXssAttempt(agenteDelDepartamento.nombre_agente)) {
+                    SecurityUtils.logSecurityEvent('XSS_ATTEMPT_AGENT_NAME', {
+                        nombre: agenteDelDepartamento.nombre_agente?.substring(0, 100)
+                    });
+                    throw new Error('Intento de inyección detectado en nombre de agente');
+                }
+            }
+
             if (!agenteDelDepartamento) {
                 console.log('❌ Departamento SIN agente asignado');
                 setEstadoCarga('sin_agente');
                 setMensajeError('Tu departamento aún no tiene un agente asignado. Por favor contacta a un administrador.');
+                SecurityUtils.logSecurityEvent('NO_AGENT_FOR_DEPARTMENT', {
+                    idDepartamento
+                });
                 setLoading(false);
                 return;
             }
@@ -528,11 +639,21 @@ export default function GestionAgentePage() {
             setSelectedAgente(agenteDelDepartamento);
             console.log('🎯 Agente auto-seleccionado:', agenteDelDepartamento.id_agente);
 
+            // 🔐 Log de éxito
+            SecurityUtils.logSecurityEvent('AGENTS_LOADED', {
+                cantidad: 1,
+                idDepartamento
+            });
+
             // ✅ Todo OK
             setEstadoCarga('ok');
 
         } catch (err) {
             console.error('❌ Error cargando agentes:', err);
+            SecurityUtils.logSecurityEvent('ERROR_LOADING_AGENTS', {
+                error: err.message,
+                stack: err.stack
+            });
             setEstadoCarga('sin_departamento');
             setMensajeError('Error al cargar los datos. Por favor intenta nuevamente.');
             setAgentes([]);
@@ -543,10 +664,23 @@ export default function GestionAgentePage() {
 
     const cargarEstadisticas = async () => {
         try {
+            // 🔐 Rate limiting: máx 20 verificaciones/minuto
+            if (!rateLimiterBusqueda.isAllowed('cargarEstadisticas')) {
+                SecurityUtils.logSecurityEvent('RATE_LIMIT_CARGAR_ESTADISTICAS', {
+                    razon: 'demasiadas_verificaciones'
+                });
+                return;
+            }
+
             console.log('📊 Cargando estadísticas...');
 
             // Calcular estadísticas solo del agente del departamento
             const agentesArray = agentes;
+
+            // 🔐 Validar que agentesArray sea un array
+            if (!Array.isArray(agentesArray)) {
+                throw new Error('Datos de agentes inválidos');
+            }
 
             const calculadas = {
                 total: agentesArray.length,
@@ -555,11 +689,22 @@ export default function GestionAgentePage() {
                 especializados: agentesArray.filter(a => a.tipo_agente === 'especializado').length,
             };
 
+            // 🔐 Validar que los números sean válidos
+            if (Object.values(calculadas).some(v => typeof v !== 'number' || v < 0)) {
+                throw new Error('Estadísticas calculadas inválidas');
+            }
+
             console.log('✅ Estadísticas calculadas:', calculadas);
+            SecurityUtils.logSecurityEvent('STATS_LOADED', {
+                stats: calculadas
+            });
             setStats(calculadas);
 
         } catch (err) {
             console.error('❌ Error al cargar estadísticas:', err);
+            SecurityUtils.logSecurityEvent('ERROR_LOAD_STATS', {
+                error: err.message
+            });
             setStats({
                 total: 0,
                 activos: 0,
@@ -1009,9 +1154,32 @@ export default function GestionAgentePage() {
         setShowDetailModal(true);
     };
     const handleDelete = (agente) => {
+        // � Rate limiting: máx 5 operaciones/minuto
+        if (!rateLimiterOperaciones.isAllowed('eliminarAgente')) {
+            SecurityUtils.logSecurityEvent('RATE_LIMIT_DELETE_AGENT', {
+                razon: 'demasiadas_operaciones'
+            });
+            Alert.alert('Límite excedido', 'Estás realizando demasiadas operaciones. Por favor espera un momento.');
+            return;
+        }
+
+        // 🔐 Validar que el agente tenga ID válido
+        if (!agente || !SecurityUtils.validateId(agente.id_agente)) {
+            SecurityUtils.logSecurityEvent('INVALID_AGENT_ID_DELETE', {
+                id: agente?.id_agente
+            });
+            Alert.alert('Error', 'Agente inválido');
+            return;
+        }
+
         // 🔥 VALIDACIÓN: Verificar que el usuario puede eliminar este agente
         if (usuarioActual?.id_departamento && agente.id_departamento) {
             if (usuarioActual.id_departamento.toString() !== agente.id_departamento.toString()) {
+                SecurityUtils.logSecurityEvent('UNAUTHORIZED_DELETE_ATTEMPT', {
+                    idAgente: agente.id_agente,
+                    usuarioDept: usuarioActual.id_departamento,
+                    agenteDept: agente.id_departamento
+                });
                 Alert.alert(
                     '⛔ Acceso Denegado',
                     'No tienes permisos para eliminar agentes de otros departamentos. Solo puedes eliminar el agente de tu departamento.',
@@ -1021,18 +1189,38 @@ export default function GestionAgentePage() {
             }
         }
 
+        SecurityUtils.logSecurityEvent('DELETE_AGENT_INITIATED', {
+            idAgente: agente.id_agente,
+            nombreAgente: agente.nombre_agente
+        });
+
         setAgenteToDelete(agente);
         setShowDeleteModal(true);
     };
+
     const confirmarEliminacion = async () => {
         if (!agenteToDelete) return;
 
         try {
+            // 🔐 Rate limiting de operaciones
+            if (!rateLimiterOperaciones.isAllowed('confirmarEliminar')) {
+                SecurityUtils.logSecurityEvent('RATE_LIMIT_CONFIRM_DELETE', {
+                    razon: 'demasiadas_operaciones'
+                });
+                Alert.alert('Límite excedido', 'Por favor espera un momento.');
+                return;
+            }
+
             // ✅ VALIDACIÓN 1: Verificar si tiene contenidos asociados
             const responseContenidos = await contenidoService.getByAgente(
                 agenteToDelete.id_agente
             );
             const contenidosAsociados = responseContenidos?.data || responseContenidos || [];
+
+            // 🔐 Validar respuesta de API
+            if (!Array.isArray(contenidosAsociados)) {
+                throw new Error('Respuesta inválida de contenidos');
+            }
 
             // ✅ VALIDACIÓN 2: Verificar si tiene categorías asociadas (NO ELIMINADAS)
             const todasCategorias = await categoriaService.getAll({
@@ -1045,7 +1233,7 @@ export default function GestionAgentePage() {
                 : [];
 
             const tieneContenidos = contenidosAsociados && contenidosAsociados.length > 0;
-            const tieneCategorias = categoriasAsociadas && categoriasAsociadas.length > 0;
+            const tieneCategorias = categoriasAsociadas && categoriasAsociados.length > 0;
 
             // ❌ Si tiene contenidos O categorías, no permitir eliminar
             if (tieneContenidos || tieneCategorias) {
@@ -1075,6 +1263,14 @@ export default function GestionAgentePage() {
 
                 mensajeError += ' Primero debes eliminar o reasignar estos elementos a otro agente.';
 
+                // 🔐 Log de intentos de eliminación bloqueados
+                SecurityUtils.logSecurityEvent('DELETE_AGENT_BLOCKED', {
+                    idAgente: agenteToDelete.id_agente,
+                    razon: 'contenidos_o_categorias_asociadas',
+                    contenidos: cantidadContenidos,
+                    categorias: cantidadCategorias
+                });
+
                 // Mostrar modal de error
                 setErrorMessage(mensajeError);
                 setErrorDetails({
@@ -1090,11 +1286,21 @@ export default function GestionAgentePage() {
 
             if (!userId) {
                 console.warn("❌ No se pudo obtener el ID del usuario");
+                SecurityUtils.logSecurityEvent('ERROR_GET_USER_ID', {
+                    razon: 'no_user_token'
+                });
                 Alert.alert("Error", "No se pudo identificar al usuario autenticado.");
                 return;
             }
 
             await agenteService.delete(agenteToDelete.id_agente, { eliminado_por: userId });
+
+            // 🔐 Log de eliminación exitosa
+            SecurityUtils.logSecurityEvent('AGENT_DELETED_SUCCESS', {
+                idAgente: agenteToDelete.id_agente,
+                nombreAgente: agenteToDelete.nombre_agente,
+                eliminadoPor: userId
+            });
 
             setSuccessMessage('🗑️ Agente eliminado permanentemente');
             setShowSuccessMessage(true);
@@ -1110,6 +1316,12 @@ export default function GestionAgentePage() {
                 setShowSuccessMessage(false);
             }, 3000);
         } catch (err) {
+            // 🔐 Log de error en eliminación
+            SecurityUtils.logSecurityEvent('ERROR_DELETE_AGENT', {
+                error: err.message,
+                idAgente: agenteToDelete?.id_agente
+            });
+
             // El mensaje viene directamente en err.message
             let mensajeError = err?.message || 'No se pudo eliminar el agente';
 
@@ -1129,9 +1341,32 @@ export default function GestionAgentePage() {
     };
 
     const handleToggleStatus = (agente) => {
+        // � Rate limiting: máx 5 operaciones/minuto
+        if (!rateLimiterOperaciones.isAllowed('toggleEstado')) {
+            SecurityUtils.logSecurityEvent('RATE_LIMIT_TOGGLE_STATUS', {
+                razon: 'demasiadas_operaciones'
+            });
+            Alert.alert('Límite excedido', 'Estás realizando demasiadas operaciones. Por favor espera un momento.');
+            return;
+        }
+
+        // 🔐 Validar que el agente tenga ID válido
+        if (!agente || !SecurityUtils.validateId(agente.id_agente)) {
+            SecurityUtils.logSecurityEvent('INVALID_AGENT_ID_TOGGLE', {
+                id: agente?.id_agente
+            });
+            Alert.alert('Error', 'Agente inválido');
+            return;
+        }
+
         // 🔥 VALIDACIÓN: Verificar que el usuario puede cambiar el estado de este agente
         if (usuarioActual?.id_departamento && agente.id_departamento) {
             if (usuarioActual.id_departamento.toString() !== agente.id_departamento.toString()) {
+                SecurityUtils.logSecurityEvent('UNAUTHORIZED_TOGGLE_ATTEMPT', {
+                    idAgente: agente.id_agente,
+                    usuarioDept: usuarioActual.id_departamento,
+                    agenteDept: agente.id_departamento
+                });
                 Alert.alert(
                     '⛔ Acceso Denegado',
                     'No tienes permisos para cambiar el estado de agentes de otros departamentos.',
@@ -1141,17 +1376,50 @@ export default function GestionAgentePage() {
             }
         }
 
+        SecurityUtils.logSecurityEvent('TOGGLE_STATUS_INITIATED', {
+            idAgente: agente.id_agente,
+            nuevoEstado: !agente.activo
+        });
+
         // Abrir modal de confirmación
         setAgenteParaCambiarEstado(agente);
         setShowConfirmModal(true);
     };
 
     const confirmarCambioEstado = async () => {
+        if (!agenteParaCambiarEstado) return;
+
         try {
+            // 🔐 Rate limiting de operaciones
+            if (!rateLimiterOperaciones.isAllowed('confirmarToggle')) {
+                SecurityUtils.logSecurityEvent('RATE_LIMIT_CONFIRM_TOGGLE', {
+                    razon: 'demasiadas_operaciones'
+                });
+                Alert.alert('Límite excedido', 'Por favor espera un momento.');
+                return;
+            }
+
+            // 🔐 Validar que el agente tenga estructura correcta
+            if (!SecurityUtils.validateId(agenteParaCambiarEstado.id_agente)) {
+                throw new Error('ID de agente inválido');
+            }
+
             const newStatus = !agenteParaCambiarEstado.activo;
+
+            // 🔐 Validar los datos antes de actualizar
+            if (typeof newStatus !== 'boolean') {
+                throw new Error('Estado del agente inválido');
+            }
+
             await agenteService.update(agenteParaCambiarEstado.id_agente, {
                 ...agenteParaCambiarEstado,
                 activo: newStatus,
+            });
+
+            // 🔐 Log de éxito
+            SecurityUtils.logSecurityEvent('AGENT_STATUS_CHANGED', {
+                idAgente: agenteParaCambiarEstado.id_agente,
+                nuevoEstado: newStatus
             });
 
             setSuccessMessage(
@@ -1168,7 +1436,13 @@ export default function GestionAgentePage() {
                 setShowSuccessMessage(false);
             }, 3000);
         } catch (err) {
-            Alert.alert('Error', 'No se pudo cambiar el estado del agente');
+            // 🔐 Log de error
+            SecurityUtils.logSecurityEvent('ERROR_CHANGE_STATUS', {
+                error: err.message,
+                idAgente: agenteParaCambiarEstado?.id_agente
+            });
+
+            Alert.alert('Error', err.message || 'No se pudo cambiar el estado del agente');
             setShowConfirmModal(false);
         }
     };
@@ -1181,8 +1455,29 @@ export default function GestionAgentePage() {
     // ============ UTILIDADES ============
 
     const handleSearchChange = (text) => {
+        // 🔐 Rate limiting: máx 30 búsquedas/minuto
+        if (!rateLimiterBusqueda.isAllowed('busqueda')) {
+            SecurityUtils.logSecurityEvent('RATE_LIMIT_SEARCH', {
+                razon: 'demasiadas_busquedas'
+            });
+            return;
+        }
+
+        // 🔐 Detectar XSS en búsqueda
+        if (SecurityUtils.detectXssAttempt(text)) {
+            SecurityUtils.logSecurityEvent('XSS_ATTEMPT_SEARCH', {
+                query: text.substring(0, 100)
+            });
+            Alert.alert('Seguridad', 'Se detectó un intento de inyección maliciosa.');
+            setSearchTerm('');
+            return;
+        }
+
         const sanitized = SecurityValidator.sanitizeText(text);
         const truncated = SecurityValidator.truncateText(sanitized, 100);
+        SecurityUtils.logSecurityEvent('SEARCH_PERFORMED', {
+            length: truncated.length
+        });
         setSearchTerm(truncated);
     };
 
@@ -1502,7 +1797,7 @@ export default function GestionAgentePage() {
                         {/* ============ HEADER ============ */}
                         <View style={styles.header}>
                             <View style={styles.headerLeft}>
-                                <Text style={styles.title}>🤖 Gestión de Agentes</Text>
+                                <Text style={styles.title}>🤖 Gestión de Agentes en Funcionario</Text>
                                 <Text style={styles.subtitle}>
                                     {agentes.length} {agentes.length === 1 ? 'agente registrado' : 'agentes registrados'}
                                 </Text>
@@ -1555,25 +1850,6 @@ export default function GestionAgentePage() {
                                 </View>
                             )}
 
-                            <TouchableOpacity
-                                style={[
-                                    styles.primaryButton,
-                                    !isWeb && {
-                                        paddingHorizontal: 12,
-                                        paddingVertical: 10,
-                                    }
-                                ]}
-                                onPress={handleCreateNew}
-                                activeOpacity={0.8}
-                            >
-                                <Ionicons name="add-circle" size={isWeb ? 22 : 20} color="white" />
-                                <Text style={[
-                                    styles.buttonText,
-                                    !isWeb && { fontSize: 14 }
-                                ]}>
-                                    Nuevo
-                                </Text>
-                            </TouchableOpacity>
                         </View>
 
                         {/* Badge en MÓVIL (debajo del header) */}

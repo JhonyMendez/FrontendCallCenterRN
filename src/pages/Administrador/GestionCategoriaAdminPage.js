@@ -20,7 +20,102 @@ import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles'
 import GestionCategoriaCard from '../../components/SuperAdministrador/GestionCategoriaCard';
 import { styles } from '../../styles/gestionCategoriaStyles';
 
-const isWeb = Platform.OS === 'web';
+// 🔒 SECURITY: Anti-hacking utilities - VERSIÓN COMPLETA
+const SecurityUtils = {
+  // ✅ XSS Protection: Remove potentially dangerous HTML/JS
+  sanitizeInput: (text) => {
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+\s*=/gi, '')
+      .replace(/<[^>]*>/g, '')
+      .trim();
+  },
+
+  // ✅ Output Encoding
+  encodeOutput: (text) => {
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;')
+      .replace(/\//g, '&#x2F;');
+  },
+
+  // ✅ Validate numbers and prevent negative overflow
+  validateNumberRange: (value, min = -999999, max = 999999) => {
+    const num = Number(value);
+    return !isNaN(num) && num >= min && num <= max;
+  },
+
+  // ✅ Remove SQL injection patterns
+  sanitizeSqlInput: (text) => {
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/('|"|;|--|\*|%|_)/g, '')
+      .trim();
+  },
+
+  // ✅ Rate limiting - Prevent brute force attacks
+  createRateLimiter: (maxAttempts = 5, windowMs = 60000) => {
+    const attempts = new Map();
+    return {
+      isAllowed: (key) => {
+        const now = Date.now();
+        if (!attempts.has(key)) {
+          attempts.set(key, []);
+        }
+        const userAttempts = attempts.get(key);
+        const recentAttempts = userAttempts.filter(time => now - time < windowMs);
+        if (recentAttempts.length >= maxAttempts) {
+          return false;
+        }
+        recentAttempts.push(now);
+        attempts.set(key, recentAttempts);
+        return true;
+      }
+    };
+  },
+
+  // ✅ Logging for security audit
+  logSecurityEvent: (eventType, details) => {
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+      timestamp,
+      eventType,
+      details,
+      userAgent: Platform.OS
+    };
+    console.warn(`🔒 SECURITY [${eventType}]:`, logEntry);
+  },
+
+  // ✅ Validate input length to prevent buffer overflow
+  validateStringLength: (str, maxLength = 5000) => {
+    return typeof str === 'string' && str.length <= maxLength;
+  },
+
+  // ✅ Generar token CSRF
+  generateCSRFToken: () => {
+    const array = new Uint8Array(32);
+    if (Platform.OS === 'web' && window.crypto) {
+      window.crypto.getRandomValues(array);
+    } else {
+      for (let i = 0; i < array.length; i++) {
+        array[i] = Math.floor(Math.random() * 256);
+      }
+    }
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  },
+
+  // ✅ Validar token CSRF
+  validateCSRFToken: (token) => {
+    return typeof token === 'string' && token.length === 64;
+  }
+};
 
 // ============ COMPONENTE TOOLTIP ============
 function TooltipIcon({ text }) {
@@ -237,6 +332,13 @@ export default function GestionCategoriaPage() {
   const [errorModalMessage, setErrorModalMessage] = useState('');
   const [showAllAgentes, setShowAllAgentes] = useState(false);
 
+  // 🔒 SECURITY: Rate limiter and session timeout
+  const rateLimiterRef = useRef(SecurityUtils.createRateLimiter(5, 60000));
+  const [lastActionTime, setLastActionTime] = useState(0);
+  const ACTION_COOLDOWN = 1000; // 1 segundo entre acciones
+  const [sessionTimeout, setSessionTimeout] = useState(null);
+  const SESSION_DURATION = 30 * 60 * 1000; // 30 minutos
+
   // Arrays de iconos y colores disponibles
   const iconosDisponibles = [
     'folder', 'document', 'file-tray', 'archive', 'briefcase',
@@ -277,35 +379,59 @@ export default function GestionCategoriaPage() {
   });
 
   // ============ VALIDACIONES ============
+  // 🔒 SECURITY: Usar SecurityUtils centralizado
   const sanitizeInput = (text) => {
-    return text
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/<[^>]*>/g, '')
-      .trim();
+    return SecurityUtils.sanitizeInput(text).substring(0, 100);
   };
 
   const validateForm = () => {
     const newErrors = {};
 
+    // Sanitizar ANTES de validar
+    const nombreLimpio = sanitizeInput(formData.nombre);
+    const descripcionLimpia = sanitizeInput(formData.descripcion);
+
     // Nombre (requerido, mínimo 3 caracteres, máximo 100)
-    if (!formData.nombre || formData.nombre.trim().length === 0) {
+    if (!nombreLimpio || nombreLimpio.length === 0) {
       newErrors.nombre = 'El nombre es obligatorio';
-    } else if (formData.nombre.trim().length < 3) {
+    } else if (nombreLimpio.length < 3) {
       newErrors.nombre = 'El nombre debe tener al menos 3 caracteres';
-    } else if (formData.nombre.length > 100) {
+    } else if (nombreLimpio.length > 100) {
       newErrors.nombre = 'El nombre no puede exceder 100 caracteres';
+    } else if (!/^[a-zA-Z0-9\sáéíóúÁÉÍÓÚñÑüÜ\-_.,:;()]+$/.test(nombreLimpio)) {
+      newErrors.nombre = 'El nombre contiene caracteres no permitidos';
     }
 
-    // Código (requerido, mínimo 2 caracteres, máximo 50, solo alfanumérico)
-
     // Descripción (opcional, máximo 500 caracteres)
-    if (formData.descripcion && formData.descripcion.length > 500) {
+    if (descripcionLimpia && descripcionLimpia.length > 500) {
       newErrors.descripcion = 'La descripción no puede exceder 500 caracteres';
     }
 
-    // Agente (requerido)
+    // Agente (requerido y debe existir)
     if (!formData.id_agente) {
       newErrors.id_agente = 'Debes seleccionar un agente';
+    } else {
+      const agenteId = parseInt(formData.id_agente);
+      if (isNaN(agenteId) || agenteId <= 0) {
+        newErrors.id_agente = 'ID de agente inválido';
+      } else if (!agentes.some(a => a.id_agente === agenteId)) {
+        newErrors.id_agente = 'El agente seleccionado no existe';
+      }
+    }
+
+    // Validar icono
+    if (!iconosDisponibles.includes(formData.icono)) {
+      newErrors.icono = 'Icono no permitido';
+    }
+
+    // Validar color (debe ser hex válido)
+    if (!/^#[0-9A-F]{6}$/i.test(formData.color)) {
+      newErrors.color = 'Color inválido';
+    }
+
+    // Validar que el color esté en la lista permitida
+    if (!coloresDisponibles.some(c => c.hex === formData.color)) {
+      newErrors.color = 'Color no permitido';
     }
 
     setErrors(newErrors);
@@ -318,14 +444,70 @@ export default function GestionCategoriaPage() {
     cargarCategorias();
   }, []);
 
+  // 🔒 SECURITY: Session timeout management
+  useEffect(() => {
+    const resetTimeout = () => {
+      if (sessionTimeout) clearTimeout(sessionTimeout);
+
+      const timeout = setTimeout(() => {
+        Alert.alert(
+          'Sesión Expirada',
+          'Tu sesión ha expirado por inactividad. Por favor, recarga la página.',
+          [{
+            text: 'Entendido',
+            onPress: () => {
+              if (Platform.OS === 'web') {
+                window.location.reload();
+              }
+            }
+          }]
+        );
+      }, SESSION_DURATION);
+
+      setSessionTimeout(timeout);
+    };
+
+    resetTimeout();
+
+    return () => {
+      if (sessionTimeout) clearTimeout(sessionTimeout);
+    };
+  }, [categorias, showModal, showDetalleModal]);
+
   // ============ FUNCIONES ============
   const cargarAgentes = async () => {
     try {
       setLoadingAgentes(true);
       const data = await agenteService.getAll({ activo: true });
-      setAgentes(Array.isArray(data) ? data : []);
+
+      // 🔒 SECURITY: Validar que sea un array
+      if (!Array.isArray(data)) {
+        SecurityUtils.logSecurityEvent('INVALID_DATA_FORMAT', { function: 'cargarAgentes' });
+        throw new Error('Formato de datos inválido');
+      }
+
+      // 🔒 SECURITY: Sanitizar y validar agentes
+      const agentesValidos = data
+        .filter(agente => {
+          // Validar estructura
+          if (!agente || typeof agente !== 'object') return false;
+          if (!agente.id_agente || !agente.nombre_agente) return false;
+          // 🔒 Validar ID numérico
+          if (!SecurityUtils.validateNumberRange(agente.id_agente, 1)) return false;
+          return true;
+        })
+        .map(agente => ({
+          ...agente,
+          nombre_agente: SecurityUtils.sanitizeInput(agente.nombre_agente || ''),
+          area_especialidad: SecurityUtils.sanitizeInput(agente.area_especialidad || ''),
+          id_agente: parseInt(agente.id_agente) || 0,
+        }));
+
+      setAgentes(agentesValidos);
+      SecurityUtils.logSecurityEvent('AGENTS_LOADED', { count: agentesValidos.length });
     } catch (err) {
       console.error('Error al cargar agentes:', err);
+      SecurityUtils.logSecurityEvent('LOAD_AGENTS_ERROR', { message: err.message });
       Alert.alert('Error', 'No se pudieron cargar los agentes');
       setAgentes([]);
     } finally {
@@ -336,12 +518,41 @@ export default function GestionCategoriaPage() {
   const cargarCategorias = async () => {
     try {
       setLoading(true);
-
       const data = await categoriaService.getAll();
 
-      const categoriasActivas = Array.isArray(data)
-        ? data.filter(cat => !cat.eliminado)
-        : [];
+      // Validar que la respuesta sea un array
+      if (!Array.isArray(data)) {
+        throw new Error('Formato de datos inválido');
+      }
+
+      // Filtrar y sanitizar categorías
+      const categoriasActivas = data
+        .filter(cat => {
+          // Validar estructura del objeto
+          if (!cat || typeof cat !== 'object') return false;
+
+          // Validar campos requeridos
+          if (!cat.id_categoria || !cat.nombre) return false;
+
+          // Excluir eliminadas
+          if (cat.eliminado) return false;
+
+          return true;
+        })
+        .map(cat => ({
+          ...cat,
+          // Sanitizar campos de texto
+          nombre: sanitizeInput(cat.nombre || ''),
+          descripcion: sanitizeInput(cat.descripcion || ''),
+          // Validar campos numéricos
+          id_categoria: parseInt(cat.id_categoria) || 0,
+          id_agente: parseInt(cat.id_agente) || null,
+          id_categoria_padre: cat.id_categoria_padre ? parseInt(cat.id_categoria_padre) : null,
+          orden: parseInt(cat.orden) || 0,
+          // Validar booleanos
+          activo: Boolean(cat.activo),
+          eliminado: Boolean(cat.eliminado),
+        }));
 
       setCategorias(categoriasActivas);
     } catch (err) {
@@ -355,6 +566,30 @@ export default function GestionCategoriaPage() {
 
 
   const handleSubmit = async () => {
+    // 🔒 SECURITY: Rate limiting check
+    const now = Date.now();
+    if (now - lastActionTime < ACTION_COOLDOWN) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', { action: 'handleSubmit' });
+      Alert.alert('⚠️ Espera', 'Intenta nuevamente en un momento');
+      return;
+    }
+    setLastActionTime(now);
+
+    // 🔒 SECURITY: Validate rate limiter
+    const rateLimitKey = `handleSubmit_${formData.id_agente || 'nuevo'}`;
+    if (!rateLimiterRef.current.isAllowed(rateLimitKey)) {
+      SecurityUtils.logSecurityEvent('BRUTE_FORCE_ATTEMPT', {
+        action: 'handleSubmit',
+        agentId: formData.id_agente,
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert(
+        '❌ Acceso Bloqueado',
+        'Has excedido el límite de 5 intentos por minuto. Espera un momento antes de reintentar.'
+      );
+      return;
+    }
+
     if (!validateForm()) {
       Alert.alert('Error de validación', 'Por favor, corrige los errores en el formulario');
       return;
@@ -366,25 +601,109 @@ export default function GestionCategoriaPage() {
         descripcion: sanitizeInput(formData.descripcion),
         icono: formData.icono,
         color: formData.color,
-        orden: parseInt(formData.orden),
+        orden: (() => {
+          const orden = parseInt(formData.orden);
+          if (isNaN(orden) || orden < 0 || orden > 9999) {
+            return 0; // Valor por defecto seguro
+          }
+          return orden;
+        })(),
         activo: formData.activo,
         eliminado: formData.eliminado || false,
-        id_agente: parseInt(formData.id_agente),
-        id_categoria_padre: formData.id_categoria_padre ? parseInt(formData.id_categoria_padre) : null,
+        id_agente: (() => {
+          const id = parseInt(formData.id_agente);
+          if (isNaN(id) || id <= 0) {
+            throw new Error('ID de agente inválido');
+          }
+          // Verificar que el agente existe en la lista
+          const agenteExiste = agentes.some(a => a.id_agente === id);
+          if (!agenteExiste) {
+            throw new Error('El agente seleccionado no existe');
+          }
+          return id;
+        })(),
+        id_categoria_padre: (() => {
+          if (!formData.id_categoria_padre) return null;
+
+          const id = parseInt(formData.id_categoria_padre);
+          if (isNaN(id) || id <= 0) {
+            throw new Error('ID de categoría padre inválido');
+          }
+
+          // Verificar que la categoría padre existe
+          const categoriaExiste = categorias.some(c => c.id_categoria === id);
+          if (!categoriaExiste) {
+            throw new Error('La categoría padre seleccionada no existe');
+          }
+
+          // Verificar que pertenece al mismo agente
+          const categoriaPadre = categorias.find(c => c.id_categoria === id);
+          if (categoriaPadre && categoriaPadre.id_agente !== formData.id_agente) {
+            throw new Error('La categoría padre debe pertenecer al mismo agente');
+          }
+
+          return id;
+        })(),
       };
 
+      // 🔒 SECURITY: Log sanitized data
+      SecurityUtils.logSecurityEvent('CATEGORIA_SAVE_ATTEMPT', {
+        editing: !!editingCategoria,
+        id_agente: sanitizedData.id_agente,
+        nombre: sanitizedData.nombre.substring(0, 20) + '...'
+      });
+
       if (editingCategoria) {
+        // ✅ Validar si está cambiando el agente y tiene subcategorías
+        if (editingCategoria.id_agente !== formData.id_agente) {
+          const subcategorias = getSubcategorias(editingCategoria.id_categoria);
+          if (subcategorias.length > 0) {
+            SecurityUtils.logSecurityEvent('AGENT_CHANGE_BLOCKED', {
+              categoriaId: editingCategoria.id_categoria,
+              subcategoriasCount: subcategorias.length
+            });
+            setErrorModalMessage(
+              `No puedes cambiar el agente de esta categoría porque tiene ${subcategorias.length} subcategoría${subcategorias.length === 1 ? '' : 's'} asociada${subcategorias.length === 1 ? '' : 's'}. Primero debes eliminar o mover las subcategorías.`
+            );
+            setShowErrorModal(true);
+            return;
+          }
+        }
+
+        // 🔒 SECURITY: Log update action
+        SecurityUtils.logSecurityEvent('CATEGORIA_UPDATE', {
+          id: editingCategoria.id_categoria,
+          changes: {
+            nombre: sanitizedData.nombre !== editingCategoria.nombre,
+            agente: sanitizedData.id_agente !== editingCategoria.id_agente,
+            activo: sanitizedData.activo !== editingCategoria.activo
+          }
+        });
+
         await categoriaService.update(editingCategoria.id_categoria, sanitizedData);
         setSuccessMessage('✅ Categoría actualizada exitosamente');
+
+        // 🔥 CRÍTICO: Recargar INMEDIATAMENTE después de actualizar
+        await cargarCategorias();
+
       } else {
+        // 🔒 SECURITY: Log create action
+        SecurityUtils.logSecurityEvent('CATEGORIA_CREATE', {
+          id_agente: sanitizedData.id_agente,
+          nombre: sanitizedData.nombre.substring(0, 20) + '...'
+        });
+
         await categoriaService.create(sanitizedData);
         setSuccessMessage('✅ Categoría creada exitosamente');
+
+        // 🔥 CRÍTICO: Recargar INMEDIATAMENTE después de crear
+        await cargarCategorias();
       }
 
+      // Cerrar modal y mostrar mensaje
       setShowModal(false);
       resetForm();
       setShowSuccessMessage(true);
-      cargarCategorias();
 
       setTimeout(() => {
         setShowSuccessMessage(false);
@@ -421,11 +740,41 @@ export default function GestionCategoriaPage() {
   };
 
   const confirmDelete = async () => {
-    if (!categoriaToDelete) return;
+    if (!categoriaToDelete) {
+      SecurityUtils.logSecurityEvent('DELETE_WITHOUT_ID_CATEGORIA', { timestamp: new Date() });
+      return;
+    }
+
+    // � SECURITY: Action cooldown check
+    const now = Date.now();
+    if (now - lastActionTime < ACTION_COOLDOWN) {
+      SecurityUtils.logSecurityEvent('ACTION_COOLDOWN_EXCEEDED', { action: 'confirmDelete' });
+      Alert.alert('⚠️ Espera', 'Intenta nuevamente en un momento');
+      return;
+    }
+    setLastActionTime(now);
+
+    // �🔐 Rate limiting
+    if (!rateLimiterRef.current.isAllowed(`delete_categoria_${categoriaToDelete}`)) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_DELETE_CATEGORIA', { categoriaId: categoriaToDelete });
+      Alert.alert('⚠️ Demasiados intentos', 'Por favor, espera un momento antes de intentar de nuevo');
+      return;
+    }
 
     try {
+      SecurityUtils.logSecurityEvent('CATEGORIA_DELETE_ATTEMPT', {
+        categoriaId: categoriaToDelete,
+        timestamp: new Date().toISOString()
+      });
+
       // ✅ Eliminado lógico
       await categoriaService.delete(categoriaToDelete);
+
+      SecurityUtils.logSecurityEvent('CATEGORIA_DELETED_SUCCESS', {
+        categoriaId: categoriaToDelete,
+        timestamp: new Date().toISOString()
+      });
+
       setSuccessMessage('🗑️ Categoría eliminada correctamente');
       setShowSuccessMessage(true);
       setShowDeleteModal(false);
@@ -436,6 +785,10 @@ export default function GestionCategoriaPage() {
         setShowSuccessMessage(false);
       }, 3000);
     } catch (err) {
+      SecurityUtils.logSecurityEvent('CATEGORIA_DELETE_ERROR', {
+        categoriaId: categoriaToDelete,
+        error: err.message
+      });
       console.error('Error al eliminar:', err);
 
       setShowDeleteModal(false);
@@ -497,12 +850,46 @@ export default function GestionCategoriaPage() {
     if (errors[field]) {
       setErrors({ ...errors, [field]: null });
     }
-    setFormData({ ...formData, [field]: value });
+
+    // Para campos de texto (nombre, descripcion), NO sanitizar mientras el usuario escribe
+    // Solo sanitizar cuando se valide el formulario
+    let sanitizedValue = value;
+
+    // Validar IDs numéricos
+    if (['id_agente', 'id_categoria_padre', 'orden'].includes(field)) {
+      const numValue = parseInt(value);
+      if (isNaN(numValue) || numValue < 0) {
+        return; // No actualizar si el valor no es válido
+      }
+      sanitizedValue = numValue;
+    }
+
+    // Validar icono
+    if (field === 'icono' && !iconosDisponibles.includes(value)) {
+      return; // No actualizar si el icono no está permitido
+    }
+
+    // Validar color
+    if (field === 'color' && !coloresDisponibles.some(c => c.hex === value)) {
+      return; // No actualizar si el color no está permitido
+    }
+
+    // Si cambió el agente, resetear la categoría padre
+    if (field === 'id_agente') {
+      setFormData({
+        ...formData,
+        [field]: sanitizedValue,
+        id_categoria_padre: null
+      });
+    } else {
+      setFormData({ ...formData, [field]: sanitizedValue });
+    }
   };
 
   const handleSearchChange = (text) => {
-    const sanitized = sanitizeInput(text);
-    setSearchTerm(sanitized);
+    // NO sanitizar el término de búsqueda mientras el usuario escribe
+    // Solo limitamos la longitud
+    setSearchTerm(text.substring(0, 100));
   };
 
   const filteredCategorias = categorias.filter((cat) => {

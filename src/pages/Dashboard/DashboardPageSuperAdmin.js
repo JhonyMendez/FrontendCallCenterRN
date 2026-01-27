@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { apiClient } from '../../api/client';
 import { agenteService } from '../../api/services/agenteService';
@@ -23,12 +23,72 @@ import { dashboardStyles } from '../../styles/dashboardSuperAdminStyles';
 
 const isWeb = Platform.OS === 'web';
 
+// 🔐 ============ UTILIDADES DE SEGURIDAD ============
+const SecurityUtils = {
+    createRateLimiter(maxAttempts, windowMs) {
+        const attempts = {};
+        return {
+            isAllowed(key) {
+                const now = Date.now();
+                if (!attempts[key]) {
+                    attempts[key] = [];
+                }
+                attempts[key] = attempts[key].filter(time => now - time < windowMs);
+                if (attempts[key].length >= maxAttempts) {
+                    this.logSecurityEvent('RATE_LIMIT_EXCEEDED', { key, attempts: attempts[key].length });
+                    return false;
+                }
+                attempts[key].push(now);
+                return true;
+            }
+        };
+    },
+
+    validateId(id) {
+        const numId = parseInt(id, 10);
+        return !isNaN(numId) && numId > 0;
+    },
+
+    validateUserObject(user) {
+        if (!user || typeof user !== 'object') return false;
+        if (!user.id_usuario || !this.validateId(user.id_usuario)) return false;
+        if (!user.username || typeof user.username !== 'string') return false;
+        return true;
+    },
+
+    detectXssAttempt(text) {
+        if (!text) return false;
+        const xssPatterns = [
+            /<script[^>]*>.*?<\/script>/gi,
+            /on\w+\s*=/gi,
+            /<iframe/gi,
+            /javascript:/gi,
+            /eval\(/gi,
+            /onerror\s*=/gi,
+            /onload\s*=/gi,
+        ];
+        return xssPatterns.some(pattern => pattern.test(text));
+    },
+
+    logSecurityEvent(eventType, details) {
+        const timestamp = new Date().toISOString();
+        console.warn('🔒 SECURITY EVENT:', {
+            timestamp,
+            eventType,
+            details,
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A',
+        });
+    }
+};
+
 export default function DashboardPageSuperAdmin() {
   const router = useRouter();
 
   // State
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  // 🔐 Rate limiters
+  const rateLimiter = useRef(SecurityUtils.createRateLimiter(5, 60000)).current;
   const [usuario, setUsuario] = useState({
     nombre_completo: '',
     username: '',
@@ -55,6 +115,16 @@ export default function DashboardPageSuperAdmin() {
       setLoading(true);
       console.log('🔄 [Dashboard] Iniciando carga de datos...');
 
+      // 🔐 Rate limiting
+      if (!rateLimiter.isAllowed('cargarDatos')) {
+        SecurityUtils.logSecurityEvent('RATE_LIMIT_LOAD_DASHBOARD', {
+          razon: 'demasiadas_solicitudes'
+        });
+        console.log('⚠️ Rate limit excedido en cargarDatos');
+        setLoading(false);
+        return;
+      }
+
       // ⭐ ESTRATEGIA 1: Primero intentar desde localStorage (MÁS RÁPIDO)
       console.log('🔄 [Dashboard] Intentando cargar desde localStorage...');
       let usuarioConfigLoaded = false;
@@ -68,10 +138,26 @@ export default function DashboardPageSuperAdmin() {
           if (data) {
             const parsed = JSON.parse(data);
             console.log(`📦 [Dashboard] Datos en ${clave}:`, parsed);
-            console.log(`📦 [Dashboard] parsed.usuario:`, parsed.usuario);
-            console.log(`📦 [Dashboard] parsed.rolPrincipal:`, parsed.rolPrincipal);
 
             if (parsed.usuario) {
+              // 🔐 Validar estructura del usuario
+              if (!SecurityUtils.validateUserObject(parsed.usuario)) {
+                SecurityUtils.logSecurityEvent('INVALID_USER_STRUCTURE', {
+                  source: 'localStorage',
+                  razon: 'estructura_invalida'
+                });
+                continue;
+              }
+
+              // 🔐 Detectar XSS en campos críticos
+              if (SecurityUtils.detectXssAttempt(parsed.usuario.username) ||
+                  SecurityUtils.detectXssAttempt(parsed.usuario.email)) {
+                SecurityUtils.logSecurityEvent('XSS_ATTEMPT_DASHBOARD', {
+                  username: parsed.usuario.username
+                });
+                continue;
+              }
+
               const usuarioConfig = {
                 id_usuario: parsed.usuario.id_usuario,
                 nombre_completo: parsed.usuario.nombre_completo ||
@@ -99,6 +185,9 @@ export default function DashboardPageSuperAdmin() {
           }
         }
       } catch (localStorageError) {
+        SecurityUtils.logSecurityEvent('ERROR_PARSING_LOCALSTORAGE', {
+          error: localStorageError.message
+        });
         console.warn('⚠️ [Dashboard] Error leyendo localStorage:', localStorageError);
       }
 
@@ -109,30 +198,50 @@ export default function DashboardPageSuperAdmin() {
         console.log('📦 [Dashboard] Datos de sesión:', datosSesion);
 
         if (datosSesion && datosSesion.usuario) {
-          const usuarioConfig = {
-            id_usuario: datosSesion.usuario.id_usuario,
-            nombre_completo: datosSesion.usuario.nombre_completo || '',
-            username: datosSesion.usuario.username || '',
-            role: datosSesion.rolPrincipal?.nombre_rol || 'Super Administrador'
-          };
-          console.log('✅ [Dashboard] Usuario configurado desde authService:', usuarioConfig);
-          setUsuario(usuarioConfig);
-          usuarioConfigLoaded = true;
+          // 🔐 Validar estructura del usuario
+          if (SecurityUtils.validateUserObject(datosSesion.usuario)) {
+            const usuarioConfig = {
+              id_usuario: datosSesion.usuario.id_usuario,
+              nombre_completo: datosSesion.usuario.nombre_completo || '',
+              username: datosSesion.usuario.username || '',
+              role: datosSesion.rolPrincipal?.nombre_rol || 'Super Administrador'
+            };
+            console.log('✅ [Dashboard] Usuario configurado desde authService:', usuarioConfig);
+            setUsuario(usuarioConfig);
+            usuarioConfigLoaded = true;
+          } else {
+            SecurityUtils.logSecurityEvent('INVALID_USER_FROM_AUTHSERVICE', {});
+          }
         }
       }
 
       if (!usuarioConfigLoaded) {
         console.warn('⚠️ [Dashboard] No se pudo obtener información del usuario');
+        SecurityUtils.logSecurityEvent('USER_CONFIG_FAILED', {
+          razon: 'no_user_data_available'
+        });
       }
 
       // Cargar estadísticas en paralelo desde el backend
       console.log('📊 [Dashboard] Iniciando carga de estadísticas...');
 
       console.log('📤 [Dashboard] Llamando a usuarioService.listarCompleto()...');
-      const usuarios = await usuarioService.listarCompleto({ limit: 1 });
+      const usuarios = await usuarioService.listarCompleto({ limit: 1 }).catch((err) => {
+        if (err?.isTokenExpired) {
+          SecurityUtils.logSecurityEvent('TOKEN_EXPIRED_USUARIOS', {});
+          throw err;
+        }
+        console.error('❌ [Dashboard] Error al cargar usuarios:', err);
+        return { total: 0 };
+      });
       console.log('📦 [Dashboard] Usuarios recibidos:', usuarios);
+
       console.log('📤 [Dashboard] Llamando a agenteService.getAll()...');
       const agentes = await agenteService.getAll().catch((err) => {
+        if (err?.isTokenExpired) {
+          SecurityUtils.logSecurityEvent('TOKEN_EXPIRED_AGENTES', {});
+          throw err;
+        }
         console.error('❌ [Dashboard] Error al cargar agentes:', err);
         return [];
       });
@@ -140,6 +249,10 @@ export default function DashboardPageSuperAdmin() {
 
       console.log('📤 [Dashboard] Llamando a departamentoService.getAll()...');
       const departamentos = await departamentoService.getAll().catch((err) => {
+        if (err?.isTokenExpired) {
+          SecurityUtils.logSecurityEvent('TOKEN_EXPIRED_DEPARTAMENTOS', {});
+          throw err;
+        }
         console.error('❌ [Dashboard] Error al cargar departamentos:', err);
         return [];
       });
@@ -150,10 +263,10 @@ export default function DashboardPageSuperAdmin() {
         totalUsuarios: usuarios.total || 0,
         totalAgentes: Array.isArray(agentes) ? agentes.length : (agentes.total || 0),
         totalDepartamentos: Array.isArray(departamentos) ? departamentos.length : 0,
-        conversacionesHoy: 0, // TODO: Implementar endpoint en backend
-        interaccionesHoy: 0, // TODO: Implementar endpoint en backend
-        ticketsAbiertos: 0, // TODO: Implementar endpoint en backend
-        satisfaccion: 0 // TODO: Implementar endpoint en backend
+        conversacionesHoy: 0,
+        interaccionesHoy: 0,
+        ticketsAbiertos: 0,
+        satisfaccion: 0
       };
 
       console.log('📊 [Dashboard] Actualizando stats:', newStats);
@@ -161,8 +274,19 @@ export default function DashboardPageSuperAdmin() {
 
       console.log('✅ [Dashboard] Datos cargados correctamente');
     } catch (error) {
+      // 🔐 Manejo de token expirado
+      if (error?.isTokenExpired) {
+        SecurityUtils.logSecurityEvent('TOKEN_EXPIRED_DASHBOARD', {});
+        console.log('🔒 Token expirado - SessionContext manejará');
+        setLoading(false);
+        return;
+      }
+
       console.error('❌ [Dashboard] Error CRÍTICO cargando datos:', error);
-      console.error('❌ [Dashboard] Stack trace:', error.stack);
+      SecurityUtils.logSecurityEvent('ERROR_LOAD_DASHBOARD', {
+        error: error.message,
+        stack: error.stack
+      });
     } finally {
       console.log('🏁 [Dashboard] Finalizando carga (loading = false)');
       setLoading(false);

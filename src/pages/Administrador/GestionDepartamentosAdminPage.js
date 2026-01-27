@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -25,6 +25,114 @@ const { width } = Dimensions.get('window');
 const isMobile = width < 768;
 
 const isWeb = Platform.OS === 'web';
+
+// 🔒 SECURITY: Anti-hacking utilities
+const SecurityUtils = {
+  // ✅ XSS Protection: Remove potentially dangerous HTML/JS
+  sanitizeInput: (text) => {
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+\s*=/gi, '')
+      .replace(/<[^>]*>/g, '')
+      .trim();
+  },
+
+  // ✅ Remove SQL injection patterns
+  sanitizeSqlInput: (text) => {
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/('|"|;|--|\*|%|_)/g, '')
+      .trim();
+  },
+
+  // ✅ Validate email format
+  isValidEmail: (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  },
+
+  // ✅ Validate URL format
+  isValidUrl: (url) => {
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  // ✅ Validate numbers and prevent negative overflow
+  validateNumberRange: (value, min = -999999, max = 999999) => {
+    const num = Number(value);
+    return !isNaN(num) && num >= min && num <= max;
+  },
+
+  // ✅ Validate input length to prevent buffer overflow
+  validateStringLength: (str, maxLength = 5000) => {
+    return typeof str === 'string' && str.length <= maxLength;
+  },
+
+  // ✅ Rate limiting - Prevent brute force attacks
+  createRateLimiter: (maxAttempts = 5, windowMs = 60000) => {
+    const attempts = new Map();
+    return {
+      isAllowed: (key) => {
+        const now = Date.now();
+        if (!attempts.has(key)) {
+          attempts.set(key, []);
+        }
+        const userAttempts = attempts.get(key);
+        const recentAttempts = userAttempts.filter(time => now - time < windowMs);
+        if (recentAttempts.length >= maxAttempts) {
+          return false;
+        }
+        recentAttempts.push(now);
+        attempts.set(key, recentAttempts);
+        return true;
+      }
+    };
+  },
+
+  // ✅ Logging for security audit
+  logSecurityEvent: (eventType, details) => {
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+      timestamp,
+      eventType,
+      details,
+      userAgent: Platform.OS
+    };
+    console.warn(`🔒 SECURITY [${eventType}]:`, logEntry);
+  },
+
+  // ✅ Detect XSS attempts
+  detectXssAttempt: (text) => {
+    if (typeof text !== 'string') return false;
+    const xssPatterns = [
+      /<script/gi,
+      /javascript:/gi,
+      /on\w+\s*=/gi,
+      /<iframe/gi,
+      /eval\(/gi,
+      /alert\(/gi
+    ];
+    return xssPatterns.some(pattern => pattern.test(text));
+  },
+
+  // ✅ Detect SQL injection attempts
+  detectSqlInjection: (text) => {
+    if (typeof text !== 'string') return false;
+    const sqlPatterns = [
+      /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|EXECUTE)\b)/gi,
+      /(--|\*|;|\/\*|\*\/)/g,
+      /('|")\s*(OR|AND)\s*('|")/gi
+    ];
+    return sqlPatterns.some(pattern => pattern.test(text));
+  }
+};
 
 // Componente Tooltip para Web y Móvil
 function TooltipIcon({ text }) {
@@ -149,6 +257,15 @@ export default function GestionDepartamentosPage() {
   const [agentesAsignados, setAgentesAsignados] = useState([]);
   const [usuariosAsignados, setUsuariosAsignados] = useState([]);
 
+  // 🔒 SECURITY: Rate limiter and session management
+  const rateLimiterRef = useRef(SecurityUtils.createRateLimiter(5, 60000));
+  const [lastActionTime, setLastActionTime] = useState(0);
+  const ACTION_COOLDOWN = 1000; // 1 segundo entre acciones
+  const [sessionTimeout, setSessionTimeout] = useState(null);
+  const SESSION_DURATION = 30 * 60 * 1000; // 30 minutos
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [deleteConfirmCount, setDeleteConfirmCount] = useState(0);
+
   const [formData, setFormData] = useState({
     nombre: '',
     descripcion: '',
@@ -160,34 +277,80 @@ export default function GestionDepartamentosPage() {
   });
 
   // ============ VALIDACIONES ============
+  // 🔒 SECURITY: Use SecurityUtils wrapper
   const sanitizeInput = (text) => {
-    // Eliminar scripts y tags HTML peligrosos
-    return text
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/<[^>]*>/g, '')
-      .trim();
+    return SecurityUtils.sanitizeInput(text);
   };
 
   const validateEmail = (email) => {
     if (!email) return true; // Email es opcional
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+    // 🔐 Detectar intentos de XSS o SQL Injection
+    if (SecurityUtils.detectXssAttempt(email) || SecurityUtils.detectSqlInjection(email)) {
+      SecurityUtils.logSecurityEvent('EMAIL_VALIDATION_SUSPICIOUS', { email });
+      return false;
+    }
+    return SecurityUtils.isValidEmail(email);
   };
 
   const validatePhone = (phone) => {
     if (!phone) return true; // Teléfono es opcional
+    if (SecurityUtils.detectXssAttempt(phone) || SecurityUtils.detectSqlInjection(phone)) {
+      SecurityUtils.logSecurityEvent('PHONE_VALIDATION_SUSPICIOUS', { phone });
+      return false;
+    }
     const phoneRegex = /^[0-9+\-\s()]{7,15}$/;
     return phoneRegex.test(phone);
   };
 
   const validateCodigo = (codigo) => {
-    // Solo letras, números, guiones y guiones bajos
+    if (!codigo) return false;
+
+    // 🔐 PRIMERO validar formato permitido
     const codigoRegex = /^[A-Za-z0-9_-]+$/;
-    return codigoRegex.test(codigo);
+    if (!codigoRegex.test(codigo)) {
+      return false;
+    }
+
+    // 🔐 LUEGO detectar patrones sospechosos (solo XSS, NO SQL injection)
+    // Los guiones normales (-) son válidos en códigos, así que NO validamos SQL injection aquí
+    if (SecurityUtils.detectXssAttempt(codigo)) {
+      SecurityUtils.logSecurityEvent('CODIGO_VALIDATION_SUSPICIOUS', { codigo });
+      return false;
+    }
+
+    return true;
   };
 
   const validateForm = () => {
     const newErrors = {};
+
+    // 🔒 SECURITY: Detectar ataques XSS/SQL en TODOS los campos
+    const fieldsToValidateForAttacks = ['nombre', 'codigo', 'facultad', 'email', 'telefono', 'descripcion'];
+    
+    fieldsToValidateForAttacks.forEach(fieldName => {
+      const fieldValue = formData[fieldName];
+      
+      // Validar que el campo sea string si tiene valor
+      if (fieldValue && typeof fieldValue !== 'string') {
+        SecurityUtils.logSecurityEvent('INVALID_FIELD_TYPE', { field: fieldName, type: typeof fieldValue });
+        newErrors[fieldName] = 'Formato de campo inválido';
+        return;
+      }
+      
+      // 🔒 Detectar XSS en todos los campos
+      if (fieldValue && SecurityUtils.detectXssAttempt(fieldValue)) {
+        SecurityUtils.logSecurityEvent('XSS_ATTEMPT_DETECTED', { field: fieldName, value: fieldValue.substring(0, 50) });
+        newErrors[fieldName] = 'Se detectó un intento de inyección de código';
+        return;
+      }
+      
+      // 🔒 Detectar SQL Injection en todos los campos
+      if (fieldValue && SecurityUtils.detectSqlInjection(fieldValue)) {
+        SecurityUtils.logSecurityEvent('SQL_INJECTION_DETECTED', { field: fieldName, value: fieldValue.substring(0, 50) });
+        newErrors[fieldName] = 'Se detectó un intento de inyección SQL';
+        return;
+      }
+    });
 
     // Nombre (requerido, mínimo 5 caracteres, máximo 100)
     if (!formData.nombre || formData.nombre.trim().length === 0) {
@@ -253,6 +416,36 @@ export default function GestionDepartamentosPage() {
     cargarAgentes();
   }, []);
 
+  // 🔒 SECURITY: Session timeout management
+  useEffect(() => {
+    const resetTimeout = () => {
+      if (sessionTimeout) clearTimeout(sessionTimeout);
+
+      const timeout = setTimeout(() => {
+        Alert.alert(
+          'Sesión Expirada',
+          'Tu sesión ha expirado por inactividad. Por favor, recarga la página.',
+          [{
+            text: 'Entendido',
+            onPress: () => {
+              if (Platform.OS === 'web') {
+                window.location.reload();
+              }
+            }
+          }]
+        );
+      }, SESSION_DURATION);
+
+      setSessionTimeout(timeout);
+    };
+
+    resetTimeout();
+
+    return () => {
+      if (sessionTimeout) clearTimeout(sessionTimeout);
+    };
+  }, [departamentos, showModal, showWarningModal]);
+
   // ============ FUNCIONES ============
   const cargarDepartamentos = async () => {
     try {
@@ -272,41 +465,91 @@ export default function GestionDepartamentosPage() {
   const cargarAgentes = async () => {
     try {
       console.log('📥 Cargando agentes para validación...');
-      const data = await agenteService.getAll({});
+      
+      // 🔒 SECURITY: Validar límites de parámetros para prevenir DoS
+      const params = { 
+        skip: 0, 
+        limit: 1000 
+      };
+      
+      // Validar parámetros antes de enviar al API
+      if (params.skip < 0 || params.limit < 1 || params.limit > 1000) {
+        SecurityUtils.logSecurityEvent('INVALID_API_PARAMETERS', { params });
+        console.error('❌ Parámetros API inválidos:', params);
+        setAgentesGlobal([]);
+        return;
+      }
+      
+      const data = await agenteService.getAll(params);
       const agentesArray = Array.isArray(data) ? data : (data?.data || []);
+      
+      // 🔒 SECURITY: Validar que la respuesta sea un array válido
+      if (!Array.isArray(agentesArray)) {
+        SecurityUtils.logSecurityEvent('INVALID_API_RESPONSE', { type: typeof agentesArray });
+        setAgentesGlobal([]);
+        return;
+      }
+      
       setAgentesGlobal(agentesArray);
       console.log('✅ Agentes cargados:', agentesArray.length);
     } catch (err) {
       console.error('Error al cargar agentes:', err);
+      SecurityUtils.logSecurityEvent('ERROR_LOADING_AGENTS', { error: err.message });
       setAgentesGlobal([]);
     }
   };
 
   const handleSubmit = async () => {
-    // Validar formulario
+    // 🔒 SECURITY: Validar formulario PRIMERO (sin consumir rate limit)
     if (!validateForm()) {
       Alert.alert('Error de validación', 'Por favor, corrige los errores en el formulario');
+      SecurityUtils.logSecurityEvent('FORM_VALIDATION_FAILED', { errors: Object.keys(errors) });
+      return;
+    }
+
+    // 🔐 Rate limiting - máximo 5 intentos por minuto (DESPUÉS de validación)
+    if (!rateLimiterRef.current.isAllowed('handleSubmit')) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_SUBMIT', { timestamp: new Date() });
+      Alert.alert('⚠️ Demasiados intentos', 'Por favor, espera un momento antes de intentar de nuevo');
       return;
     }
 
     try {
-      // Sanitizar todos los inputs antes de enviar
+      // Sanitizar todos los inputs antes de enviar usando SecurityUtils
       const sanitizedData = {
-        nombre: sanitizeInput(formData.nombre),
-        codigo: sanitizeInput(formData.codigo),
-        facultad: sanitizeInput(formData.facultad),
-        email: sanitizeInput(formData.email),
-        telefono: sanitizeInput(formData.telefono),
-        ubicacion: sanitizeInput(formData.ubicacion),
-        descripcion: sanitizeInput(formData.descripcion),
+        nombre: SecurityUtils.sanitizeInput(formData.nombre),
+        codigo: SecurityUtils.sanitizeInput(formData.codigo),
+        facultad: SecurityUtils.sanitizeInput(formData.facultad),
+        email: SecurityUtils.sanitizeInput(formData.email),
+        telefono: SecurityUtils.sanitizeInput(formData.telefono),
+        ubicacion: SecurityUtils.sanitizeInput(formData.ubicacion),
+        descripcion: SecurityUtils.sanitizeInput(formData.descripcion),
       };
 
+      // 🔐 Log evento de operación
       if (editingDepartamento) {
+        // 🔐 SECURITY: Validate ID
+        if (!SecurityUtils.validateNumberRange(editingDepartamento.id_departamento, 1)) {
+          Alert.alert('Error', 'ID de departamento inválido');
+          SecurityUtils.logSecurityEvent('INVALID_DEPT_ID', { id: editingDepartamento.id_departamento });
+          return;
+        }
+        SecurityUtils.logSecurityEvent('DEPARTAMENTO_UPDATE_ATTEMPT', {
+          id: editingDepartamento.id_departamento,
+          fields: Object.keys(sanitizedData)
+        });
         await departamentoService.update(editingDepartamento.id_departamento, sanitizedData);
         setSuccessMessage('✅ Departamento actualizado exitosamente');
+        SecurityUtils.logSecurityEvent('DEPARTAMENTO_UPDATED_SUCCESS', {
+          id: editingDepartamento.id_departamento
+        });
       } else {
+        SecurityUtils.logSecurityEvent('DEPARTAMENTO_CREATE_ATTEMPT', {
+          fields: Object.keys(sanitizedData)
+        });
         await departamentoService.create(sanitizedData);
         setSuccessMessage('✅ Departamento creado exitosamente');
+        SecurityUtils.logSecurityEvent('DEPARTAMENTO_CREATED_SUCCESS', {});
       }
 
       // Cerrar modal primero
@@ -325,6 +568,7 @@ export default function GestionDepartamentosPage() {
 
     } catch (err) {
       console.error('Error al guardar:', err);
+      SecurityUtils.logSecurityEvent('SAVE_ERROR', { message: err?.message });
 
       // Mostrar mensaje específico del backend
       const errorMessage = err?.message || err?.data?.message || 'No se pudo guardar el departamento';
@@ -349,13 +593,47 @@ export default function GestionDepartamentosPage() {
 
   const handleDelete = async (id) => {
     try {
-      console.log('🔍 Verificando departamento ID:', id);
+      // 🔒 SECURITY: Validación robusta del ID (type checking + conversion + range check)
+      // Paso 1: Verificar que el ID existe y tiene tipo válido
+      if (!id || (typeof id !== 'number' && typeof id !== 'string')) {
+        SecurityUtils.logSecurityEvent('INVALID_DELETE_ID_TYPE', { 
+          id, 
+          type: typeof id,
+          received: id 
+        });
+        Alert.alert('Error', 'ID de departamento inválido (tipo incorrecto)');
+        return;
+      }
+
+      // Paso 2: Convertir a número de forma segura
+      const numId = parseInt(id, 10);
+      
+      // Paso 3: Validar que la conversión fue exitosa y el valor es positivo
+      if (isNaN(numId) || numId <= 0) {
+        SecurityUtils.logSecurityEvent('INVALID_DELETE_ID_VALUE', { 
+          originalId: id, 
+          parsedId: numId,
+          isNaN: isNaN(numId),
+          isLessThanOne: numId <= 0
+        });
+        Alert.alert('Error', 'ID de departamento debe ser un número positivo válido');
+        return;
+      }
+
+      // Paso 4: Verificar rate limit para operación de borrado
+      if (!rateLimiterRef.current.isAllowed(`delete_${numId}`)) {
+        SecurityUtils.logSecurityEvent('RATE_LIMIT_DELETE', { departamentoId: numId });
+        Alert.alert('Límite de intentos', 'Ha intentado demasiadas veces. Intente más tarde.');
+        return;
+      }
+
+      console.log('🔍 Verificando departamento ID:', numId);
       console.log('📊 Agentes disponibles:', agentesGlobal.length);
 
       // ✅ VALIDACIÓN 1: Verificar agentes asignados (ACTIVOS y NO ELIMINADOS)
       const agentesActivosConEsteDepartamento = agentesGlobal.filter(agente => {
         const tieneDepto = agente.id_departamento &&
-          agente.id_departamento.toString() === id.toString();
+          agente.id_departamento.toString() === numId.toString();
         const estaActivo = agente.activo === true || agente.activo === 1;
         const noEstaEliminado = !agente.eliminado &&
           agente.eliminado !== 1 &&
@@ -406,15 +684,33 @@ export default function GestionDepartamentosPage() {
 
       // ✅ Si NO tiene usuarios NI agentes activos, permitir eliminación
       console.log('✅ Se puede eliminar - no hay usuarios ni agentes activos');
+      // 🔒 SECURITY: Double confirmation para prevenir accidentes
       setDepartamentoToDelete(id);
-      setShowDeleteModal(true);
+      setDeleteConfirmCount(0);
+      setShowDeleteConfirmModal(true);
 
     } catch (err) {
       console.error('❌ Error al verificar dependencias:', err);
+      SecurityUtils.logSecurityEvent('DELETE_VERIFICATION_ERROR', { id, error: err.message });
       Alert.alert(
         'Error',
         'No se pudo verificar las dependencias del departamento. Por seguridad, no se permitirá la eliminación.'
       );
+    }
+  };
+
+  // 🔒 SECURITY: Doble confirmación para eliminación
+  const handleDoubleConfirmDelete = () => {
+    if (deleteConfirmCount === 0) {
+      setDeleteConfirmCount(1);
+      Alert.alert(
+        '⚠️ Confirmación Requerida',
+        'Debes confirmar nuevamente haciendo clic en el botón de eliminar',
+        [{ text: 'Entendido', onPress: () => {} }]
+      );
+    } else {
+      // Segunda confirmación - proceder con eliminación
+      confirmDelete();
     }
   };
 
@@ -423,15 +719,26 @@ export default function GestionDepartamentosPage() {
     if (!departamentoToDelete) return;
 
     try {
+      // 🔒 SECURITY: Validate ID one more time before deletion
+      if (!SecurityUtils.validateNumberRange(departamentoToDelete, 1)) {
+        Alert.alert('Error', 'ID de departamento inválido para eliminación');
+        SecurityUtils.logSecurityEvent('INVALID_DELETE_ID_FINAL', { id: departamentoToDelete });
+        return;
+      }
+
       // ✅ ELIMINADO LÓGICO: actualizar activo a false
       await departamentoService.update(departamentoToDelete, { activo: false });
+
+      SecurityUtils.logSecurityEvent('DEPARTMENT_DELETED', { id: departamentoToDelete });
 
       setSuccessMessage('🗑️ Departamento eliminado correctamente');
       setShowSuccessMessage(true);
 
       // Cerrar modal de confirmación
       setShowDeleteModal(false);
+      setShowDeleteConfirmModal(false);
       setDepartamentoToDelete(null);
+      setDeleteConfirmCount(0);
 
       // Recargar lista (ahora sin el departamento eliminado)
       cargarDepartamentos();
@@ -442,6 +749,7 @@ export default function GestionDepartamentosPage() {
       }, 3000);
     } catch (err) {
       console.error('Error al eliminar:', err);
+      SecurityUtils.logSecurityEvent('DELETE_ERROR', { id: departamentoToDelete, error: err.message });
       const errorMessage = err?.message || err?.data?.message || 'No se pudo eliminar el departamento';
       Alert.alert('Error', errorMessage);
     }
@@ -449,7 +757,9 @@ export default function GestionDepartamentosPage() {
 
   const cancelDelete = () => {
     setShowDeleteModal(false);
+    setShowDeleteConfirmModal(false);
     setDepartamentoToDelete(null);
+    setDeleteConfirmCount(0);
   };
 
   const resetForm = () => {
@@ -467,6 +777,20 @@ export default function GestionDepartamentosPage() {
   };
 
   const handleInputChange = (field, value) => {
+    // 🔒 SECURITY: Prevent buffer overflow - Absolute limit of 1000 chars
+    if (value && value.length > 1000) {
+      SecurityUtils.logSecurityEvent('BUFFER_OVERFLOW_ATTEMPT', { field, length: value.length });
+      Alert.alert('⚠️ Límite de caracteres', `El campo ${field} no puede exceder 1000 caracteres`);
+      return;
+    }
+
+    // 🔒 SECURITY: Detect attacks on input change
+    if (value && (SecurityUtils.detectXssAttempt(value) || SecurityUtils.detectSqlInjection(value))) {
+      SecurityUtils.logSecurityEvent('SUSPICIOUS_INPUT_DETECTED', { field, value: value.substring(0, 50) });
+      Alert.alert('⚠️ Contenido Sospechoso', `Se detectó contenido potencialmente peligroso en ${field}`);
+      return;
+    }
+
     // Limpiar error del campo cuando el usuario escribe
     if (errors[field]) {
       setErrors({ ...errors, [field]: null });
@@ -476,7 +800,15 @@ export default function GestionDepartamentosPage() {
 
   // Sanitizar búsqueda para prevenir XSS
   const handleSearchChange = (text) => {
-    const sanitized = sanitizeInput(text);
+    // 🔒 SECURITY: Detect XSS/SQL injection in search
+    if (text && (SecurityUtils.detectXssAttempt(text) || SecurityUtils.detectSqlInjection(text))) {
+      SecurityUtils.logSecurityEvent('ATTACK_IN_SEARCH', { value: text.substring(0, 50) });
+      Alert.alert('⚠️ Búsqueda No Válida', 'Se detectó contenido potencialmente peligroso en la búsqueda');
+      setSearchTerm('');
+      return;
+    }
+
+    const sanitized = SecurityUtils.sanitizeInput(text);
     setSearchTerm(sanitized);
   };
 
@@ -1356,6 +1688,163 @@ export default function GestionDepartamentosPage() {
                       fontWeight: '700',
                     }}>
                       Entendido
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+
+          {/* ============ MODAL DE DOBLE CONFIRMACIÓN ============ */}
+          <Modal visible={showDeleteConfirmModal} animationType="fade" transparent>
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modal, { maxWidth: 450, padding: 0 }]}>
+
+                {/* Header del Modal */}
+                <View style={{
+                  padding: 24,
+                  borderBottomWidth: 1,
+                  borderBottomColor: 'rgba(239, 68, 68, 0.2)',
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                    <View style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: 16,
+                      backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      borderWidth: 2,
+                      borderColor: 'rgba(239, 68, 68, 0.4)',
+                    }}>
+                      <Ionicons name="shield-checkmark" size={32} color="#ef4444" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{
+                        fontSize: 20,
+                        fontWeight: '700',
+                        color: '#ef4444',
+                        marginBottom: 4,
+                      }}>
+                        🔐 Confirmación de Seguridad
+                      </Text>
+                      <Text style={{
+                        fontSize: 13,
+                        color: 'rgba(255, 255, 255, 0.6)',
+                      }}>
+                        {deleteConfirmCount === 0 ? 'Primera confirmación' : 'Final - ¡Última oportunidad!'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Contenido del Modal */}
+                <View style={{ padding: 24 }}>
+                  <Text style={{
+                    fontSize: 16,
+                    color: 'rgba(255, 255, 255, 0.9)',
+                    lineHeight: 24,
+                    marginBottom: 20,
+                  }}>
+                    {deleteConfirmCount === 0 
+                      ? '¿Realmente deseas eliminar este departamento? Esta es la PRIMERA confirmación.'
+                      : '⚠️ ESTA ES LA ÚLTIMA CONFIRMACIÓN. El departamento será eliminado permanentemente.'
+                    }
+                  </Text>
+
+                  <View style={{
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderLeftWidth: 4,
+                    borderLeftColor: '#ef4444',
+                    padding: 16,
+                    borderRadius: 8,
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                      <Ionicons name="alert-circle" size={20} color="#ef4444" style={{ marginTop: 2 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{
+                          fontSize: 14,
+                          fontWeight: '600',
+                          color: '#ef4444',
+                          marginBottom: 6,
+                        }}>
+                          {deleteConfirmCount === 0 ? 'Advertencia' : '⚠️ ÚLTIMO AVISO'}
+                        </Text>
+                        <Text style={{
+                          fontSize: 13,
+                          color: 'rgba(255, 255, 255, 0.7)',
+                          lineHeight: 20,
+                        }}>
+                          {deleteConfirmCount === 0 
+                            ? 'Debes confirmar dos veces seguidas para eliminar. Haz clic en "Eliminar" nuevamente.'
+                            : 'La acción es PERMANENTE y NO se puede deshacer. El departamento será eliminado del sistema inmediatamente.'
+                          }
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Footer del Modal */}
+                <View style={{
+                  flexDirection: 'row',
+                  gap: 12,
+                  padding: 24,
+                  paddingTop: 0,
+                }}>
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      paddingVertical: 14,
+                      borderRadius: 12,
+                      alignItems: 'center',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                    }}
+                    onPress={() => {
+                      setShowDeleteConfirmModal(false);
+                      setDeleteConfirmCount(0);
+                      setDepartamentoToDelete(null);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{
+                      color: 'rgba(255, 255, 255, 0.9)',
+                      fontSize: 15,
+                      fontWeight: '600',
+                    }}>
+                      Cancelar
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      backgroundColor: '#ef4444',
+                      paddingVertical: 14,
+                      borderRadius: 12,
+                      alignItems: 'center',
+                      flexDirection: 'row',
+                      justifyContent: 'center',
+                      gap: 8,
+                      shadowColor: '#ef4444',
+                      shadowOpacity: 0.4,
+                      shadowRadius: 8,
+                      shadowOffset: { width: 0, height: 4 },
+                      elevation: 6,
+                    }}
+                    onPress={handleDoubleConfirmDelete}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name={deleteConfirmCount === 0 ? "trash" : "warning"} size={18} color="white" />
+                    <Text style={{
+                      color: 'white',
+                      fontSize: 15,
+                      fontWeight: '700',
+                    }}>
+                      {deleteConfirmCount === 0 ? 'Eliminar' : 'Confirmar Eliminación'}
                     </Text>
                   </TouchableOpacity>
                 </View>

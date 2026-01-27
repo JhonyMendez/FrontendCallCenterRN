@@ -652,10 +652,13 @@ const GestionPerfilPage = () => {
                                                 </View>
                                                 <Text style={styles.infoLabelModerno}>Dirección</Text>
                                             </View>
-                                            <Text style={[
-                                                usuario?.persona?.direccion ? styles.infoValueModerno : styles.infoValueEmpty
-                                            ]}>
-                                                {SecurityValidator.sanitizeText(usuario?.persona?.direccion || 'No especificada')}
+                                            <Text 
+                                                style={[
+                                                    usuario?.persona?.direccion ? styles.infoValueModerno : styles.infoValueEmpty
+                                                ]}
+                                                numberOfLines={0}
+                                            >
+                                                {usuario?.persona?.direccion || 'No especificada'}
                                             </Text>
                                         </View>
                                     </View>
