@@ -195,7 +195,6 @@ export default function GestionMetricas() {
     // ==================== FUNCIÓN AUXILIAR: CARGAR AGENTES REALES ====================
     const cargarAgentesReales = async (estadisticasAgentes) => {
         try {
-
             // ✅ OBTENER TODOS LOS AGENTES DEL SISTEMA
             const todosLosAgentes = await agenteService.getAll({ activo: true });
 
@@ -216,37 +215,50 @@ export default function GestionMetricas() {
                 return [];
             }
 
-            // ✅ MAPEAR AGENTES CON ESTADÍSTICAS (si existen)
-            const agentesConEstadisticas = agentesArray.map(agente => {
-                // 🔍 Buscar estadísticas de este agente (si existen)
-                let stats = {};
+            // 🔥 OBTENER ESTADÍSTICAS DE MONGODB PARA CADA AGENTE
+            const agentesConEstadisticas = await Promise.all(
+                agentesArray.map(async (agente) => {
+                    try {
+                        // Llamar al endpoint de MongoDB con el id del agente
+                        const stats = await conversationMongoService.getStats(agente.id_agente);
+                        
+                        return {
+                            id: agente.id_agente,
+                            nombre: agente.nombre_agente || agente.nombre || 'Agente Desconocido',
+                            icono: agente.icono || '🤖',
+                            color: agente.color_tema || agente.color || '#667eea',
+                            area: agente.area_especialidad || agente.area || 'General',
+                            // Estadísticas de MongoDB
+                            conversacionesIniciadas: stats?.total_conversaciones || 0,
+                            mensajesEnviados: stats?.promedio_mensajes_por_conversacion * stats?.total_conversaciones || 0,
+                            satisfaccionPromedio: stats?.calificacion_promedio || 0,
+                            tasaResolucion: stats?.total_conversaciones > 0 ? 
+                                ((stats?.conversaciones_finalizadas || 0) / stats.total_conversaciones * 100) : 0,
+                            tiempoRespuestaPromedioMs: 0 // MongoDB no tiene este dato
+                        };
+                    } catch (error) {
+                        console.error(`❌ Error obteniendo stats del agente ${agente.id_agente}:`, error);
+                        // Retornar agente sin estadísticas si falla
+                        return {
+                            id: agente.id_agente,
+                            nombre: agente.nombre_agente || agente.nombre || 'Agente Desconocido',
+                            icono: agente.icono || '🤖',
+                            color: agente.color_tema || agente.color || '#667eea',
+                            area: agente.area_especialidad || agente.area || 'General',
+                            conversacionesIniciadas: 0,
+                            mensajesEnviados: 0,
+                            satisfaccionPromedio: 0,
+                            tasaResolucion: 0,
+                            tiempoRespuestaPromedioMs: 0
+                        };
+                    }
+                })
+            );
 
-                // Intentar encontrar estadísticas en diferentes estructuras posibles
-                if (estadisticasAgentes?.agentes_activos && Array.isArray(estadisticasAgentes.agentes_activos)) {
-                    stats = estadisticasAgentes.agentes_activos.find(
-                        a => a.id === agente.id_agente || a.id_agente === agente.id_agente
-                    ) || {};
-                } else if (Array.isArray(estadisticasAgentes)) {
-                    stats = estadisticasAgentes.find(
-                        a => a.id === agente.id_agente || a.id_agente === agente.id_agente
-                    ) || {};
-                }
-                // ✅ CONSTRUIR OBJETO CON DATOS DEL AGENTE + ESTADÍSTICAS
-                return {
-                    id: agente.id_agente,
-                    nombre: agente.nombre_agente || agente.nombre || 'Agente Desconocido',
-                    icono: agente.icono || '🤖',
-                    color: agente.color_tema || agente.color || '#667eea',
-                    area: agente.area_especialidad || agente.area || 'General',
-                    // Estadísticas (pueden ser 0 si no hay datos)
-                    conversacionesIniciadas: stats.conversaciones_iniciadas || 0,
-                    mensajesEnviados: stats.mensajes_enviados || 0,
-                    satisfaccionPromedio: stats.satisfaccion_promedio || 0,
-                    tasaResolucion: stats.tasa_resolucion || 0,
-                    tiempoRespuestaPromedioMs: stats.tiempo_respuesta_promedio_ms || 0
-                };
-            });
-            return agentesConEstadisticas;
+            // 🔥 ORDENAR POR CONVERSACIONES (de mayor a menor)
+            return agentesConEstadisticas.sort((a, b) => 
+                b.conversacionesIniciadas - a.conversacionesIniciadas
+            );
 
         } catch (error) {
             console.error('❌ Error en cargarAgentesReales:', error);
