@@ -40,7 +40,7 @@ export const escalamientoService = {
   },
 
   /**
-   * 🔥 NUEVO: Listar conversaciones asignadas a UN funcionario específico
+   * Listar conversaciones asignadas a UN funcionario específico
    * @param {number} idUsuario - ID del funcionario
    * @param {Object} params - Parámetros adicionales
    * @param {boolean} params.solo_activas - Solo conversaciones activas/escaladas
@@ -74,7 +74,7 @@ export const escalamientoService = {
   },
 
   /**
-   * 🔥 NUEVO: Funcionario "toma" una conversación sin asignar
+   * Funcionario "toma" una conversación sin asignar
    * @param {string} sessionId - ID de la sesión
    * @param {Object} data - Datos del funcionario
    * @param {number} data.id_usuario - ID del funcionario
@@ -100,7 +100,7 @@ export const escalamientoService = {
   },
 
   /**
-   * 🔥 NUEVO: Transferir conversación a otro funcionario
+   * Transferir conversación a otro funcionario
    * @param {string} sessionId - ID de la sesión
    * @param {Object} data - Datos de la transferencia
    * @param {number} data.id_usuario_destino - ID del funcionario destino
@@ -130,7 +130,7 @@ export const escalamientoService = {
   // ============================================
 
   /**
-   * 🔥 NUEVO: Obtener estadísticas generales de escalamiento
+   * Obtener estadísticas generales de escalamiento
    * @param {Object} params - Parámetros
    * @param {number} params.id_departamento - Filtrar por departamento (opcional)
    * @param {number} params.dias - Últimos N días (default: 7)
@@ -150,7 +150,7 @@ export const escalamientoService = {
   },
 
   /**
-   * 🔥 NUEVO: Obtener estadísticas personales de un funcionario
+   * Obtener estadísticas personales de un funcionario
    * @param {number} idUsuario - ID del funcionario
    * @param {Object} params - Parámetros adicionales
    * @param {number} params.dias - Últimos N días (default: 7)
@@ -202,7 +202,7 @@ export const escalamientoService = {
   },
 
   /**
-   * 🔥 NUEVO: Marcar todas las notificaciones como leídas
+   * Marcar todas las notificaciones como leídas
    * @param {number} idUsuario - ID del funcionario
    */
   marcarTodasLeidas: async (idUsuario) => {
@@ -218,7 +218,7 @@ export const escalamientoService = {
   // ============================================
 
   /**
-   * 🔥 NUEVO: Obtener lista de funcionarios disponibles para transferencia
+   * Obtener lista de funcionarios disponibles para transferencia
    * @param {Object} params - Parámetros
    * @param {number} params.id_departamento - Filtrar por departamento (opcional)
    */
@@ -230,6 +230,74 @@ export const escalamientoService = {
     }
 
     const endpoint = `${ENDPOINTS.ESCALAMIENTO.FUNCIONARIOS_DISPONIBLES}?${query.toString()}`;
+    return await apiClient.get(endpoint);
+  },
+
+  // ============================================
+  // 🔥 NUEVOS: DISPONIBILIDAD DE FUNCIONARIOS
+  // ============================================
+
+  /**
+   * 🔥 NUEVO: Cambiar estado de disponibilidad del funcionario
+   * @param {number} idUsuario - ID del funcionario
+   * @param {boolean} disponible - true (disponible) o false (no disponible)
+   * @returns {Promise} Respuesta con estado actualizado
+   * 
+   * @example
+   * // Marcar como disponible al iniciar turno
+   * await escalamientoService.cambiarDisponibilidad(5, true);
+   * 
+   * // Marcar como no disponible al terminar turno
+   * await escalamientoService.cambiarDisponibilidad(5, false);
+   */
+  cambiarDisponibilidad: async (idUsuario, disponible) => {
+    return await apiClient.post(
+      ENDPOINTS.ESCALAMIENTO.CAMBIAR_DISPONIBILIDAD(idUsuario),
+      { disponible }
+    );
+  },
+
+  /**
+   * 🔥 NUEVO: Obtener estado actual de disponibilidad de un funcionario
+   * @param {number} idUsuario - ID del funcionario
+   * @returns {Promise} Estado de disponibilidad
+   * 
+   * @example
+   * const response = await escalamientoService.getEstadoDisponibilidad(5);
+   * console.log(response.disponible); // true o false
+   * console.log(response.puede_recibir_conversaciones); // true si puede recibir
+   */
+  getEstadoDisponibilidad: async (idUsuario) => {
+    return await apiClient.get(
+      ENDPOINTS.ESCALAMIENTO.ESTADO_DISPONIBILIDAD(idUsuario)
+    );
+  },
+
+  /**
+   * 🔥 NUEVO: Listar funcionarios disponibles AHORA
+   * @param {Object} params - Parámetros
+   * @param {number} params.id_departamento - Filtrar por departamento (opcional)
+   * @param {number} params.limite - Número máximo de resultados
+   * @returns {Promise} Lista de funcionarios disponibles
+   * 
+   * @example
+   * // Listar todos los disponibles
+   * const response = await escalamientoService.getFuncionariosDisponiblesAhora();
+   * 
+   * // Listar solo del departamento 3
+   * const response = await escalamientoService.getFuncionariosDisponiblesAhora({ id_departamento: 3 });
+   */
+  getFuncionariosDisponiblesAhora: async (params = {}) => {
+    const query = new URLSearchParams();
+
+    if (params.id_departamento !== undefined && params.id_departamento !== null) {
+      query.append('id_departamento', params.id_departamento);
+    }
+    if (params.limite !== undefined) {
+      query.append('limite', params.limite);
+    }
+
+    const endpoint = `${ENDPOINTS.ESCALAMIENTO.FUNCIONARIOS_DISPONIBLES_AHORA}?${query.toString()}`;
     return await apiClient.get(endpoint);
   },
 
@@ -285,11 +353,11 @@ export const escalamientoService = {
    */
   puedeTomar: (conversacion, idUsuario) => {
     // No puede tomar si ya está asignada
-    if (conversacion.escalado_a_usuario_id) {
+    if (conversacion.escaladoAId) {
       return false;
     }
     // No puede tomar si está finalizada
-    if (conversacion.estado === 'finalizada') {
+    if (conversacion.estado === 'cerrada') {
       return false;
     }
     return true;
@@ -303,11 +371,11 @@ export const escalamientoService = {
    */
   puedeTransferir: (conversacion, idUsuario) => {
     // Solo puede transferir si está asignada a él
-    if (conversacion.escalado_a_usuario_id !== idUsuario) {
+    if (conversacion.escaladoAId !== idUsuario) {
       return false;
     }
     // No puede transferir si está finalizada
-    if (conversacion.estado === 'finalizada') {
+    if (conversacion.estado === 'cerrada') {
       return false;
     }
     return true;

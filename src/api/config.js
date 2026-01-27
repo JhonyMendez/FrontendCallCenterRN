@@ -7,7 +7,7 @@ const getBaseURL = () => {
   const API_PATH = '/api/v1';
   
   // 🔧 CONFIGURACIÓN DE IPs Y URLs
-  const LOCAL_IP = '192.168.5.9'; 
+  const LOCAL_IP = '192.168.18.193'; 
   const LOCAL_PORT = '8000';
   const NGROK_URL = 'https://untranscribable-nonhedonistically-stetson.ngrok-free.dev';
   
@@ -76,6 +76,29 @@ export const ENDPOINTS = {
     FINALIZAR: (id) => `/conversaciones/${id}/finalizar`,
     DERIVAR: (id, nuevoId) => `/conversaciones/${id}/derivar/${nuevoId}`,
     MENSAJES: (id) => `/conversaciones/${id}/mensajes`,
+  },
+
+  CONVERSACIONES_MONGO: {
+    BASE: '/conversations',
+    BY_SESSION_ID: (sessionId) => `/conversations/${sessionId}`,
+    
+    // Mensajes
+    ADD_MESSAGE: (sessionId) => `/conversations/${sessionId}/messages`,
+    GET_MESSAGES: (sessionId) => `/conversations/${sessionId}/messages`,
+    
+    // Estadísticas
+    STATS_OVERVIEW: '/conversations/stats/overview',
+    STATS_AGENT: (idAgente) => `/conversations/stats/agent/${idAgente}`,
+    
+    // Gestión de estados
+    FINALIZE: (sessionId) => `/conversations/${sessionId}/finalize`,
+    ESCALATE: (sessionId) => `/conversations/${sessionId}/escalate`,
+    RATING: (sessionId) => `/conversations/${sessionId}/rating`,
+    
+    // Utilidades
+    INACTIVE: '/conversations/inactive/list',
+    OBTAIN_OR_CREATE: '/conversations/obtain-or-create',
+    EXPORT_EXCEL: '/conversations/export/excel',
   },
 
   // Departamentos
@@ -198,6 +221,11 @@ export const ENDPOINTS = {
 
     // Utilidades
     FUNCIONARIOS_DISPONIBLES: '/escalamiento/funcionarios-disponibles',
+    
+    // 🔥 NUEVOS: Disponibilidad de Funcionarios
+    CAMBIAR_DISPONIBILIDAD: (idUsuario) => `/escalamiento/funcionario/${idUsuario}/cambiar-disponibilidad`,
+    ESTADO_DISPONIBILIDAD: (idUsuario) => `/escalamiento/funcionario/${idUsuario}/estado-disponibilidad`,
+    FUNCIONARIOS_DISPONIBLES_AHORA: '/escalamiento/funcionarios/disponibles-ahora',
   },
 
   // Usuario-Roles

@@ -1,4 +1,6 @@
 // src/pages/Funcionario/GestionConversacionesPage.js
+// 🔥 VERSIÓN CON NOTIFICACIONES Y SONIDO
+
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -16,12 +18,15 @@ import {
   View
 } from 'react-native';
 import { escalamientoService } from '../../api/services/escalamientoService';
+import notificacionService from '../../api/services/notificacionService'; // 🔥 NUEVO
 import { DetalleConversacionCard } from '../../components/Funcionario/DetalleConversacionCard';
+import DisponibilidadToggle from '../../components/Funcionario/DisponibilidadToggle';
 import { GestionConversacionesCard } from '../../components/Funcionario/GestionConversacionesCard';
 import NotificacionesBadge from '../../components/Funcionario/NotificacionesBadge';
 import FuncionarioSidebar from '../../components/Sidebar/sidebarFuncionario';
 import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles';
 import { getUserIdFromToken } from '../../components/utils/authHelper';
+import { useNotificaciones } from '../../hooks/useNotificaciones'; // 🔥 NUEVO
 
 const GestionConversacionesPage = () => {
   const router = useRouter();
@@ -40,10 +45,18 @@ const GestionConversacionesPage = () => {
   const [mostrarModalTransferir, setMostrarModalTransferir] = useState(false);
   const [funcionariosDisponibles, setFuncionariosDisponibles] = useState([]);
 
-  // 🔥 Estado de usuario autenticado
+  // Estado de usuario autenticado
   const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState('Usuario');
   const [userDepartment, setUserDepartment] = useState(null);
+  const [disponible, setDisponible] = useState(false); // 🔥 NUEVO: Estado de disponibilidad
+
+  // 🔥 NUEVO: Hook de notificaciones
+  const {
+    notificacionesPendientes,
+    marcarVistas,
+    verificarAhora,
+  } = useNotificaciones(userId, disponible, 15000); // Solo si está disponible
 
   const isWeb = Platform.OS === 'web';
   const flatListRef = useRef(null);
@@ -59,7 +72,7 @@ const GestionConversacionesPage = () => {
           setUserId(id);
           console.log('✅ Usuario autenticado:', id);
 
-          // TODO: Aquí podrías hacer un request adicional para obtener nombre y departamento
+          // TODO: Obtener nombre y departamento del backend
           // const userData = await usuarioService.getMiPerfil();
           // setUserName(userData.nombre);
           // setUserDepartment(userData.id_departamento);
@@ -106,34 +119,15 @@ const GestionConversacionesPage = () => {
       let response;
 
       if (vistaActual === 'mis') {
-        // 🔥 NUEVO: Cargar solo MIS conversaciones asignadas
         response = await escalamientoService.getMisConversaciones(userId, {
           solo_activas: filtroEstado !== 'resueltas',
           limite: 50
         });
-
-        console.log('============ DIAGNÓSTICO MIS CONVERSACIONES ============');
-        console.log('🔍 userId buscado:', userId);
-        console.log('🔍 Tipo de userId:', typeof userId);
-        console.log('🔍 Response success:', response.success);
-        console.log('🔍 Total conversaciones recibidas:', response.conversaciones?.length);
-        console.log('🔍 Response COMPLETO:', response); // ← AGREGAR ESTA LÍNEA
-        console.log('========================================================');
-
       } else {
-        // Cargar TODAS las conversaciones del departamento
         response = await escalamientoService.getAllEscaladas({
           solo_pendientes: filtroEstado === 'pendientes',
           id_departamento: userDepartment
         });
-
-        console.log('============ DIAGNÓSTICO TODAS LAS CONVERSACIONES ============');
-        console.log('🔍 Total conversaciones:', response.conversaciones?.length);
-        console.log('🔍 Conversaciones con escalado_a_usuario_id:',
-          response.conversaciones?.filter(c => c.escalado_a_usuario_id === userId).length
-        );
-        console.log('🔍 Ejemplo de conversación:', response.conversaciones?.[0]);
-        console.log('================================================================');
       }
 
       if (response.success) {
@@ -156,16 +150,6 @@ const GestionConversacionesPage = () => {
           requiereAtencion: conv.requiere_atencion || false
         }));
 
-        console.log('🔍 Conversaciones formateadas:', conversacionesFormateadas.map(c => ({
-          codigo: c.codigo,
-          escaladoAId: c.escaladoAId,
-          tipo_escaladoAId: typeof c.escaladoAId,
-          userId_actual: userId,
-          tipo_userId: typeof userId,
-          coincide: c.escaladoAId === userId
-        })));
-
-        // Filtrar adicional si es necesario
         let conversacionesFiltradas = conversacionesFormateadas;
 
         if (filtroEstado === 'resueltas') {
@@ -174,14 +158,6 @@ const GestionConversacionesPage = () => {
           conversacionesFiltradas = conversacionesFormateadas.filter(c => c.estado !== 'cerrada');
         }
 
-
-        console.log('🔍 Después de filtros:', {
-          formateadas: conversacionesFormateadas.length,
-          filtradas: conversacionesFiltradas.length,
-          filtroEstado: filtroEstado
-        });
-
-        // Ordenar por prioridad
         const conversacionesOrdenadas = escalamientoService.ordenarPorPrioridad(conversacionesFiltradas);
 
         setConversaciones(conversacionesOrdenadas);
@@ -250,10 +226,12 @@ const GestionConversacionesPage = () => {
       });
 
       if (response.success) {
+        // 🔥 Reproducir sonido de éxito
+        await notificacionService.soloSonido('mensaje');
+        
         Alert.alert('✅ Éxito', 'Conversación asignada a ti');
         cargarConversaciones();
 
-        // Si estamos viendo el detalle, refrescar
         if (conversacionSeleccionada?.sessionId === conversacion.sessionId) {
           cargarDetalleConversacion(conversacion.sessionId);
         }
@@ -303,7 +281,6 @@ const GestionConversacionesPage = () => {
       setMensajeTexto('');
       await cargarDetalleConversacion(conversacionSeleccionada.sessionId, true);
 
-      // Scroll al final después de enviar
       setTimeout(() => scrollToEnd(), 200);
     } catch (error) {
       console.error('Error enviando mensaje:', error);
@@ -341,7 +318,6 @@ const GestionConversacionesPage = () => {
       });
 
       if (response.success) {
-        // Filtrar al usuario actual
         const funcionarios = response.funcionarios.filter(f => f.id_usuario !== userId);
         setFuncionariosDisponibles(funcionarios);
         setMostrarModalTransferir(true);
@@ -349,6 +325,17 @@ const GestionConversacionesPage = () => {
     } catch (error) {
       console.error('Error cargando funcionarios:', error);
       Alert.alert('Error', 'No se pudieron cargar los funcionarios disponibles');
+    }
+  };
+
+  // 🔥 NUEVO: Callback cuando cambia disponibilidad
+  const handleDisponibilidadCambiada = (nuevoEstado, response) => {
+    console.log('✅ Disponibilidad cambiada:', nuevoEstado);
+    setDisponible(nuevoEstado);
+    
+    if (nuevoEstado) {
+      // Verificar notificaciones al activarse
+      verificarAhora();
     }
   };
 
@@ -398,12 +385,14 @@ const GestionConversacionesPage = () => {
   const handleRefresh = () => {
     setRefreshing(true);
     cargarConversaciones();
+    verificarAhora(); // 🔥 Verificar notificaciones también
   };
 
   const handleVerConversacion = (conversacion) => {
     setConversacionSeleccionada(conversacion);
     setMensajeTexto('');
     cargarDetalleConversacion(conversacion.sessionId);
+    marcarVistas(); // 🔥 Marcar notificaciones como vistas
   };
 
   const handleVolverLista = () => {
@@ -421,7 +410,6 @@ const GestionConversacionesPage = () => {
         if (conv) {
           handleVerConversacion(conv);
         } else {
-          // Si no está en la lista, intentar cargarla directamente
           cargarDetalleConversacion(sessionId);
         }
       }
@@ -435,19 +423,35 @@ const GestionConversacionesPage = () => {
     const renderHeader = () => (
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <View>
+          <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>Conversaciones Escaladas</Text>
             <Text style={styles.headerSubtitle}>
               {conversaciones.length} conversación{conversaciones.length !== 1 ? 'es' : ''}
+              {/* 🔥 NUEVO: Mostrar notificaciones pendientes */}
+              {notificacionesPendientes > 0 && (
+                <Text style={styles.headerSubtitleAlert}>
+                  {' '}• {notificacionesPendientes} nueva{notificacionesPendientes !== 1 ? 's' : ''}
+                </Text>
+              )}
             </Text>
           </View>
-          <NotificacionesBadge
-            userId={userId}
-            onNotificacionPress={handleNotificacionPress}
-          />
+          
+          <View style={styles.headerActions}>
+            {/* 🔥 Toggle de Disponibilidad con texto */}
+            <DisponibilidadToggle
+              userId={userId}
+              onEstadoCambiado={handleDisponibilidadCambiada}
+              compacto={true}
+            />
+            
+            <NotificacionesBadge
+              userId={userId}
+              onNotificacionPress={handleNotificacionPress}
+            />
+          </View>
         </View>
 
-        {/* 🔥 NUEVO: Selector de vista */}
+        {/* Selector de vista */}
         <View style={styles.vistaContainer}>
           <TouchableOpacity
             style={[styles.vistaButton, vistaActual === 'mis' && styles.vistaButtonActive]}
@@ -572,7 +576,7 @@ const GestionConversacionesPage = () => {
   };
 
   // ============================================
-  // RENDER DETALLE
+  // RENDER DETALLE (igual que antes, sin cambios)
   // ============================================
   const renderDetalle = () => {
     const esPropia = conversacionSeleccionada?.escaladoAId === userId;
@@ -584,7 +588,6 @@ const GestionConversacionesPage = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        {/* Header Detalle */}
         <View style={styles.detalleHeader}>
           <TouchableOpacity onPress={handleVolverLista} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#1F2937" />
@@ -602,7 +605,6 @@ const GestionConversacionesPage = () => {
             </Text>
           </View>
 
-          {/* 🔥 Botones de acción */}
           <View style={styles.detalleHeaderActions}>
             {puedeTransferir && (
               <TouchableOpacity
@@ -625,7 +627,6 @@ const GestionConversacionesPage = () => {
           </View>
         </View>
 
-        {/* Indicador de prioridad */}
         {conversacionSeleccionada.tiempoEspera && (
           <View style={[
             styles.prioridadBanner,
@@ -645,7 +646,6 @@ const GestionConversacionesPage = () => {
           </View>
         )}
 
-        {/* Mensajes */}
         {loadingDetalle ? (
           <View style={styles.loadingDetalle}>
             <ActivityIndicator size="large" color="#4A90E2" />
@@ -661,7 +661,6 @@ const GestionConversacionesPage = () => {
           />
         )}
 
-        {/* Input - solo si es propia y no está cerrada */}
         {esPropia && conversacionSeleccionada.estado !== 'cerrada' && (
           <View style={styles.inputContainer}>
             <TextInput
@@ -711,8 +710,6 @@ const GestionConversacionesPage = () => {
 
   return (
     <View style={contentStyles.wrapper}>
-
-      {/* ============ SIDEBAR SOLO EN WEB ============ */}
       {isWeb && (
         <FuncionarioSidebar
           isOpen={sidebarOpen}
@@ -721,10 +718,8 @@ const GestionConversacionesPage = () => {
         />
       )}
 
-      {/* ============ SIDEBAR MÓVIL CON OVERLAY ============ */}
       {!isWeb && sidebarOpen && (
         <>
-          {/* Overlay oscuro */}
           <TouchableOpacity
             style={{
               position: 'absolute',
@@ -739,7 +734,6 @@ const GestionConversacionesPage = () => {
             activeOpacity={1}
           />
 
-          {/* Sidebar deslizante */}
           <View
             style={{
               position: 'absolute',
@@ -759,7 +753,6 @@ const GestionConversacionesPage = () => {
         </>
       )}
 
-      {/* ============ BOTÓN TOGGLE SIDEBAR ============ */}
       {!conversacionSeleccionada && (
         <TouchableOpacity
           style={{
@@ -792,7 +785,6 @@ const GestionConversacionesPage = () => {
         {conversacionSeleccionada ? renderDetalle() : renderLista()}
       </View>
 
-      {/* Modales */}
       {mostrarModalResolver && (
         <ModalResolverConversacion
           visible={mostrarModalResolver}
@@ -814,7 +806,7 @@ const GestionConversacionesPage = () => {
 };
 
 // ============================================
-// MODAL RESOLVER
+// MODALES (sin cambios, igual que antes)
 // ============================================
 const ModalResolverConversacion = ({ visible, onClose, onConfirmar }) => {
   const [calificacion, setCalificacion] = useState(null);
@@ -870,9 +862,6 @@ const ModalResolverConversacion = ({ visible, onClose, onConfirmar }) => {
   );
 };
 
-// ============================================
-// 🔥 NUEVO: MODAL TRANSFERIR
-// ============================================
 const ModalTransferirConversacion = ({ visible, funcionarios, onClose, onConfirmar }) => {
   const [funcionarioSeleccionado, setFuncionarioSeleccionado] = useState(null);
   const [motivo, setMotivo] = useState('');
@@ -938,7 +927,7 @@ const ModalTransferirConversacion = ({ visible, funcionarios, onClose, onConfirm
 };
 
 // ============================================
-// ESTILOS (continúa en siguiente mensaje debido a límite)
+// ESTILOS
 // ============================================
 const styles = StyleSheet.create({
   container: {
@@ -970,6 +959,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 16,
   },
+  headerTitleContainer: {
+    flex: 1,
+  },
   headerTitle: {
     fontSize: 24,
     fontWeight: '700',
@@ -980,7 +972,16 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 4
   },
-  // 🔥 NUEVOS: Vista selector
+  // 🔥 NUEVO: Alerta en subtítulo
+  headerSubtitleAlert: {
+    color: '#EF4444',
+    fontWeight: '600',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   vistaContainer: {
     flexDirection: 'row',
     gap: 8,
@@ -1062,7 +1063,7 @@ const styles = StyleSheet.create({
     color: '#6B7280'
   },
 
-  // Estilos Detalle
+  // Detalle
   detalleContainer: {
     flex: 1,
     backgroundColor: '#F3F4F6'
@@ -1114,7 +1115,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14
   },
-  // 🔥 NUEVO: Banner de prioridad
   prioridadBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1214,7 +1214,6 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     minHeight: 80
   },
-  // 🔥 NUEVOS: Estilos para lista de funcionarios
   funcionariosList: {
     maxHeight: 250,
     marginBottom: 12,
