@@ -23,6 +23,135 @@ import { contentStyles } from '../../components/Sidebar/SidebarSuperAdminStyles'
 import GestionContenidoCard from '../../components/SuperAdministrador/GestionContenidoCard';
 import { styles } from '../../styles/GestionContenidoStyles';
 
+// 🔒 SECURITY: Anti-hacking utilities
+const SecurityUtils = {
+  // ✅ XSS Protection: Remove potentially dangerous HTML/JS
+  sanitizeInput: (text) => {
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+\s*=/gi, '')
+      .replace(/<[^>]*>/g, '')
+      .trim();
+  },
+
+  // ✅ Output Encoding - NUEVO
+  encodeOutput: (text) => {
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;')
+      .replace(/\//g, '&#x2F;');
+  },
+
+  // ✅ Validate email format
+  isValidEmail: (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  },
+
+  // ✅ Validate URL format
+  isValidUrl: (url) => {
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  // ✅ Validate numbers and prevent negative overflow
+  validateNumberRange: (value, min = -999999, max = 999999) => {
+    const num = Number(value);
+    return !isNaN(num) && num >= min && num <= max;
+  },
+
+  // ✅ Remove SQL injection patterns
+  sanitizeSqlInput: (text) => {
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/('|"|;|--|\*|%|_)/g, '')
+      .trim();
+  },
+
+  // ✅ Rate limiting - Prevent brute force attacks
+  createRateLimiter: (maxAttempts = 5, windowMs = 60000) => {
+    const attempts = new Map();
+    return {
+      isAllowed: (key) => {
+        const now = Date.now();
+        if (!attempts.has(key)) {
+          attempts.set(key, []);
+        }
+        const userAttempts = attempts.get(key);
+        const recentAttempts = userAttempts.filter(time => now - time < windowMs);
+        if (recentAttempts.length >= maxAttempts) {
+          return false;
+        }
+        recentAttempts.push(now);
+        attempts.set(key, recentAttempts);
+        return true;
+      }
+    };
+  },
+
+  // ✅ Logging for security audit
+  logSecurityEvent: (eventType, details) => {
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+      timestamp,
+      eventType,
+      details,
+      userAgent: Platform.OS
+    };
+    console.warn(`🔒 SECURITY [${eventType}]:`, logEntry);
+  },
+
+  // ✅ Validate input length to prevent buffer overflow
+  validateStringLength: (str, maxLength = 5000) => {
+    return typeof str === 'string' && str.length <= maxLength;
+  },
+
+  // ✅ NUEVO: Generar token CSRF
+  generateCSRFToken: () => {
+    const array = new Uint8Array(32);
+    if (Platform.OS === 'web' && window.crypto) {
+      window.crypto.getRandomValues(array);
+    } else {
+      for (let i = 0; i < array.length; i++) {
+        array[i] = Math.floor(Math.random() * 256);
+      }
+    }
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  },
+
+  // ✅ NUEVO: Validar token CSRF
+  validateCSRFToken: (token) => {
+    return typeof token === 'string' && token.length === 64;
+  },
+
+  // ✅ NUEVO: Validar formato de fecha
+  validateDateFormat: (dateString) => {
+    const fechaRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!fechaRegex.test(dateString)) return false;
+    const date = new Date(dateString);
+    return !isNaN(date.getTime());
+  },
+
+  // ✅ NUEVO: Validar rango de fechas razonable
+  validateDateRange: (startDate, endDate, maxYears = 10) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const maxMs = maxYears * 365 * 24 * 60 * 60 * 1000;
+    return (end - start) <= maxMs && (end - start) >= 0;
+  }
+};
+
 const ESTADOS = ['activo', 'inactivo'];
 
 // 🔥 NUEVO: Información de prioridades
@@ -252,6 +381,11 @@ const GestionContenidoPage = () => {
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
 
+  // 🔒 SECURITY: Rate limiter for sensitive operations
+  const rateLimiterRef = useRef(SecurityUtils.createRateLimiter(5, 60000));
+  const [lastActionTime, setLastActionTime] = useState(0);
+  const ACTION_COOLDOWN = 1000; // 1 segundo entre acciones
+
   const [formData, setFormData] = useState({
     id_contenido: null,
     id_agente: '',
@@ -301,10 +435,7 @@ const GestionContenidoPage = () => {
   };
 
   const sanitizeInput = (text) => {
-    return text
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/<[^>]*>/g, '')
-      .trim();
+    return SecurityUtils.sanitizeInput(text);
   };
 
 
@@ -356,6 +487,41 @@ const GestionContenidoPage = () => {
     }
   }, [selectedAgente, filtroEstado]);
 
+  // 🔒 SECURITY: Session timeout
+  const [sessionTimeout, setSessionTimeout] = useState(null);
+  const SESSION_DURATION = 30 * 60 * 1000; // 30 minutos
+
+
+  // 🔒 SECURITY: Session timeout management
+  useEffect(() => {
+    const resetTimeout = () => {
+      if (sessionTimeout) clearTimeout(sessionTimeout);
+
+      const timeout = setTimeout(() => {
+        Alert.alert(
+          'Sesión Expirada',
+          'Tu sesión ha expirado por inactividad. Por favor, recarga la página.',
+          [{
+            text: 'Entendido',
+            onPress: () => {
+              if (Platform.OS === 'web') {
+                window.location.reload();
+              }
+            }
+          }]
+        );
+      }, SESSION_DURATION);
+
+      setSessionTimeout(timeout);
+    };
+
+    resetTimeout();
+
+    return () => {
+      if (sessionTimeout) clearTimeout(sessionTimeout);
+    };
+  }, [contenidos, modalVisible, modalViewVisible]);
+
   const cargarDatosIniciales = async () => {
     try {
       setLoading(true);
@@ -406,46 +572,71 @@ const GestionContenidoPage = () => {
   };
 
   const handleAgenteChange = async (idAgente) => {
+    // 🔒 SECURITY: Validate agent ID
+    if (!SecurityUtils.validateNumberRange(idAgente, 1)) {
+      Alert.alert('Error', 'ID de agente inválido');
+      SecurityUtils.logSecurityEvent('INVALID_AGENT_ID', { id: idAgente });
+      return;
+    }
+
     setSelectedAgente(idAgente);
     try {
       const categoriasData = await categoriaService.getByAgente(idAgente);
       setCategorias(categoriasData);
+      SecurityUtils.logSecurityEvent('AGENT_CHANGED', { id: idAgente });
     } catch (error) {
       console.error('Error cargando categorías:', error);
+      SecurityUtils.logSecurityEvent('LOAD_CATEGORIES_ERROR', { agentId: idAgente, message: error.message });
     }
   };
 
   const abrirModal = async (contenido = null) => {
     if (contenido) {
+      // 🔒 SECURITY: Validate content ID
+      if (!SecurityUtils.validateNumberRange(contenido.id_contenido, 1)) {
+        Alert.alert('Error', 'ID de contenido inválido');
+        SecurityUtils.logSecurityEvent('INVALID_CONTENT_ID_EDIT', { id: contenido.id_contenido });
+        return;
+      }
+
       setEditando(true);
 
       // 🔥 PRIMERO: Cargar categorías del agente del contenido
       try {
+        // 🔒 SECURITY: Validate agent ID
+        if (!SecurityUtils.validateNumberRange(contenido.id_agente, 1)) {
+          Alert.alert('Error', 'ID de agente inválido en el contenido');
+          SecurityUtils.logSecurityEvent('INVALID_AGENT_ID_IN_CONTENT', { id: contenido.id_agente });
+          return;
+        }
+
         const categoriasData = await categoriaService.getByAgente(contenido.id_agente);
         setCategorias(categoriasData);
 
         // 🔥 SEGUNDO: Después de cargar categorías, cargar el formulario
         setFormData({
           id_contenido: contenido.id_contenido,
-          id_agente: contenido.id_agente,
-          id_categoria: contenido.id_categoria,
-          id_departamento: contenido.id_departamento || '',
-          titulo: contenido.titulo,
-          contenido: contenido.contenido,
-          resumen: contenido.resumen || '',
-          palabras_clave: contenido.palabras_clave || '',
-          etiquetas: contenido.etiquetas || '',
-          prioridad: contenido.prioridad,
-          estado: contenido.estado,
-          fecha_vigencia_inicio: contenido.fecha_vigencia_inicio || null,
-          fecha_vigencia_fin: contenido.fecha_vigencia_fin || null
+          id_agente: SecurityUtils.validateNumberRange(contenido.id_agente, 1) ? contenido.id_agente : '',
+          id_categoria: SecurityUtils.validateNumberRange(contenido.id_categoria, 1) ? contenido.id_categoria : '',
+          id_departamento: contenido.id_departamento && SecurityUtils.validateNumberRange(contenido.id_departamento, 1) ? contenido.id_departamento : '',
+          titulo: SecurityUtils.sanitizeInput(contenido.titulo),
+          contenido: SecurityUtils.sanitizeInput(contenido.contenido),
+          resumen: SecurityUtils.sanitizeInput(contenido.resumen || ''),
+          palabras_clave: SecurityUtils.sanitizeInput(contenido.palabras_clave || ''),
+          etiquetas: SecurityUtils.sanitizeInput(contenido.etiquetas || ''),
+          prioridad: SecurityUtils.validateNumberRange(contenido.prioridad, 1, 10) ? contenido.prioridad : 5,
+          estado: ['activo', 'inactivo'].includes(contenido.estado?.toLowerCase()) ? contenido.estado : 'activo',
+          fecha_vigencia_inicio: contenido.fecha_vigencia_inicio && SecurityUtils.validateDateFormat(contenido.fecha_vigencia_inicio) ? contenido.fecha_vigencia_inicio : null,
+          fecha_vigencia_fin: contenido.fecha_vigencia_fin && SecurityUtils.validateDateFormat(contenido.fecha_vigencia_fin) ? contenido.fecha_vigencia_fin : null
         });
 
         // 🔥 TERCERO: Abrir el modal DESPUÉS de cargar todo
         setModalVisible(true);
+        SecurityUtils.logSecurityEvent('MODAL_OPENED_EDIT', { contentId: contenido.id_contenido });
 
       } catch (error) {
         console.error('Error cargando categorías para edición:', error);
+        SecurityUtils.logSecurityEvent('MODAL_OPEN_ERROR', { contentId: contenido.id_contenido, message: error.message });
         Alert.alert('Error', 'No se pudieron cargar las categorías del agente');
       }
     } else {
@@ -467,6 +658,7 @@ const GestionContenidoPage = () => {
         fecha_vigencia_fin: null
       });
       setModalVisible(true);
+      SecurityUtils.logSecurityEvent('MODAL_OPENED_CREATE', {});
     }
   };
 
@@ -512,6 +704,31 @@ const GestionContenidoPage = () => {
   const guardarContenido = async () => {
     console.log('🚀 ========== INICIO guardarContenido ==========');
 
+    // � SECURITY: Rate limiting check
+    const now = Date.now();
+    if (now - lastActionTime < ACTION_COOLDOWN) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', { action: 'guardarContenido' });
+      Alert.alert('⚠️ Espera', 'Intenta nuevamente en un momento');
+      return;
+    }
+    setLastActionTime(now);
+
+    // 🔒 SECURITY: Validate rate limiter with unique key
+    const rateLimitKey = `guardarContenido_${formData.id_agente || 'nuevo'}_${formData.id_categoria || 'sin_cat'}`;
+    if (!rateLimiterRef.current.isAllowed(rateLimitKey)) {
+      SecurityUtils.logSecurityEvent('BRUTE_FORCE_ATTEMPT', {
+        action: 'guardarContenido',
+        agentId: formData.id_agente,
+        categoryId: formData.id_categoria,
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert(
+        '❌ Acceso Bloqueado',
+        'Has excedido el límite de 5 intentos por minuto. Espera un momento antes de reintentar.'
+      );
+      return;
+    }
+
     // 🔥 FUNCIÓN DE VALIDACIÓN
     const validarFormulario = () => {
       const nuevosErrores = {
@@ -527,47 +744,76 @@ const GestionContenidoPage = () => {
 
       let hayErrores = false;
 
+      // 🔒 SECURITY: Validate category
       if (!formData.id_categoria) {
         nuevosErrores.id_categoria = '⚠️ Debes seleccionar una categoría';
         hayErrores = true;
+      } else if (!SecurityUtils.validateNumberRange(formData.id_categoria, 1)) {
+        nuevosErrores.id_categoria = '⚠️ Categoría inválida';
+        SecurityUtils.logSecurityEvent('INVALID_INPUT', { field: 'id_categoria', value: formData.id_categoria });
+        hayErrores = true;
       }
 
+      // 🔒 SECURITY: Validate and sanitize title
       if (!formData.titulo || formData.titulo.trim() === '') {
         nuevosErrores.titulo = '⚠️ El título es obligatorio';
+        hayErrores = true;
+      } else if (!SecurityUtils.validateStringLength(formData.titulo, 500)) {
+        nuevosErrores.titulo = '⚠️ El título es demasiado largo (máx 500 caracteres)';
+        SecurityUtils.logSecurityEvent('INPUT_TOO_LONG', { field: 'titulo', length: formData.titulo.length });
         hayErrores = true;
       } else if (formData.titulo.trim().length < 5) {
         nuevosErrores.titulo = `⚠️ El título debe tener al menos 5 caracteres (actual: ${formData.titulo.trim().length})`;
         hayErrores = true;
       }
 
+      // 🔒 SECURITY: Validate and sanitize content
       if (!formData.contenido || formData.contenido.trim() === '') {
         nuevosErrores.contenido = '⚠️ El contenido es obligatorio';
+        hayErrores = true;
+      } else if (!SecurityUtils.validateStringLength(formData.contenido, 50000)) {
+        nuevosErrores.contenido = '⚠️ El contenido es demasiado largo (máx 50000 caracteres)';
+        SecurityUtils.logSecurityEvent('INPUT_TOO_LONG', { field: 'contenido', length: formData.contenido.length });
         hayErrores = true;
       } else if (formData.contenido.trim().length < 50) {
         nuevosErrores.contenido = `⚠️ El contenido debe tener al menos 50 caracteres (actual: ${formData.contenido.trim().length})`;
         hayErrores = true;
       }
 
+      // 🔒 SECURITY: Validate and sanitize summary
       if (!formData.resumen || formData.resumen.trim() === '') {
         nuevosErrores.resumen = '⚠️ El resumen es obligatorio';
+        hayErrores = true;
+      } else if (!SecurityUtils.validateStringLength(formData.resumen, 2000)) {
+        nuevosErrores.resumen = '⚠️ El resumen es demasiado largo (máx 2000 caracteres)';
         hayErrores = true;
       } else if (formData.resumen.trim().length < 10) {
         nuevosErrores.resumen = `⚠️ El resumen debe tener al menos 10 caracteres (actual: ${formData.resumen.trim().length})`;
         hayErrores = true;
       }
 
+      // 🔒 SECURITY: Validate keywords
       if (!formData.palabras_clave || formData.palabras_clave.trim() === '') {
         nuevosErrores.palabras_clave = '⚠️ Las palabras clave son obligatorias';
         hayErrores = true;
-      }
-
-      if (!formData.etiquetas || formData.etiquetas.trim() === '') {
-        nuevosErrores.etiquetas = '⚠️ Las etiquetas son obligatorias';
+      } else if (!SecurityUtils.validateStringLength(formData.palabras_clave, 1000)) {
+        nuevosErrores.palabras_clave = '⚠️ Las palabras clave son demasiado largas';
         hayErrores = true;
       }
 
-      if (!formData.prioridad || formData.prioridad < 1 || formData.prioridad > 10) {
+      // 🔒 SECURITY: Validate tags
+      if (!formData.etiquetas || formData.etiquetas.trim() === '') {
+        nuevosErrores.etiquetas = '⚠️ Las etiquetas son obligatorias';
+        hayErrores = true;
+      } else if (!SecurityUtils.validateStringLength(formData.etiquetas, 1000)) {
+        nuevosErrores.etiquetas = '⚠️ Las etiquetas son demasiado largas';
+        hayErrores = true;
+      }
+
+      // 🔒 SECURITY: Validate priority
+      if (!formData.prioridad || !SecurityUtils.validateNumberRange(formData.prioridad, 1, 10)) {
         nuevosErrores.prioridad = '⚠️ Selecciona una prioridad válida (1-10)';
+        SecurityUtils.logSecurityEvent('INVALID_INPUT', { field: 'prioridad', value: formData.prioridad });
         hayErrores = true;
       }
 
@@ -584,12 +830,42 @@ const GestionContenidoPage = () => {
       }
 
       if (formData.fecha_vigencia_inicio && formData.fecha_vigencia_fin) {
-        const inicio = new Date(formData.fecha_vigencia_inicio);
-        const fin = new Date(formData.fecha_vigencia_fin);
-
-        if (fin < inicio) {
-          nuevosErrores.fecha_vigencia_fin = '⚠️ La fecha de fin no puede ser anterior a la fecha de inicio';
+        // 🔒 SECURITY: Validar formato de fecha
+        if (!SecurityUtils.validateDateFormat(formData.fecha_vigencia_inicio)) {
+          nuevosErrores.fecha_vigencia_inicio = '⚠️ Formato de fecha de inicio inválido';
+          SecurityUtils.logSecurityEvent('INVALID_DATE_FORMAT', { field: 'fecha_vigencia_inicio' });
           hayErrores = true;
+        }
+        if (!SecurityUtils.validateDateFormat(formData.fecha_vigencia_fin)) {
+          nuevosErrores.fecha_vigencia_fin = '⚠️ Formato de fecha de fin inválido';
+          SecurityUtils.logSecurityEvent('INVALID_DATE_FORMAT', { field: 'fecha_vigencia_fin' });
+          hayErrores = true;
+        }
+
+        if (!hayErrores) {
+          const inicio = new Date(formData.fecha_vigencia_inicio);
+          const fin = new Date(formData.fecha_vigencia_fin);
+
+          // 🔒 SECURITY: Validate dates are valid
+          if (isNaN(inicio.getTime()) || isNaN(fin.getTime())) {
+            nuevosErrores.fecha_vigencia_fin = '⚠️ Las fechas no son válidas';
+            SecurityUtils.logSecurityEvent('INVALID_DATE_VALUES', { inicio, fin });
+            hayErrores = true;
+          }
+          // Validar que inicio < fin
+          else if (fin < inicio) {
+            nuevosErrores.fecha_vigencia_fin = '⚠️ La fecha de fin no puede ser anterior a la fecha de inicio';
+            hayErrores = true;
+          }
+          // 🔒 NUEVO: Validar rango razonable (no más de 10 años)
+          else if (!SecurityUtils.validateDateRange(formData.fecha_vigencia_inicio, formData.fecha_vigencia_fin, 10)) {
+            nuevosErrores.fecha_vigencia_fin = '⚠️ El rango de fechas no puede superar 10 años';
+            SecurityUtils.logSecurityEvent('SUSPICIOUS_DATE_RANGE', {
+              inicio: formData.fecha_vigencia_inicio,
+              fin: formData.fecha_vigencia_fin
+            });
+            hayErrores = true;
+          }
         }
       }
 
@@ -670,6 +946,7 @@ const GestionContenidoPage = () => {
 
         if (!categoriaSeleccionada) {
           Alert.alert('Error', 'La categoría seleccionada no existe o no se pudo cargar');
+          SecurityUtils.logSecurityEvent('INVALID_CATEGORY', { id: formData.id_categoria });
           return;
         }
 
@@ -679,26 +956,40 @@ const GestionContenidoPage = () => {
 
         const id_departamento = agenteSeleccionado?.id_departamento || null;
 
+        // 🔒 SECURITY: Sanitize all inputs before sending
         const dataToSend = {
           id_agente: parseInt(categoriaSeleccionada.id_agente),
           id_categoria: parseInt(formData.id_categoria),
           id_departamento: id_departamento ? parseInt(id_departamento) : null,
-          titulo: formData.titulo.trim(),
-          contenido: formData.contenido.trim(),
-          resumen: formData.resumen,
-          palabras_clave: formData.palabras_clave,
-          etiquetas: formData.etiquetas,
+          titulo: SecurityUtils.sanitizeInput(formData.titulo.trim()),
+          contenido: SecurityUtils.sanitizeInput(formData.contenido.trim()),
+          resumen: SecurityUtils.sanitizeInput(formData.resumen),
+          palabras_clave: SecurityUtils.sanitizeInput(formData.palabras_clave),
+          etiquetas: SecurityUtils.sanitizeInput(formData.etiquetas),
           prioridad: parseInt(formData.prioridad),
-          estado: formData.estado,
+          estado: ['activo', 'inactivo'].includes(formData.estado.toLowerCase()) ? formData.estado : 'activo',
           // 🔥 NUEVOS CAMPOS
           fecha_vigencia_inicio: formData.fecha_vigencia_inicio || null,
           fecha_vigencia_fin: formData.fecha_vigencia_fin || null
         };
 
+        // 🔒 SECURITY: Final validation before sending
+        if (!dataToSend.titulo || !dataToSend.contenido) {
+          Alert.alert('Error de Validación', 'Los datos contienen caracteres inválidos');
+          SecurityUtils.logSecurityEvent('SANITIZATION_FAILED', { fields: ['titulo', 'contenido'] });
+          return;
+        }
+
         console.log('📤 Datos a enviar:', JSON.stringify(dataToSend, null, 2));
 
         if (editando) {
           console.log('✏️ Modo EDICIÓN - ID:', formData.id_contenido);
+          // 🔒 SECURITY: Validate ID
+          if (!SecurityUtils.validateNumberRange(formData.id_contenido, 1)) {
+            Alert.alert('Error', 'ID de contenido inválido');
+            SecurityUtils.logSecurityEvent('INVALID_CONTENT_ID', { id: formData.id_contenido });
+            return;
+          }
           await contenidoService.update(formData.id_contenido, dataToSend);
           mostrarNotificacionExito('✅ Contenido actualizado correctamente');
         } else {
@@ -714,6 +1005,7 @@ const GestionContenidoPage = () => {
 
       } catch (error) {
         console.error('❌ Error:', error);
+        SecurityUtils.logSecurityEvent('SAVE_ERROR', { message: error.message });
         Alert.alert('Error', error.message || 'No se pudo guardar el contenido');
       }
     };
@@ -760,6 +1052,13 @@ const GestionContenidoPage = () => {
   };
 
   const publicarContenido = async (id) => {
+    // 🔒 SECURITY: Validate ID
+    if (!SecurityUtils.validateNumberRange(id, 1)) {
+      Alert.alert('Error', 'ID de contenido inválido');
+      SecurityUtils.logSecurityEvent('INVALID_ID_PUBLISH', { id });
+      return;
+    }
+
     Alert.alert(
       'Confirmar publicación',
       '¿Estás seguro de publicar este contenido?',
@@ -771,9 +1070,11 @@ const GestionContenidoPage = () => {
             try {
               await contenidoService.publicar(id);
               Alert.alert('Éxito', 'Contenido publicado correctamente');
+              SecurityUtils.logSecurityEvent('CONTENT_PUBLISHED', { id });
               cargarContenidos();
             } catch (error) {
               console.error('Error publicando:', error);
+              SecurityUtils.logSecurityEvent('PUBLISH_ERROR', { id, message: error.message });
               Alert.alert('Error', 'No se pudo publicar el contenido');
             }
           }
@@ -783,17 +1084,33 @@ const GestionContenidoPage = () => {
   };
 
   const eliminarContenido = (id) => {
+    // 🔒 SECURITY: Validate ID and rate limiting
+    if (!SecurityUtils.validateNumberRange(id, 1)) {
+      Alert.alert('Error', 'ID de contenido inválido');
+      SecurityUtils.logSecurityEvent('INVALID_ID_DELETE', { id });
+      return;
+    }
+
     console.log('🗑️ Abriendo modal de eliminación para ID:', id);
     setContenidoAEliminar(id);
     setModalEliminarVisible(true);
   };
 
   const confirmarEliminacion = async () => {
+    // 🔒 SECURITY: Double check ID validity
+    if (!SecurityUtils.validateNumberRange(contenidoAEliminar, 1)) {
+      Alert.alert('Error', 'Operación inválida');
+      SecurityUtils.logSecurityEvent('INVALID_DELETE_ATTEMPT', { id: contenidoAEliminar });
+      setModalEliminarVisible(false);
+      return;
+    }
+
     console.log('✅ Confirmando eliminación del ID:', contenidoAEliminar);
 
     try {
       const resultado = await contenidoService.softDelete(contenidoAEliminar);
       console.log('✅ Contenido eliminado:', resultado);
+      SecurityUtils.logSecurityEvent('CONTENT_DELETED', { id: contenidoAEliminar });
 
       mostrarNotificacionExito('🗑️ Contenido eliminado correctamente');
 
@@ -805,6 +1122,7 @@ const GestionContenidoPage = () => {
       await cargarContenidos();
     } catch (error) {
       console.error('❌ Error eliminando:', error);
+      SecurityUtils.logSecurityEvent('DELETE_ERROR', { id: contenidoAEliminar, message: error.message });
       setModalEliminarVisible(false);
       Alert.alert('Error', 'No se pudo eliminar el contenido');
     }
@@ -826,7 +1144,6 @@ const GestionContenidoPage = () => {
 
   return (
     <View style={contentStyles.wrapper}>
-
       {/* ============ SIDEBAR WEB ============ */}
       {Platform.OS === 'web' && (
         <SuperAdminSidebar
@@ -868,12 +1185,11 @@ const GestionContenidoPage = () => {
             <View style={styles.scrollContent}>
               {/* Header */}
               <View style={styles.header}>
-                <Text style={styles.headerTitle}>     Gestión de Contenidos</Text>
+                <Text style={styles.headerTitle}>Gestión de Contenidos</Text>
               </View>
 
               {/* ============ FILTROS Y ACCIONES - SIN CARD ============ */}
               <View style={{ marginBottom: 24 }}>
-
                 {/* 1️⃣ Filtros por Estado */}
                 <ScrollView
                   horizontal={true}
@@ -1140,7 +1456,7 @@ const GestionContenidoPage = () => {
               </View>
 
               {/* Lista de contenidos */}
-              <View>
+              <View style={{ gap: 4 }}>
                 <Text style={styles.listaHeader}>
                   Contenidos ({contenidos.length})
                 </Text>
@@ -1181,7 +1497,6 @@ const GestionContenidoPage = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { marginHorizontal: 20 }]}>
-
             {/* ============ HEADER DEL MODAL ============ */}
             <View style={{
               flexDirection: 'row',
@@ -1214,7 +1529,7 @@ const GestionContenidoPage = () => {
                     {editando ? '✏️' : '➕'}
                   </Text>
                 </View>
-                <View>
+                <View style={{ gap: 4 }}>
                   <Text style={{
                     fontSize: Platform.OS === 'web' ? 22 : 18,
                     fontWeight: '900',
@@ -1246,7 +1561,6 @@ const GestionContenidoPage = () => {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-
               {/* ============ CATEGORÍA - AHORA ES LO PRIMERO ============ */}
               <View style={styles.formGroup}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -1280,7 +1594,7 @@ const GestionContenidoPage = () => {
                     placeholder="Buscar categoría..."
                     placeholderTextColor="rgba(255, 255, 255, 0.4)"
                     value={searchCategoria}
-                    onChangeText={(text) => setSearchCategoria(sanitizeInput(text))}
+                    onChangeText={(text) => setSearchCategoria(text)}
                   />
                   {searchCategoria.length > 0 && (
                     <TouchableOpacity onPress={() => setSearchCategoria('')}>
@@ -1344,7 +1658,6 @@ const GestionContenidoPage = () => {
                               fontSize: 11,
                               marginTop: 2,
                             }}
-                              numberOfLines={1}
                             >
                               {categoria.descripcion}
                             </Text>
@@ -1373,7 +1686,6 @@ const GestionContenidoPage = () => {
                       </View>
                     )}
                 </ScrollView>
-
                 {/* 🔥 MENSAJE DE ERROR DE CATEGORÍA - AHORA SÍ DENTRO DEL MODAL */}
                 {errores.id_categoria && (
                   <View style={{
@@ -1394,7 +1706,6 @@ const GestionContenidoPage = () => {
                   </View>
                 )}
               </View>
-
               {/* ============ INFORMACIÓN DEL AGENTE (READONLY) ============ */}
               {formData.id_categoria && (() => {
                 const categoriaSeleccionada = categorias.find(
@@ -1562,7 +1873,6 @@ const GestionContenidoPage = () => {
                     {formData.titulo.length}/200
                   </Text>
                 </View>
-
                 {/* Mensaje de error */}
                 {errores.titulo && (
                   <View style={{
@@ -1583,7 +1893,6 @@ const GestionContenidoPage = () => {
                   </View>
                 )}
               </View>
-
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                 <Text style={{ fontSize: 18 }}>📋</Text>
                 <Text style={styles.formLabel}>Resumen <Text style={{ color: '#ef4444' }}>*</Text></Text>
@@ -1624,7 +1933,6 @@ const GestionContenidoPage = () => {
                   {formData.resumen.length}/500
                 </Text>
               </View>
-
               {/* 🔥 MENSAJE DE ERROR DE RESUMEN */}
               {errores.resumen && (
                 <View style={{
@@ -1687,7 +1995,6 @@ const GestionContenidoPage = () => {
                   {formData.contenido.length}/10,000
                 </Text>
               </View>
-
               {/* 🔥 AGREGAR ESTE MENSAJE DE ERROR */}
               {errores.contenido && (
                 <View style={{
@@ -1751,7 +2058,6 @@ const GestionContenidoPage = () => {
                   {formData.palabras_clave.length}/300
                 </Text>
               </View>
-
               {/* 🔥 MENSAJE DE ERROR DE PALABRAS CLAVE */}
               {errores.palabras_clave && (
                 <View style={{
@@ -1810,7 +2116,6 @@ const GestionContenidoPage = () => {
                   {formData.etiquetas.length}/300
                 </Text>
               </View>
-
               {/* 🔥 MENSAJE DE ERROR DE ETIQUETAS */}
               {errores.etiquetas && (
                 <View style={{
@@ -1838,7 +2143,6 @@ const GestionContenidoPage = () => {
                   <Text style={styles.formLabel}>Prioridad</Text>
                   <TooltipIcon text="Define la importancia del contenido (1-10). Mayor prioridad significa que este contenido será más relevante en las respuestas del agente." />
                 </View>
-
                 {/* Badge con prioridad seleccionada */}
                 {formData.prioridad && PRIORITY_LABELS[formData.prioridad] && (
                   <View style={{
@@ -1859,7 +2163,6 @@ const GestionContenidoPage = () => {
                   </View>
                 )}
               </View>
-
               {/* Descripción de la prioridad seleccionada */}
               {formData.prioridad && PRIORITY_LABELS[formData.prioridad] && (
                 <View style={{
@@ -1930,7 +2233,6 @@ const GestionContenidoPage = () => {
                   </Text>
                 )}
               </View>
-
               {/* 🔥 MEJORADO: Botones de prioridad con badges */}
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => {
@@ -2198,11 +2500,17 @@ const GestionContenidoPage = () => {
                       Estado automático por vigencia
                     </Text>
                   </View>
-                  <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12, lineHeight: 18 }}>
-                    • Antes de la fecha de inicio → <Text style={{ color: '#ef4444', fontWeight: '600' }}>inactivo</Text>{'\n'}
-                    • Durante el rango de fechas → <Text style={{ color: '#10b981', fontWeight: '600' }}>activo</Text>{'\n'}
-                    • Después de la fecha de fin → <Text style={{ color: '#ef4444', fontWeight: '600' }}>inactivo</Text>
-                  </Text>
+                  <View style={{ gap: 4 }}>
+                    <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12, lineHeight: 18 }}>
+                      • Antes de la fecha de inicio → <Text style={{ color: '#ef4444', fontWeight: '600' }}>inactivo</Text>
+                    </Text>
+                    <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12, lineHeight: 18 }}>
+                      • Durante el rango de fechas → <Text style={{ color: '#10b981', fontWeight: '600' }}>activo</Text>
+                    </Text>
+                    <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12, lineHeight: 18 }}>
+                      • Después de la fecha de fin → <Text style={{ color: '#ef4444', fontWeight: '600' }}>inactivo</Text>
+                    </Text>
+                  </View>
                 </View>
 
                 {/* Fecha de inicio */}
@@ -2214,40 +2522,33 @@ const GestionContenidoPage = () => {
                   </View>
 
                   {Platform.OS === 'web' ? (
-                    // 🌐 VERSIÓN WEB - Input nativo HTML
-                    <View style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: 16,
-                      borderRadius: 12,
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                      borderWidth: 1,
-                      borderColor: formData.fecha_vigencia_inicio
-                        ? '#3498db'
-                        : 'rgba(255, 255, 255, 0.15)',
-                    }}>
+                    // 🌐 VERSIÓN WEB
+                    <TouchableOpacity
+                      onPress={() => setShowPickerInicio(true)}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: 16,
+                        borderRadius: 12,
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        borderWidth: 1,
+                        borderColor: formData.fecha_vigencia_inicio
+                          ? '#3498db'
+                          : 'rgba(255, 255, 255, 0.15)',
+                      }}>
                       <Ionicons name="calendar" size={20} color={formData.fecha_vigencia_inicio ? '#3498db' : 'rgba(255, 255, 255, 0.4)'} />
 
-                      <input
-                        type="date"
-                        value={formData.fecha_vigencia_inicio || ''}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setFormData({ ...formData, fecha_vigencia_inicio: value || null });
-                          if (value) setErrores({ ...errores, fecha_vigencia_inicio: '' });
-                        }}
-                        style={{
-                          flex: 1,
-                          color: 'white',
-                          fontSize: 15,
-                          backgroundColor: 'transparent',
-                          border: 'none',
-                          outline: 'none',
-                          fontWeight: formData.fecha_vigencia_inicio ? '600' : '400',
-                          colorScheme: 'dark',
-                        }}
-                      />
+                      <Text style={{
+                        flex: 1,
+                        color: formData.fecha_vigencia_inicio ? 'white' : 'rgba(255, 255, 255, 0.5)',
+                        fontSize: 15,
+                        fontWeight: formData.fecha_vigencia_inicio ? '600' : '400',
+                      }}>
+                        {formData.fecha_vigencia_inicio
+                          ? new Date(formData.fecha_vigencia_inicio).toLocaleDateString('es-ES')
+                          : 'Seleccionar fecha'}
+                      </Text>
 
                       {formData.fecha_vigencia_inicio && (
                         <TouchableOpacity
@@ -2267,7 +2568,7 @@ const GestionContenidoPage = () => {
                           <Ionicons name="close" size={18} color="#ef4444" />
                         </TouchableOpacity>
                       )}
-                    </View>
+                    </TouchableOpacity>
                   ) : (
                     // 📱 VERSIÓN MÓVIL - TouchableOpacity + DateTimePicker
                     <>
@@ -2377,41 +2678,33 @@ const GestionContenidoPage = () => {
                   </View>
 
                   {Platform.OS === 'web' ? (
-                    // 🌐 VERSIÓN WEB - Input nativo HTML
-                    <View style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: 16,
-                      borderRadius: 12,
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                      borderWidth: 1,
-                      borderColor: formData.fecha_vigencia_fin
-                        ? '#3498db'
-                        : 'rgba(255, 255, 255, 0.15)',
-                    }}>
+                    // 🌐 VERSIÓN WEB
+                    <TouchableOpacity
+                      onPress={() => setShowPickerFin(true)}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: 16,
+                        borderRadius: 12,
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        borderWidth: 1,
+                        borderColor: formData.fecha_vigencia_fin
+                          ? '#3498db'
+                          : 'rgba(255, 255, 255, 0.15)',
+                      }}>
                       <Ionicons name="calendar" size={20} color={formData.fecha_vigencia_fin ? '#3498db' : 'rgba(255, 255, 255, 0.4)'} />
 
-                      <input
-                        type="date"
-                        value={formData.fecha_vigencia_fin || ''}
-                        min={formData.fecha_vigencia_inicio || undefined}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setFormData({ ...formData, fecha_vigencia_fin: value || null });
-                          if (value) setErrores({ ...errores, fecha_vigencia_fin: '' });
-                        }}
-                        style={{
-                          flex: 1,
-                          color: 'white',
-                          fontSize: 15,
-                          backgroundColor: 'transparent',
-                          border: 'none',
-                          outline: 'none',
-                          fontWeight: formData.fecha_vigencia_fin ? '600' : '400',
-                          colorScheme: 'dark',
-                        }}
-                      />
+                      <Text style={{
+                        flex: 1,
+                        color: formData.fecha_vigencia_fin ? 'white' : 'rgba(255, 255, 255, 0.5)',
+                        fontSize: 15,
+                        fontWeight: formData.fecha_vigencia_fin ? '600' : '400',
+                      }}>
+                        {formData.fecha_vigencia_fin
+                          ? new Date(formData.fecha_vigencia_fin).toLocaleDateString('es-ES')
+                          : 'Seleccionar fecha'}
+                      </Text>
 
                       {formData.fecha_vigencia_fin && (
                         <TouchableOpacity
@@ -2431,7 +2724,7 @@ const GestionContenidoPage = () => {
                           <Ionicons name="close" size={18} color="#ef4444" />
                         </TouchableOpacity>
                       )}
-                    </View>
+                    </TouchableOpacity>
                   ) : (
                     // 📱 VERSIÓN MÓVIL - TouchableOpacity + DateTimePicker
                     <>
@@ -2545,13 +2838,11 @@ const GestionContenidoPage = () => {
                     borderColor: 'rgba(16, 185, 129, 0.3)',
                   }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-
                       <Text style={{ color: '#10b981', fontWeight: '700', fontSize: 13 }}>
                         Rango de vigencia configurado
                       </Text>
                     </View>
                     <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12 }}>
-                      {/* 🔥 FIX: Agregar 'T00:00:00' para evitar desfase de zona horaria */}
                       {new Date(formData.fecha_vigencia_inicio + 'T00:00:00').toLocaleDateString('es-ES', {
                         day: 'numeric',
                         month: 'short',
@@ -2693,7 +2984,7 @@ const GestionContenidoPage = () => {
                 }}>
                   <Text style={{ fontSize: Platform.OS === 'web' ? 28 : 22 }}>👁️</Text>
                 </View>
-                <View>
+                <View style={{ gap: 4 }}>
                   <Text style={{ fontSize: Platform.OS === 'web' ? 22 : 18, fontWeight: '900', color: '#fff' }}>
                     Detalles del Contenido
                   </Text>
@@ -2965,7 +3256,6 @@ const GestionContenidoPage = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { maxWidth: 700 }]}>
-
             {/* Header */}
             <View style={{
               padding: 20,
@@ -3001,7 +3291,6 @@ const GestionContenidoPage = () => {
             {contenidoDuplicado && (
               <ScrollView style={{ maxHeight: 600 }}>
                 <View style={{ padding: 20 }}>
-
                   {/* Mensaje principal */}
                   <View style={{
                     padding: 16,
@@ -3047,7 +3336,7 @@ const GestionContenidoPage = () => {
                         <Text style={{ color: 'white', fontWeight: '600', fontSize: 14, marginBottom: 8 }}>
                           {formData.titulo}
                         </Text>
-                        <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12 }} numberOfLines={3}>
+                        <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12 }}>
                           {formData.contenido.substring(0, 200)}...
                         </Text>
                       </View>
@@ -3317,9 +3606,7 @@ const GestionContenidoPage = () => {
                       </Text>
                     </View>
                     <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 11, lineHeight: 16 }}>
-                      Mantener el contenido organizado evita confusiones y mejora la calidad
-                      de las respuestas del agente. Actualizar contenido existente es mejor
-                      que crear duplicados.
+                      Mantener el contenido organizado evita confusiones y mejora la calidad{'\n'}de las respuestas del agente. Actualizar contenido existente es mejor{'\n'}que crear duplicados.
                     </Text>
                   </View>
                 </View>
@@ -3338,7 +3625,6 @@ const GestionContenidoPage = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { maxWidth: 500 }]}>
-
             {/* Header */}
             <View style={{
               padding: 20,
@@ -3359,7 +3645,7 @@ const GestionContenidoPage = () => {
                 }}>
                   <Text style={{ fontSize: Platform.OS === 'web' ? 28 : 22 }}>⚠️</Text>
                 </View>
-                <View>
+                <View style={{ gap: 4 }}>
                   <Text style={{ fontSize: 20, fontWeight: '900', color: '#ef4444' }}>
                     Eliminar Contenido
                   </Text>

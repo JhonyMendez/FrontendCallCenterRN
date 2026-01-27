@@ -60,7 +60,7 @@ export default function GestionContenidoCard({ contenido, onEdit, onPublish, onD
       {/* Header con badges */}
       <View style={styles.header}>
         <View style={styles.titleSection}>
-          <Text style={styles.titulo} numberOfLines={2}>
+          <Text style={styles.titulo}>
             {contenido?.titulo || 'Sin título'}
           </Text>
           
@@ -93,21 +93,20 @@ export default function GestionContenidoCard({ contenido, onEdit, onPublish, onD
             {prioridadColor.text}
           </Text>
         </View>
-
-      {/* Agente */}
-      {contenido?.agente_nombre && (
-        <View style={styles.agenteTag}>
-          <Ionicons name="person" size={14} color="#667eea" />
-          <Text style={styles.agenteText}>
-            {contenido.agente_nombre}
-          </Text>
-        </View>
-      )}
+        {/* Agente */}
+        {contenido?.agente_nombre && (
+          <View style={styles.agenteTag}>
+            <Ionicons name="person" size={14} color="#667eea" />
+            <Text style={styles.agenteText}>
+              {contenido.agente_nombre}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Resumen */}
       {contenido?.resumen && (
-        <Text style={styles.resumen} numberOfLines={3}>
+        <Text style={styles.resumen}>
           {contenido.resumen}
         </Text>
       )}
@@ -141,7 +140,6 @@ export default function GestionContenidoCard({ contenido, onEdit, onPublish, onD
               <Ionicons name="cloud-upload" size={18} color="#10b981" />
             </TouchableOpacity>
           )}
-          
           <TouchableOpacity
             style={[styles.actionButton, styles.viewButton]}
             onPress={() => onView(contenido)}
@@ -149,7 +147,6 @@ export default function GestionContenidoCard({ contenido, onEdit, onPublish, onD
           >
             <Ionicons name="eye" size={18} color="#667eea" />
           </TouchableOpacity>
-          
           <TouchableOpacity
             style={[styles.actionButton, styles.editButton]}
             onPress={() => onEdit(contenido)}

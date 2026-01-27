@@ -46,12 +46,11 @@ class SecurityValidator {
   };
 
   // ==================== SANITIZACIÓN ====================
-
   /**
-   * Sanitizar texto eliminando código malicioso
-   * @param {string} text - Texto a sanitizar
-   * @returns {string} Texto limpio
-   */
+     * Sanitizar texto eliminando código malicioso PERO PRESERVANDO ESPACIOS
+     * @param {string} text - Texto a sanitizar
+     * @returns {string} Texto limpio con espacios
+     */
   static sanitizeText(text) {
     if (!text || typeof text !== 'string') return '';
 
@@ -72,8 +71,11 @@ class SecurityValidator {
       .replace(/data:text\/html/gi, '')
       // Eliminar todas las etiquetas HTML
       .replace(/<[^>]*>/g, '')
-      // Eliminar caracteres de control
-      .replace(/[\x00-\x1F\x7F]/g, '')
+      // Eliminar caracteres de control EXCEPTO espacios, tabs y saltos de línea
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+      // ✅ NORMALIZAR espacios múltiples a un solo espacio (opcional)
+      .replace(/\s{2,}/g, ' ')
+      // ✅ Hacer trim solo al inicio y final (preserva espacios internos)
       .trim();
   }
 

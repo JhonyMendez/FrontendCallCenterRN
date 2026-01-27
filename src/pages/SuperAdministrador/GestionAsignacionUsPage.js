@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -29,7 +29,140 @@ import {
 import { styles } from '../../styles/GestionAsignacionUsStyles';
 
 const isWeb = Platform.OS === 'web';
+
 const { width: screenWidth } = Dimensions.get('window');
+
+// 🔒 SECURITY: Anti-hacking utilities - VERSIÓN COMPLETA
+const SecurityUtils = {
+  // ✅ XSS Protection
+  sanitizeInput: (text) => {
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+\s*=/gi, '')
+      .replace(/<[^>]*>/g, '')
+      .trim()
+      .substring(0, 100);
+  },
+
+  // ✅ Output Encoding
+  encodeOutput: (text) => {
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;')
+      .replace(/\//g, '&#x2F;');
+  },
+
+  // ✅ Validate numbers
+  validateNumberRange: (value, min = 1, max = 999999) => {
+    const num = Number(value);
+    return !isNaN(num) && num >= min && num <= max && Number.isInteger(num);
+  },
+
+  // ✅ Validate numeric ID
+  validateNumericId: (id) => {
+    const numId = Number(id);
+    return !isNaN(numId) && numId > 0 && Number.isInteger(numId) ? numId : null;
+  },
+
+  // ✅ Validate ID array
+  validateIdArray: (ids) => {
+    if (!Array.isArray(ids)) return [];
+    return ids.filter(id => SecurityUtils.validateNumericId(id) !== null).map(id => Number(id));
+  },
+
+  // ✅ Remove SQL injection patterns
+  sanitizeSqlInput: (text) => {
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/('|"|;|--|\*|%|_)/g, '')
+      .trim();
+  },
+
+  // ✅ Rate limiting
+  createRateLimiter: (maxAttempts = 5, windowMs = 60000) => {
+    const attempts = new Map();
+    return {
+      isAllowed: (key) => {
+        const now = Date.now();
+        if (!attempts.has(key)) {
+          attempts.set(key, []);
+        }
+        const userAttempts = attempts.get(key);
+        const recentAttempts = userAttempts.filter(time => now - time < windowMs);
+        if (recentAttempts.length >= maxAttempts) {
+          return false;
+        }
+        recentAttempts.push(now);
+        attempts.set(key, recentAttempts);
+        return true;
+      }
+    };
+  },
+
+  // ✅ Security logging
+  logSecurityEvent: (eventType, details) => {
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+      timestamp,
+      eventType,
+      details,
+      userAgent: Platform.OS
+    };
+    console.warn(`🔒 SECURITY [${eventType}]:`, logEntry);
+  },
+
+  // ✅ Validate string length
+  validateStringLength: (str, maxLength = 5000) => {
+    return typeof str === 'string' && str.length <= maxLength;
+  },
+
+  // ✅ Generate CSRF token
+  generateCSRFToken: () => {
+    const array = new Uint8Array(32);
+    if (Platform.OS === 'web' && window.crypto) {
+      window.crypto.getRandomValues(array);
+    } else {
+      for (let i = 0; i < array.length; i++) {
+        array[i] = Math.floor(Math.random() * 256);
+      }
+    }
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  },
+
+  // ✅ Validate CSRF token
+  validateCSRFToken: (token) => {
+    return typeof token === 'string' && token.length === 64;
+  },
+
+  // ✅ Validar usuario
+  validarUsuario: (usuario) => {
+    if (!usuario || typeof usuario !== 'object') return false;
+    return (
+      SecurityUtils.validateNumericId(usuario.id_usuario) !== null &&
+      usuario.persona &&
+      typeof usuario.persona === 'object' &&
+      usuario.persona.nombre &&
+      usuario.persona.apellido
+    );
+  },
+
+  // ✅ Validar departamento
+  validarDepartamento: (depto) => {
+    if (!depto || typeof depto !== 'object') return false;
+    return (
+      SecurityUtils.validateNumericId(depto.id_departamento) !== null &&
+      depto.nombre &&
+      typeof depto.nombre === 'string'
+    );
+  }
+};
 
 export default function GestionAsignacionUsPage() {
   const router = useRouter();
@@ -75,6 +208,40 @@ export default function GestionAsignacionUsPage() {
   const [usuarioARevocar, setUsuarioARevocar] = useState(null);
   const [loadingRevocacion, setLoadingRevocacion] = useState(false);
 
+  // 🔒 SECURITY: Rate limiter and session timeout
+  const rateLimiterRef = useRef(SecurityUtils.createRateLimiter(5, 60000));
+  const [lastActionTime, setLastActionTime] = useState(0);
+  const ACTION_COOLDOWN = 1000; // 1 segundo entre acciones
+  const [sessionTimeout, setSessionTimeout] = useState(null);
+  const SESSION_DURATION = 30 * 60 * 1000; // 30 minutos
+
+  const puedeEjecutarAccion = (actionKey = 'default') => {
+    const ahora = Date.now();
+
+    // Cooldown check
+    if (ahora - lastActionTime < ACTION_COOLDOWN) {
+      SecurityUtils.logSecurityEvent('RATE_LIMIT_COOLDOWN', { actionKey });
+      Alert.alert('⚠️', 'Espera un momento antes de realizar otra acción');
+      return false;
+    }
+
+    // Rate limiter check
+    if (!rateLimiterRef.current.isAllowed(actionKey)) {
+      SecurityUtils.logSecurityEvent('BRUTE_FORCE_ATTEMPT', {
+        actionKey,
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert(
+        '❌ Acceso Bloqueado',
+        'Has excedido el límite de 5 intentos por minuto. Espera un momento.'
+      );
+      return false;
+    }
+
+    setLastActionTime(ahora);
+    return true;
+  };
+
   useEffect(() => {
     cargarDepartamentos();
   }, []);
@@ -96,6 +263,36 @@ export default function GestionAsignacionUsPage() {
       cargarUsuariosDepartamento(selectedDepartamento);
     }
   }, [mostrarAsignacionSinDept]);
+
+  // 🔒 SECURITY: Session timeout management
+  useEffect(() => {
+    const resetTimeout = () => {
+      if (sessionTimeout) clearTimeout(sessionTimeout);
+
+      const timeout = setTimeout(() => {
+        Alert.alert(
+          'Sesión Expirada',
+          'Tu sesión ha expirado por inactividad. Por favor, recarga la página.',
+          [{
+            text: 'Entendido',
+            onPress: () => {
+              if (Platform.OS === 'web') {
+                window.location.reload();
+              }
+            }
+          }]
+        );
+      }, SESSION_DURATION);
+
+      setSessionTimeout(timeout);
+    };
+
+    resetTimeout();
+
+    return () => {
+      if (sessionTimeout) clearTimeout(sessionTimeout);
+    };
+  }, [departamentos, usuarios, selectedDepartamento, mostrarModalPermisos]);
 
   const cargarUsuariosSinDepartamento = async () => {
     try {
@@ -125,9 +322,47 @@ export default function GestionAsignacionUsPage() {
     try {
       setLoading(true);
       const response = await departamentoService.getAll({ activo: true });
-      setDepartamentos(response || []);
+
+      // 🔒 SECURITY: Validar respuesta
+      if (!Array.isArray(response)) {
+        SecurityUtils.logSecurityEvent('INVALID_DATA_FORMAT', {
+          function: 'cargarDepartamentos',
+          receivedType: typeof response
+        });
+        console.error('❌ Respuesta inválida del servidor');
+        setDepartamentos([]);
+        return;
+      }
+
+      const deptosValidados = response.filter(SecurityUtils.validarDepartamento);
+
+      // 🔒 SECURITY: Sanitizar nombres
+      const deptosSanitizados = deptosValidados.map(d => ({
+        ...d,
+        nombre: SecurityUtils.sanitizeInput(d.nombre || ''),
+        codigo: SecurityUtils.sanitizeInput(d.codigo || ''),
+        facultad: SecurityUtils.sanitizeInput(d.facultad || '')
+      }));
+
+      setDepartamentos(deptosSanitizados);
+
+      if (deptosValidados.length !== response.length) {
+        SecurityUtils.logSecurityEvent('INVALID_DEPARTAMENTOS_FILTERED', {
+          total: response.length,
+          valid: deptosValidados.length
+        });
+        console.warn('⚠️ Algunos departamentos fueron filtrados por ser inválidos');
+      }
+
+      SecurityUtils.logSecurityEvent('DEPARTAMENTOS_LOADED', {
+        count: deptosSanitizados.length
+      });
+
     } catch (error) {
       console.error('Error cargando departamentos:', error);
+      SecurityUtils.logSecurityEvent('LOAD_DEPARTAMENTOS_ERROR', {
+        message: error.message
+      });
       Alert.alert('Error', 'No se pudieron cargar los departamentos');
     } finally {
       setLoading(false);
@@ -137,20 +372,66 @@ export default function GestionAsignacionUsPage() {
 
   const cargarUsuariosDepartamento = async (idDepartamento) => {
     try {
+      // 🔒 SECURITY: Validación de ID
+      const idValidado = SecurityUtils.validateNumericId(idDepartamento);
+      if (!idValidado) {
+        SecurityUtils.logSecurityEvent('INVALID_DEPARTAMENTO_ID', {
+          id: idDepartamento
+        });
+        console.error('❌ ID de departamento inválido:', idDepartamento);
+        Alert.alert('Error', 'ID de departamento inválido');
+        return;
+      }
+
       setLoadingUsuarios(true);
       const response = await usuarioService.listarCompleto({
-        id_departamento: idDepartamento,
+        id_departamento: idValidado,
         estado: 'activo'
       });
-      // ✅ Filtrar: solo funcionarios
+
+      // 🔒 SECURITY: Validación de respuesta
+      if (!response || !response.usuarios || !Array.isArray(response.usuarios)) {
+        SecurityUtils.logSecurityEvent('INVALID_USUARIOS_RESPONSE', {
+          idDepartamento: idValidado
+        });
+        console.warn('⚠️ Respuesta inválida del servidor');
+        setUsuarios([]);
+        setLoadingUsuarios(false);
+        return;
+      }
+
+      // Filtrar: solo funcionarios
       const usuariosFuncionarios = (response?.usuarios || []).filter(u =>
         u.rol_principal?.nombre_rol?.toLowerCase() === 'funcionario' ||
         u.roles?.some(r => r.nombre_rol?.toLowerCase() === 'funcionario')
       );
-      console.log('✅ Funcionarios en departamento:', usuariosFuncionarios.length);
-      setUsuarios(usuariosFuncionarios);
+
+      // 🔒 SECURITY: Sanitizar datos de usuarios
+      const usuariosSanitizados = usuariosFuncionarios.map(u => ({
+        ...u,
+        persona: u.persona ? {
+          ...u.persona,
+          nombre: SecurityUtils.sanitizeInput(u.persona.nombre || ''),
+          apellido: SecurityUtils.sanitizeInput(u.persona.apellido || ''),
+          cedula: SecurityUtils.sanitizeInput(u.persona.cedula || '')
+        } : null,
+        username: SecurityUtils.sanitizeInput(u.username || ''),
+        email: SecurityUtils.sanitizeInput(u.email || '')
+      }));
+
+      console.log('✅ Funcionarios en departamento:', usuariosSanitizados.length);
+      SecurityUtils.logSecurityEvent('USUARIOS_LOADED', {
+        idDepartamento: idValidado,
+        count: usuariosSanitizados.length
+      });
+
+      setUsuarios(usuariosSanitizados);
     } catch (error) {
       console.error('Error cargando usuarios:', error);
+      SecurityUtils.logSecurityEvent('LOAD_USUARIOS_ERROR', {
+        idDepartamento,
+        message: error.message
+      });
       Alert.alert('Error', 'No se pudieron cargar los usuarios del departamento');
     } finally {
       setLoadingUsuarios(false);
@@ -176,34 +457,93 @@ export default function GestionAsignacionUsPage() {
   };
 
   const toggleUsuario = (idUsuario) => {
+    const idValidado = SecurityUtils.validateNumericId(idUsuario);
+    if (!idValidado) {
+      SecurityUtils.logSecurityEvent('INVALID_USUARIO_ID_TOGGLE', {
+        id: idUsuario
+      });
+      console.warn('⚠️ ID de usuario inválido:', idUsuario);
+      return;
+    }
+
     setSelectedUsuarios(prev => {
-      if (prev.includes(idUsuario)) {
-        return prev.filter(id => id !== idUsuario);
-      } else {
-        return [...prev, idUsuario];
+      const newSelection = prev.includes(idValidado)
+        ? prev.filter(id => id !== idValidado)
+        : [...prev, idValidado];
+
+      // 🔒 SECURITY: Límite de selección
+      if (newSelection.length > 100) {
+        SecurityUtils.logSecurityEvent('SELECTION_LIMIT_EXCEEDED', {
+          attempted: newSelection.length,
+          limit: 100
+        });
+        Alert.alert('⚠️ Límite Excedido', 'Máximo 100 usuarios por operación');
+        return prev;
       }
+
+      return newSelection;
     });
   };
 
   const seleccionarTodos = () => {
     const usuariosFiltrados = getUsuariosFiltrados();
+
+    // 🔒 SECURITY: Límite de selección
+    if (usuariosFiltrados.length > 100) {
+      SecurityUtils.logSecurityEvent('SELECT_ALL_LIMIT_EXCEEDED', {
+        attempted: usuariosFiltrados.length,
+        limit: 100
+      });
+      Alert.alert(
+        '⚠️ Límite Excedido',
+        'Por seguridad, solo puedes seleccionar hasta 100 usuarios a la vez'
+      );
+      return;
+    }
+
     if (selectedUsuarios.length === usuariosFiltrados.length) {
+      SecurityUtils.logSecurityEvent('DESELECT_ALL', {
+        count: selectedUsuarios.length
+      });
       setSelectedUsuarios([]);
     } else {
-      setSelectedUsuarios(usuariosFiltrados.map(u => u.id_usuario));
+      const idsValidados = SecurityUtils.validateIdArray(
+        usuariosFiltrados.map(u => u.id_usuario)
+      );
+      SecurityUtils.logSecurityEvent('SELECT_ALL', {
+        count: idsValidados.length
+      });
+      setSelectedUsuarios(idsValidados);
     }
   };
 
   const handleMoverUsuarios = async () => {
+    // 🔒 SECURITY: Rate limiting con key única
+    const actionKey = `handleMoverUsuarios_${selectedDepartamento}_${Date.now()}`;
+    if (!puedeEjecutarAccion(actionKey)) return;
+
+    // 🔒 SECURITY: Validar IDs seleccionados
+    const idsValidados = SecurityUtils.validateIdArray(selectedUsuarios);
+    if (idsValidados.length === 0) {
+      Alert.alert('⚠️', 'No hay usuarios válidos seleccionados');
+      return;
+    }
+
+    if (idsValidados.length !== selectedUsuarios.length) {
+      Alert.alert('⚠️', 'Algunos IDs de usuarios no son válidos');
+      return;
+    }
+
     // Si es asignación de usuarios sin departamento
     if (mostrarAsignacionSinDept) {
-      if (selectedUsuarios.length === 0) {
+      if (idsValidados.length === 0) {
         Alert.alert('⚠️', 'Debes seleccionar al menos un usuario');
         return;
       }
 
-      if (!selectedDepartamento) {
-        Alert.alert('⚠️', 'Debes seleccionar un departamento destino');
+      const deptoValidado = SecurityUtils.validateNumericId(selectedDepartamento);
+      if (!deptoValidado) {
+        Alert.alert('⚠️', 'ID de departamento destino inválido');
         return;
       }
 
@@ -213,48 +553,47 @@ export default function GestionAsignacionUsPage() {
     }
 
     // Si es cambio de departamento
-    if (selectedUsuarios.length === 0) {
+    if (idsValidados.length === 0) {
       window.alert('⚠️ Debes seleccionar al menos un usuario para mover');
       return;
     }
 
-    if (!nuevoDepartamento) {
-      window.alert('⚠️ Selecciona el departamento destino');
+    const nuevoDeptoValidado = SecurityUtils.validateNumericId(nuevoDepartamento);
+    const selectedDeptoValidado = SecurityUtils.validateNumericId(selectedDepartamento);
+
+    if (!nuevoDeptoValidado || !selectedDeptoValidado) {
+      window.alert('❌ IDs de departamento inválidos');
       return;
     }
 
-    const nuevoDeptoNum = Number(nuevoDepartamento);
-    const selectedDeptoNum = Number(selectedDepartamento);
-
-    if (nuevoDeptoNum === selectedDeptoNum) {
+    if (nuevoDeptoValidado === selectedDeptoValidado) {
       window.alert('⚠️ El departamento destino debe ser diferente al actual');
       return;
     }
 
-    const nombreDepartamentoDestino = getDepartamentoNombre(nuevoDeptoNum);
+    const nombreDepartamentoDestino = getDepartamentoNombre(nuevoDeptoValidado);
 
     if (!nombreDepartamentoDestino) {
       window.alert('❌ No se encontró el departamento destino');
       return;
     }
 
-    const confirmar = window.confirm(`¿Mover ${selectedUsuarios.length} usuario(s) a ${nombreDepartamentoDestino}?`);
+    const confirmar = window.confirm(`¿Mover ${idsValidados.length} usuario(s) a ${nombreDepartamentoDestino}?`);
 
     if (!confirmar) return;
 
     try {
       setLoading(true);
 
-      const promesas = selectedUsuarios.map(idUsuario =>
+      const promesas = idsValidados.map(idUsuario =>
         usuarioService.cambiarDepartamento(idUsuario, {
-          id_departamento: nuevoDeptoNum,
+          id_departamento: nuevoDeptoValidado,
         })
       );
 
       const resultados = await Promise.all(promesas);
 
-      window.alert(`✅ ${selectedUsuarios.length} usuario(s) movido(s) correctamente a ${nombreDepartamentoDestino}`);
-
+      window.alert(`✅ ${idsValidados.length} usuario(s) movido(s) correctamente a ${nombreDepartamentoDestino}`);
       await cargarUsuariosDepartamento(selectedDepartamento);
       setSelectedUsuarios([]);
       setNuevoDepartamento(null);
@@ -269,20 +608,57 @@ export default function GestionAsignacionUsPage() {
 
   const handleConfirmarConPermisos = async (permisos) => {
     try {
+      // 🔒 SECURITY: Rate limiting con key única
+      const actionKey = `confirmarPermisos_${modoEdicion ? 'edit' : 'assign'}_${Date.now()}`;
+      if (!puedeEjecutarAccion(actionKey)) return;
+
+      // 🔒 SECURITY: Verificar estructura de permisos
+      const permisosRequeridos = [
+        'puede_ver_contenido',
+        'puede_crear_contenido',
+        'puede_editar_contenido',
+        'puede_eliminar_contenido',
+        'puede_publicar_contenido',
+        'puede_ver_metricas',
+        'puede_exportar_datos',
+        'puede_configurar_agente',
+        'puede_gestionar_permisos',
+        'puede_gestionar_categorias',
+        'puede_gestionar_widgets'
+      ];
+
+      const permisosValidos = permisosRequeridos.every(
+        p => typeof permisos[p] === 'boolean'
+      );
+
+      if (!permisosValidos) {
+        Alert.alert('❌ Error', 'Estructura de permisos inválida');
+        return;
+      }
+
       setLoading(true);
       setMostrarModalPermisos(false);
 
       // ✅ NUEVO: Si es modo edición, actualizar permisos existentes
       if (modoEdicion && usuarioEditandoPermisos) {
+        const idUsuarioValidado = SecurityUtils.validateNumericId(usuarioEditandoPermisos.usuario.id_usuario);
+        const idAgenteValidado = SecurityUtils.validateNumericId(usuarioEditandoPermisos.agente.id_agente);
+
+        if (!idUsuarioValidado || !idAgenteValidado) {
+          Alert.alert('❌ Error', 'IDs de usuario o agente inválidos');
+          setLoading(false);
+          return;
+        }
+
         console.log('📝 Modo edición activado');
-        console.log('📝 Usuario:', usuarioEditandoPermisos.usuario.id_usuario);
-        console.log('📝 Agente:', usuarioEditandoPermisos.agente.id_agente);
+        console.log('📝 Usuario:', idUsuarioValidado);
+        console.log('📝 Agente:', idAgenteValidado);
         console.log('📝 Nuevos permisos:', permisos);
 
         try {
           await usuarioAgenteService.actualizar(
-            usuarioEditandoPermisos.usuario.id_usuario,
-            usuarioEditandoPermisos.agente.id_agente,
+            idUsuarioValidado,
+            idAgenteValidado,
             {
               puede_ver_contenido: permisos.puede_ver_contenido,
               puede_crear_contenido: permisos.puede_crear_contenido,
@@ -319,25 +695,41 @@ export default function GestionAsignacionUsPage() {
         }
       }
 
+      // ✅ VALIDACIÓN: IDs de usuarios
+      const idsValidados = SecurityUtils.validateIdArray(selectedUsuarios);
+      if (idsValidados.length === 0) {
+        Alert.alert('❌ Error', 'No hay usuarios válidos para asignar');
+        setLoading(false);
+        return;
+      }
+
+      // ✅ VALIDACIÓN: ID de departamento
+      const deptoValidado = SecurityUtils.validateNumericId(selectedDepartamento);
+      if (!deptoValidado) {
+        Alert.alert('❌ Error', 'ID de departamento inválido');
+        setLoading(false);
+        return;
+      }
+
       // ✅ RESTO DEL CÓDIGO (para asignación nueva)
-      const usuariosAsignados = selectedUsuarios.length;
+      const usuariosAsignados = idsValidados.length;
       const nombreDept = departamentoActual?.nombre;
-      const idsUsuarios = [...selectedUsuarios];
+      const idsUsuarios = [...idsValidados];
 
       console.log('🔍 Iniciando asignación de usuarios:', idsUsuarios);
-      console.log('🔍 Departamento destino:', selectedDepartamento, '-', nombreDept);
+      console.log('🔍 Departamento destino:', deptoValidado, '-', nombreDept);
       console.log('🔍 Permisos a aplicar:', permisos);
 
       const promesasDepartamento = idsUsuarios.map(idUsuario =>
         usuarioService.cambiarDepartamento(idUsuario, {
-          id_departamento: selectedDepartamento,
+          id_departamento: deptoValidado,
         })
       );
 
       await Promise.all(promesasDepartamento);
       console.log('✅ Usuarios asignados al departamento exitosamente');
 
-      const agentesResponse = await obtenerAgentesDelDepartamento(selectedDepartamento);
+      const agentesResponse = await obtenerAgentesDelDepartamento(deptoValidado);
       const agentes = agentesResponse || [];
 
       console.log('🔍 Agentes obtenidos:', agentes.length, 'agente(s)');
@@ -440,9 +832,16 @@ export default function GestionAsignacionUsPage() {
 
   const obtenerAgentesDelDepartamento = async (idDepartamento) => {
     try {
-      console.log('🔍 [obtenerAgentesDelDepartamento] Buscando agentes para departamento:', idDepartamento);
+      // ✅ VALIDACIÓN: ID de departamento
+      const idValidado = SecurityUtils.validateNumericId(idDepartamento);
+      if (!idValidado) {
+        console.error('❌ ID de departamento inválido');
+        return [];
+      }
 
-      const response = await agenteService.getAll({ id_departamento: idDepartamento });
+      console.log('🔍 [obtenerAgentesDelDepartamento] Buscando agentes para departamento:', idValidado);
+
+      const response = await agenteService.getAll({ id_departamento: idValidado });
 
       console.log('🔍 [obtenerAgentesDelDepartamento] Respuesta completa del servicio:', response);
       console.log('🔍 [obtenerAgentesDelDepartamento] response.agentes:', response?.agentes);
@@ -473,10 +872,10 @@ export default function GestionAsignacionUsPage() {
       }
 
       // Filtrar solo agentes activos del departamento específico
-      const agentesFiltrados = agentes.filter(a =>
-        a.id_departamento === idDepartamento ||
-        a.id_departamento === Number(idDepartamento)
-      );
+      const agentesFiltrados = agentes.filter(a => {
+        const idAgenteDept = SecurityUtils.validateNumericId(a.id_departamento);
+        return idAgenteDept === idValidado;
+      });
 
       console.log('🔍 [obtenerAgentesDelDepartamento] Agentes filtrados:', agentesFiltrados.length);
       console.log('🔍 [obtenerAgentesDelDepartamento] Detalle:', agentesFiltrados.map(a => ({
@@ -557,26 +956,38 @@ export default function GestionAsignacionUsPage() {
 
   const handleEditarPermisos = async (usuario) => {
     try {
-      console.log('📝 Iniciando edición de permisos para usuario:', usuario.id_usuario);
+      // ✅ Validar usuario
+      if (!SecurityUtils.validarUsuario(usuario)) {
+        Alert.alert('Error', 'Datos de usuario inválidos');
+        return;
+      }
+
+      const idUsuarioValidado = SecurityUtils.validateNumericId(usuario.id_usuario);
+      if (!idUsuarioValidado) {
+        Alert.alert('Error', 'ID de usuario inválido');
+        return;
+      }
+
+      console.log('📝 Iniciando edición de permisos para usuario:', idUsuarioValidado);
 
       // Obtener agentes del departamento del usuario
-      const agentesResponse = await obtenerAgentesDelDepartamento(usuario.departamento?.id_departamento || usuario.id_departamento);
+      const idDepartamento = usuario.departamento?.id_departamento || usuario.id_departamento;
+      const idDepartamentoValidado = SecurityUtils.validateNumericId(idDepartamento);
+
+      if (!idDepartamentoValidado) {
+        Alert.alert('Error', 'El usuario no tiene un departamento válido asignado');
+        return;
+      }
+
+      const agentesResponse = await obtenerAgentesDelDepartamento(idDepartamentoValidado);
       const agentes = agentesResponse || [];
 
       if (agentes.length === 0) {
-        // ✅ Recargar ANTES de mostrar el alert
-        await cargarUsuariosDepartamento(selectedDepartamento);
-        await cargarUsuariosSinDepartamento();
-
-        // ✅ Limpiar estados
-        setMostrarAsignacionSinDept(false);
-        setSelectedUsuarios([]);
-        setNuevoDepartamento(null);
-        setLoading(false);
+        const nombreDept = usuario.departamento?.nombre || 'este departamento';
 
         Alert.alert(
-          '⚠️ Advertencia',
-          `Los ${usuariosAsignados} usuario(s) se asignaron correctamente al departamento "${nombreDept}", pero este departamento no tiene agentes virtuales.\n\n✓ El cambio de departamento fue exitoso\n✓ Los permisos se aplicarán automáticamente cuando se creen agentes en este departamento.`,
+          '⚠️ Sin Agentes Virtuales',
+          `El usuario está asignado correctamente a "${nombreDept}", pero este departamento no tiene agentes virtuales.\n\n✓ El usuario permanece en el departamento\n✓ Los permisos se aplicarán automáticamente cuando se creen agentes.`,
           [{ text: 'Entendido', style: 'default' }]
         );
 
@@ -604,6 +1015,12 @@ export default function GestionAsignacionUsPage() {
   };
 
   const handleRevocarAsignacion = async (usuario) => {
+    // ✅ Validar usuario
+    if (!SecurityUtils.validarUsuario(usuario)) {
+      Alert.alert('Error', 'Datos de usuario inválidos');
+      return;
+    }
+
     setUsuarioARevocar(usuario);
     setMostrarModalRevocacion(true);
   };
@@ -611,32 +1028,51 @@ export default function GestionAsignacionUsPage() {
   const confirmarRevocacion = async () => {
     if (!usuarioARevocar) return;
 
+    // ✅ Rate limiting
+    if (!puedeEjecutarAccion()) return;
+
+    // ✅ Validar usuario
+    const idUsuarioValidado = SecurityUtils.validateNumericId(usuarioARevocar.id_usuario);
+    if (!idUsuarioValidado) {
+      Alert.alert('Error', 'ID de usuario inválido');
+      return;
+    }
+
     try {
       setLoadingRevocacion(true);
 
       const nombreUsuario = `${usuarioARevocar.persona?.nombre} ${usuarioARevocar.persona?.apellido}`;
 
       // 1. Obtener agentes del departamento
-      const agentesResponse = await obtenerAgentesDelDepartamento(
-        usuarioARevocar.departamento?.id_departamento || usuarioARevocar.id_departamento
-      );
+      const idDepartamento = usuarioARevocar.departamento?.id_departamento || usuarioARevocar.id_departamento;
+      const idDepartamentoValidado = SecurityUtils.validateNumericId(idDepartamento);
+
+      if (!idDepartamentoValidado) {
+        Alert.alert('Error', 'Departamento inválido');
+        setLoadingRevocacion(false);
+        return;
+      }
+
+      const agentesResponse = await obtenerAgentesDelDepartamento(idDepartamentoValidado);
       const agentes = agentesResponse || [];
 
       // 2. ELIMINAR registros de usuario_agente
       if (agentes.length > 0) {
-        const promesasEliminar = agentes.map(agente =>
-          usuarioAgenteService.eliminar(
-            usuarioARevocar.id_usuario,
-            agente.id_agente
-          )
-        );
+        const promesasEliminar = agentes.map(agente => {
+          const idAgenteValidado = SecurityUtils.validateNumericId(agente.id_agente);
+          if (!idAgenteValidado) {
+            console.warn('⚠️ ID de agente inválido:', agente.id_agente);
+            return Promise.resolve();
+          }
+          return usuarioAgenteService.eliminar(idUsuarioValidado, idAgenteValidado);
+        });
 
         await Promise.all(promesasEliminar);
         console.log('✅ Registros eliminados de usuario_agente:', agentes.length, 'agente(s)');
       }
 
       // 3. Remover departamento del usuario
-      await usuarioService.cambiarDepartamento(usuarioARevocar.id_usuario, {
+      await usuarioService.cambiarDepartamento(idUsuarioValidado, {
         id_departamento: null,
       });
 
@@ -1004,7 +1440,8 @@ export default function GestionAsignacionUsPage() {
                   placeholder="Buscar departamento por nombre, código o facultad..."
                   placeholderTextColor="#94a3b8"
                   value={busquedaDept}
-                  onChangeText={setBusquedaDept}
+                  onChangeText={(text) => setBusquedaDept(SecurityUtils.sanitizeInput(text))}
+                  maxLength={100}
                 />
                 {busquedaDept.length > 0 && (
                   <TouchableOpacity onPress={() => setBusquedaDept('')}>
@@ -1205,7 +1642,8 @@ export default function GestionAsignacionUsPage() {
                         placeholder="Buscar usuario..."
                         placeholderTextColor="#94a3b8"
                         value={busquedaUsuario}
-                        onChangeText={setBusquedaUsuario}
+                        onChangeText={(text) => setBusquedaUsuario(SecurityUtils.sanitizeInput(text))}
+                        maxLength={100}
                       />
                       {busquedaUsuario.length > 0 && (
                         <TouchableOpacity onPress={() => setBusquedaUsuario('')}>

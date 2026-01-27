@@ -386,7 +386,8 @@ const GestionPerfilCard = ({ usuario, onCerrar, onGuardado }) => {
                             placeholderTextColor="#9CA3AF"
                             value={nombre}
                             onChangeText={(text) => {
-                                const limpio = SecurityValidator.sanitizeText(text).replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+                                // ✅ NO sanitizar aquí, solo filtrar caracteres permitidos
+                                const limpio = text.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
                                 setNombre(limpio);
                                 if (errors.nombre) setErrors({ ...errors, nombre: undefined });
                             }}
@@ -408,7 +409,8 @@ const GestionPerfilCard = ({ usuario, onCerrar, onGuardado }) => {
                             placeholderTextColor="#9CA3AF"
                             value={apellido}
                             onChangeText={(text) => {
-                                const limpio = SecurityValidator.sanitizeText(text).replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+                                // ✅ NO sanitizar aquí, solo filtrar caracteres permitidos
+                                const limpio = text.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
                                 setApellido(limpio);
                                 if (errors.apellido) setErrors({ ...errors, apellido: undefined });
                             }}
