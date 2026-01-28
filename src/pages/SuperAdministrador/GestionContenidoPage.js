@@ -171,6 +171,37 @@ const PRIORITY_LABELS = {
 
 const isWeb = Platform.OS === 'web';
 
+// ============ COMPONENTE DATE PICKER COMPATIBLE ============
+function DatePickerField({ value, onChange, label, placeholder }) {
+  if (isWeb) {
+    // Para web, usar input HTML5
+    return (
+      <input
+        type="date"
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width: '100%',
+          padding: '12px',
+          borderRadius: '8px',
+          borderWidth: 1,
+          borderColor: 'rgba(102, 126, 234, 0.3)',
+          backgroundColor: '#1a1a2e',
+          color: '#fff',
+          fontSize: '14px',
+          fontFamily: 'sans-serif',
+          marginTop: '8px',
+          marginBottom: '8px',
+          boxSizing: 'border-box'
+        }}
+      />
+    );
+  } else {
+    // Para mobile, retornar null (el DateTimePicker se mostrará con el estado)
+    return null;
+  }
+}
+
 // ============ COMPONENTE TOOLTIP ============
 function TooltipIcon({ text }) {
   const [showTooltip, setShowTooltip] = useState(false);
@@ -2522,34 +2553,28 @@ const GestionContenidoPage = () => {
                   </View>
 
                   {Platform.OS === 'web' ? (
-                    // 🌐 VERSIÓN WEB
-                    <TouchableOpacity
-                      onPress={() => setShowPickerInicio(true)}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 10,
-                        padding: 16,
-                        borderRadius: 12,
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                        borderWidth: 1,
-                        borderColor: formData.fecha_vigencia_inicio
-                          ? '#3498db'
-                          : 'rgba(255, 255, 255, 0.15)',
-                      }}>
-                      <Ionicons name="calendar" size={20} color={formData.fecha_vigencia_inicio ? '#3498db' : 'rgba(255, 255, 255, 0.4)'} />
-
-                      <Text style={{
-                        flex: 1,
-                        color: formData.fecha_vigencia_inicio ? 'white' : 'rgba(255, 255, 255, 0.5)',
-                        fontSize: 15,
-                        fontWeight: formData.fecha_vigencia_inicio ? '600' : '400',
-                      }}>
-                        {formData.fecha_vigencia_inicio
-                          ? new Date(formData.fecha_vigencia_inicio).toLocaleDateString('es-ES')
-                          : 'Seleccionar fecha'}
-                      </Text>
-
+                    // 🌐 VERSIÓN WEB - Input HTML5
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="date"
+                        value={formData.fecha_vigencia_inicio || ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setFormData({ ...formData, fecha_vigencia_inicio: value });
+                          setErrores({ ...errores, fecha_vigencia_inicio: '' });
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          border: formData.fecha_vigencia_inicio ? '1px solid #3498db' : '1px solid rgba(255, 255, 255, 0.15)',
+                          color: 'white',
+                          fontSize: '14px',
+                          fontWeight: '500',
+                          boxSizing: 'border-box'
+                        }}
+                      />
                       {formData.fecha_vigencia_inicio && (
                         <TouchableOpacity
                           onPress={() => {
@@ -2568,9 +2593,9 @@ const GestionContenidoPage = () => {
                           <Ionicons name="close" size={18} color="#ef4444" />
                         </TouchableOpacity>
                       )}
-                    </TouchableOpacity>
+                    </View>
                   ) : (
-                    // 📱 VERSIÓN MÓVIL - TouchableOpacity + DateTimePicker
+                    // 📱 VERSIÓN MOBILE
                     <>
                       <TouchableOpacity
                         style={{
@@ -2678,34 +2703,29 @@ const GestionContenidoPage = () => {
                   </View>
 
                   {Platform.OS === 'web' ? (
-                    // 🌐 VERSIÓN WEB
-                    <TouchableOpacity
-                      onPress={() => setShowPickerFin(true)}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 10,
-                        padding: 16,
-                        borderRadius: 12,
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                        borderWidth: 1,
-                        borderColor: formData.fecha_vigencia_fin
-                          ? '#3498db'
-                          : 'rgba(255, 255, 255, 0.15)',
-                      }}>
-                      <Ionicons name="calendar" size={20} color={formData.fecha_vigencia_fin ? '#3498db' : 'rgba(255, 255, 255, 0.4)'} />
-
-                      <Text style={{
-                        flex: 1,
-                        color: formData.fecha_vigencia_fin ? 'white' : 'rgba(255, 255, 255, 0.5)',
-                        fontSize: 15,
-                        fontWeight: formData.fecha_vigencia_fin ? '600' : '400',
-                      }}>
-                        {formData.fecha_vigencia_fin
-                          ? new Date(formData.fecha_vigencia_fin).toLocaleDateString('es-ES')
-                          : 'Seleccionar fecha'}
-                      </Text>
-
+                    // 🌐 VERSIÓN WEB - Input HTML5
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="date"
+                        value={formData.fecha_vigencia_fin || ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setFormData({ ...formData, fecha_vigencia_fin: value });
+                          setErrores({ ...errores, fecha_vigencia_fin: '' });
+                        }}
+                        min={formData.fecha_vigencia_inicio || undefined}
+                        style={{
+                          flex: 1,
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          border: formData.fecha_vigencia_fin ? '1px solid #3498db' : '1px solid rgba(255, 255, 255, 0.15)',
+                          color: 'white',
+                          fontSize: '14px',
+                          fontWeight: '500',
+                          boxSizing: 'border-box'
+                        }}
+                      />
                       {formData.fecha_vigencia_fin && (
                         <TouchableOpacity
                           onPress={() => {
@@ -2724,7 +2744,7 @@ const GestionContenidoPage = () => {
                           <Ionicons name="close" size={18} color="#ef4444" />
                         </TouchableOpacity>
                       )}
-                    </TouchableOpacity>
+                    </View>
                   ) : (
                     // 📱 VERSIÓN MÓVIL - TouchableOpacity + DateTimePicker
                     <>

@@ -339,6 +339,9 @@ export default function GestionCategoriaPage() {
   const [sessionTimeout, setSessionTimeout] = useState(null);
   const SESSION_DURATION = 30 * 60 * 1000; // 30 minutos
 
+  // Platform detection for responsive UI
+  const isWeb = Platform.OS === 'web';
+
   // Arrays de iconos y colores disponibles
   const iconosDisponibles = [
     'folder', 'document', 'file-tray', 'archive', 'briefcase',

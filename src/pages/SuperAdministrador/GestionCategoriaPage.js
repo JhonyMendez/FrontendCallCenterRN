@@ -529,7 +529,7 @@ export default function GestionCategoriaPage() {
   const cargarAgentes = async () => {
     try {
       // 🔒 SECURITY: Rate limiting
-      if (!rateLimiterRef.current('cargarAgentes')) {
+      if (!rateLimiterRef.current.isAllowed('cargarAgentes')) {
         SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', {
           function: 'cargarAgentes',
           operation: 'load_agents'
@@ -598,7 +598,7 @@ export default function GestionCategoriaPage() {
   const cargarCategorias = async () => {
     try {
       // 🔒 SECURITY: Rate limiting on load operations
-      if (!rateLimiterRef.current('cargarCategorias')) {
+      if (!rateLimiterRef.current.isAllowed('cargarCategorias')) {
         SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', {
           function: 'cargarCategorias',
           operation: 'load',
@@ -672,7 +672,7 @@ export default function GestionCategoriaPage() {
 
   const handleSubmit = async () => {
     // 🔒 SECURITY: Rate limiting check on operations
-    if (!rateLimiterRef.current('handleSubmit')) {
+    if (!rateLimiterRef.current.isAllowed('handleSubmit')) {
       SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', { 
         function: 'handleSubmit',
         operation: 'save_category',
@@ -847,7 +847,7 @@ export default function GestionCategoriaPage() {
 
   const handleDelete = (id) => {
     // 🔒 SECURITY: Rate limiting on delete operations
-    if (!rateLimiterRef.current('handleDelete')) {
+    if (!rateLimiterRef.current.isAllowed('handleDelete')) {
       SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', {
         function: 'handleDelete',
         operation: 'delete',
@@ -886,7 +886,7 @@ export default function GestionCategoriaPage() {
     if (!categoriaToDelete) return;
 
     // 🔒 SECURITY: Rate limiting on confirm delete
-    if (!rateLimiterRef.current('confirmDelete')) {
+    if (!rateLimiterRef.current.isAllowed('confirmDelete')) {
       SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', {
         function: 'confirmDelete',
         operation: 'confirm_delete',
@@ -1059,7 +1059,7 @@ export default function GestionCategoriaPage() {
 
   const handleSearchChange = (text) => {
     // 🔒 SECURITY: Rate limiting on search
-    if (!rateLimiterRef.current('handleSearch')) {
+    if (!rateLimiterRef.current.isAllowed('handleSearch')) {
       SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', {
         function: 'handleSearchChange',
         operation: 'search',

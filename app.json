@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "FrontendCallCenterRN",
+    "name": "TEC-AI",
     "slug": "FrontendCallCenterRN",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -29,7 +29,8 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/TECAI.png"
+      "favicon": "./assets/images/TECAI.png",
+      "title": "TEC-AI"
     },
     "plugins": [
       "expo-router",
