@@ -988,6 +988,12 @@ const GestionContenidoPage = () => {
         const id_departamento = agenteSeleccionado?.id_departamento || null;
 
         // 🔒 SECURITY: Sanitize all inputs before sending
+        // 🔥 NUEVO: Si no hay fechas de vigencia, el estado debe ser 'activo'
+        let estadoFinal = formData.estado;
+        if (!formData.fecha_vigencia_inicio && !formData.fecha_vigencia_fin) {
+          estadoFinal = 'activo';
+        }
+
         const dataToSend = {
           id_agente: parseInt(categoriaSeleccionada.id_agente),
           id_categoria: parseInt(formData.id_categoria),
@@ -998,7 +1004,7 @@ const GestionContenidoPage = () => {
           palabras_clave: SecurityUtils.sanitizeInput(formData.palabras_clave),
           etiquetas: SecurityUtils.sanitizeInput(formData.etiquetas),
           prioridad: parseInt(formData.prioridad),
-          estado: ['activo', 'inactivo'].includes(formData.estado.toLowerCase()) ? formData.estado : 'activo',
+          estado: ['activo', 'inactivo'].includes(estadoFinal.toLowerCase()) ? estadoFinal : 'activo',
           // 🔥 NUEVOS CAMPOS
           fecha_vigencia_inicio: formData.fecha_vigencia_inicio || null,
           fecha_vigencia_fin: formData.fecha_vigencia_fin || null
