@@ -10,7 +10,6 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -18,7 +17,6 @@ import {
   View
 } from 'react-native';
 import { escalamientoService } from '../../api/services/escalamientoService';
-import notificacionService from '../../api/services/notificacionService'; // 🔥 NUEVO
 import { DetalleConversacionCard } from '../../components/Funcionario/DetalleConversacionCard';
 import DisponibilidadToggle from '../../components/Funcionario/DisponibilidadToggle';
 import { GestionConversacionesCard } from '../../components/Funcionario/GestionConversacionesCard';
@@ -143,9 +141,6 @@ const GestionConversacionesPage = () => {
   const [filtroEstado, setFiltroEstado] = useState('todas');
   const [mensajeTexto, setMensajeTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
-  const [mostrarModalResolver, setMostrarModalResolver] = useState(false);
-  const [mostrarModalTransferir, setMostrarModalTransferir] = useState(false);
-  const [funcionariosDisponibles, setFuncionariosDisponibles] = useState([]);
 
   // Estado de usuario autenticado
   const [userId, setUserId] = useState(null);
@@ -355,155 +350,6 @@ const GestionConversacionesPage = () => {
   // ACCIONES DE CONVERSACIÓN
   // ============================================
 
-  const handleTomarConversacion = async (conversacion) => {
-    if (!userId) {
-      Alert.alert('Error', 'No se pudo obtener información del usuario');
-      return;
-    }
-
-    // 🔒 SECURITY: Rate limiting
-    if (!rateLimiterRef.current.isAllowed('handleTomarConversacion')) {
-      SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', { 
-        function: 'handleTomarConversacion',
-        sessionId: conversacion.sessionId,
-        userId,
-        timestamp: new Date().toISOString()
-      });
-      Alert.alert('⚠️ Seguridad', 'Intentas tomar muchas conversaciones muy rápido. Por favor, espera.');
-      return;
-    }
-
-    // 🔒 SECURITY: Validate session ID
-    if (!SecurityUtils.validateStringLength(conversacion.sessionId, 5, 100)) {
-      SecurityUtils.logSecurityEvent('INVALID_SESSION_ID', {
-        function: 'handleTomarConversacion',
-        sessionId: conversacion.sessionId,
-        userId,
-        timestamp: new Date().toISOString()
-      });
-      Alert.alert('Error', 'ID de sesión inválido');
-      return;
-    }
-
-    SecurityUtils.logSecurityEvent('TAKE_CONVERSATION_ATTEMPT', {
-      function: 'handleTomarConversacion',
-      sessionId: conversacion.sessionId,
-      userId,
-      timestamp: new Date().toISOString()
-    });
-
-    try {
-      const response = await escalamientoService.tomarConversacion(conversacion.sessionId, {
-        id_usuario: userId,
-        nombre_usuario: userName
-      });
-
-      if (response.success) {
-        SecurityUtils.logSecurityEvent('TAKE_CONVERSATION_SUCCESS', {
-          function: 'handleTomarConversacion',
-          sessionId: conversacion.sessionId,
-          userId,
-          timestamp: new Date().toISOString()
-        });
-
-        // 🔥 Reproducir sonido de éxito
-        await notificacionService.soloSonido('mensaje');
-        
-        Alert.alert('✅ Éxito', 'Conversación asignada a ti');
-        cargarConversaciones();
-
-        if (conversacionSeleccionada?.sessionId === conversacion.sessionId) {
-          cargarDetalleConversacion(conversacion.sessionId);
-        }
-      }
-    } catch (error) {
-      SecurityUtils.logSecurityEvent('TAKE_CONVERSATION_ERROR', {
-        function: 'handleTomarConversacion',
-        sessionId: conversacion.sessionId,
-        error: error.message,
-        userId,
-        timestamp: new Date().toISOString()
-      });
-      console.error('Error tomando conversación:', error);
-      Alert.alert('Error', error.response?.data?.detail || 'No se pudo tomar la conversación');
-    }
-  };
-
-  const handleTransferirConversacion = async (idUsuarioDestino, motivo) => {
-    if (!conversacionSeleccionada) return;
-
-    // 🔒 SECURITY: Rate limiting
-    if (!rateLimiterRef.current.isAllowed('handleTransferirConversacion')) {
-      SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', { 
-        function: 'handleTransferirConversacion',
-        sessionId: conversacionSeleccionada.sessionId,
-        userId,
-        timestamp: new Date().toISOString()
-      });
-      Alert.alert('⚠️ Seguridad', 'Demasiadas transferencias. Por favor, espera un momento.');
-      return;
-    }
-
-    // 🔒 SECURITY: Validate user ID and reason
-    if (!SecurityUtils.validateNumberRange(idUsuarioDestino, 1) || !SecurityUtils.validateStringLength(motivo || '', 0, 500)) {
-      SecurityUtils.logSecurityEvent('TRANSFER_VALIDATION_FAILED', {
-        function: 'handleTransferirConversacion',
-        sessionId: conversacionSeleccionada.sessionId,
-        destinyUserId: idUsuarioDestino,
-        userId,
-        timestamp: new Date().toISOString()
-      });
-      Alert.alert('Error', 'Datos de transferencia inválidos');
-      return;
-    }
-
-    // 🔒 SECURITY: Sanitize reason
-    const motivoSanitizado = SecurityUtils.sanitizeInput(motivo || 'Transferencia de conversación');
-
-    SecurityUtils.logSecurityEvent('TRANSFER_ATTEMPT', {
-      function: 'handleTransferirConversacion',
-      sessionId: conversacionSeleccionada.sessionId,
-      destinyUserId: idUsuarioDestino,
-      userId,
-      timestamp: new Date().toISOString()
-    });
-
-    try {
-      const response = await escalamientoService.transferirConversacion(
-        conversacionSeleccionada.sessionId,
-        {
-          id_usuario_destino: idUsuarioDestino,
-          motivo: motivoSanitizado
-        }
-      );
-
-      if (response.success) {
-        SecurityUtils.logSecurityEvent('TRANSFER_SUCCESS', {
-          function: 'handleTransferirConversacion',
-          sessionId: conversacionSeleccionada.sessionId,
-          destinyUserId: idUsuarioDestino,
-          userId,
-          timestamp: new Date().toISOString()
-        });
-
-        Alert.alert('✅ Éxito', 'Conversación transferida correctamente');
-        setMostrarModalTransferir(false);
-        handleVolverLista();
-        cargarConversaciones();
-      }
-    } catch (error) {
-      SecurityUtils.logSecurityEvent('TRANSFER_ERROR', {
-        function: 'handleTransferirConversacion',
-        sessionId: conversacionSeleccionada.sessionId,
-        error: error.message,
-        userId,
-        timestamp: new Date().toISOString()
-      });
-      console.error('Error transfiriendo conversación:', error);
-      Alert.alert('Error', 'No se pudo transferir la conversación');
-    }
-  };
-
   const handleEnviarMensaje = async () => {
     if (!mensajeTexto.trim() || !conversacionSeleccionada || !userId) return;
 
@@ -573,108 +419,6 @@ const GestionConversacionesPage = () => {
       Alert.alert('Error', 'No se pudo enviar el mensaje');
     } finally {
       setEnviando(false);
-    }
-  };
-
-  const handleResolverConversacion = () => {
-    setMostrarModalResolver(true);
-  };
-
-  const confirmarResolver = async (calificacion = null, comentario = null) => {
-    if (!conversacionSeleccionada) return;
-
-    // 🔒 SECURITY: Rate limiting
-    if (!rateLimiterRef.current.isAllowed('confirmarResolver')) {
-      SecurityUtils.logSecurityEvent('RATE_LIMIT_EXCEEDED', { 
-        function: 'confirmarResolver',
-        sessionId: conversacionSeleccionada.sessionId,
-        userId,
-        timestamp: new Date().toISOString()
-      });
-      Alert.alert('⚠️ Seguridad', 'Demasiadas resoluciones. Por favor, espera un momento.');
-      return;
-    }
-
-    // 🔒 SECURITY: Validate rating (1-5) and sanitize comment
-    if (calificacion && !SecurityUtils.validateNumberRange(calificacion, 1, 5)) {
-      SecurityUtils.logSecurityEvent('RESOLVE_VALIDATION_FAILED', {
-        function: 'confirmarResolver',
-        sessionId: conversacionSeleccionada.sessionId,
-        calificacion,
-        userId,
-        reason: 'INVALID_RATING',
-        timestamp: new Date().toISOString()
-      });
-      Alert.alert('Error', 'Calificación debe ser entre 1 y 5');
-      return;
-    }
-
-    const comentarioSanitizado = SecurityUtils.sanitizeInput(comentario || '');
-    if (comentarioSanitizado && !SecurityUtils.validateStringLength(comentarioSanitizado, 0, 500)) {
-      SecurityUtils.logSecurityEvent('RESOLVE_VALIDATION_FAILED', {
-        function: 'confirmarResolver',
-        sessionId: conversacionSeleccionada.sessionId,
-        userId,
-        reason: 'COMMENT_TOO_LONG',
-        timestamp: new Date().toISOString()
-      });
-      Alert.alert('Error', 'El comentario es demasiado largo (máximo 500 caracteres)');
-      return;
-    }
-
-    SecurityUtils.logSecurityEvent('RESOLVE_ATTEMPT', {
-      function: 'confirmarResolver',
-      sessionId: conversacionSeleccionada.sessionId,
-      calificacion,
-      userId,
-      timestamp: new Date().toISOString()
-    });
-
-    try {
-      await escalamientoService.resolver(conversacionSeleccionada.sessionId, {
-        calificacion,
-        comentario: comentarioSanitizado
-      });
-
-      SecurityUtils.logSecurityEvent('RESOLVE_SUCCESS', {
-        function: 'confirmarResolver',
-        sessionId: conversacionSeleccionada.sessionId,
-        calificacion,
-        userId,
-        timestamp: new Date().toISOString()
-      });
-
-      Alert.alert('✅ Éxito', 'Conversación marcada como resuelta');
-      setMostrarModalResolver(false);
-      handleVolverLista();
-      cargarConversaciones();
-    } catch (error) {
-      SecurityUtils.logSecurityEvent('RESOLVE_ERROR', {
-        function: 'confirmarResolver',
-        sessionId: conversacionSeleccionada.sessionId,
-        error: error.message,
-        userId,
-        timestamp: new Date().toISOString()
-      });
-      console.error('Error resolviendo conversación:', error);
-      Alert.alert('Error', 'No se pudo resolver la conversación');
-    }
-  };
-
-  const abrirModalTransferir = async () => {
-    try {
-      const response = await escalamientoService.getFuncionariosDisponibles({
-        id_departamento: userDepartment
-      });
-
-      if (response.success) {
-        const funcionarios = response.funcionarios.filter(f => f.id_usuario !== userId);
-        setFuncionariosDisponibles(funcionarios);
-        setMostrarModalTransferir(true);
-      }
-    } catch (error) {
-      console.error('Error cargando funcionarios:', error);
-      Alert.alert('Error', 'No se pudieron cargar los funcionarios disponibles');
     }
   };
 
@@ -906,12 +650,6 @@ const GestionConversacionesPage = () => {
             <GestionConversacionesCard
               conversacion={item}
               onPress={() => handleVerConversacion(item)}
-              onTomar={() => handleTomarConversacion(item)}
-              puedeTomarConversacion={
-                vistaActual === 'todas' &&
-                !item.escaladoAId &&
-                item.estado !== 'cerrada'
-              }
               esPropia={item.escaladoAId === userId}
             />
           )}
@@ -956,24 +694,6 @@ const GestionConversacionesPage = () => {
           </View>
 
           <View style={styles.detalleHeaderActions}>
-            {puedeTransferir && (
-              <TouchableOpacity
-                style={styles.actionButtonSmall}
-                onPress={abrirModalTransferir}
-              >
-                <Ionicons name="swap-horizontal" size={18} color="#F59E0B" />
-              </TouchableOpacity>
-            )}
-
-            {esPropia && conversacionSeleccionada.estado !== 'cerrada' && (
-              <TouchableOpacity
-                style={styles.resolverButtonVisible}
-                onPress={handleResolverConversacion}
-              >
-                <Ionicons name="checkmark-circle" size={20} color="#FFF" />
-                <Text style={styles.resolverButtonText}>Resolver</Text>
-              </TouchableOpacity>
-            )}
           </View>
         </View>
 
@@ -1133,144 +853,6 @@ const GestionConversacionesPage = () => {
         sidebarOpen && contentStyles.mainContentWithSidebar
       ]}>
         {conversacionSeleccionada ? renderDetalle() : renderLista()}
-      </View>
-
-      {mostrarModalResolver && (
-        <ModalResolverConversacion
-          visible={mostrarModalResolver}
-          onClose={() => setMostrarModalResolver(false)}
-          onConfirmar={confirmarResolver}
-        />
-      )}
-
-      {mostrarModalTransferir && (
-        <ModalTransferirConversacion
-          visible={mostrarModalTransferir}
-          funcionarios={funcionariosDisponibles}
-          onClose={() => setMostrarModalTransferir(false)}
-          onConfirmar={handleTransferirConversacion}
-        />
-      )}
-    </View>
-  );
-};
-
-// ============================================
-// MODALES (sin cambios, igual que antes)
-// ============================================
-const ModalResolverConversacion = ({ visible, onClose, onConfirmar }) => {
-  const [calificacion, setCalificacion] = useState(null);
-  const [comentario, setComentario] = useState('');
-
-  const estrellas = [1, 2, 3, 4, 5];
-
-  return (
-    <View style={styles.modalOverlay}>
-      <View style={styles.modalContent}>
-        <Text style={styles.modalTitle}>Resolver Conversación</Text>
-
-        <Text style={styles.modalLabel}>Calificación (opcional)</Text>
-        <View style={styles.estrellasContainer}>
-          {estrellas.map((num) => (
-            <TouchableOpacity
-              key={num}
-              onPress={() => setCalificacion(num)}
-              style={styles.estrellaButton}
-            >
-              <Ionicons
-                name={calificacion >= num ? 'star' : 'star-outline'}
-                size={32}
-                color="#F59E0B"
-              />
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <Text style={styles.modalLabel}>Comentario (opcional)</Text>
-        <TextInput
-          style={styles.modalTextArea}
-          placeholder="Agregar comentario..."
-          value={comentario}
-          onChangeText={setComentario}
-          multiline
-          numberOfLines={4}
-        />
-
-        <View style={styles.modalButtons}>
-          <TouchableOpacity style={styles.modalButtonCancel} onPress={onClose}>
-            <Text style={styles.modalButtonCancelText}>Cancelar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.modalButtonConfirm}
-            onPress={() => onConfirmar(calificacion, comentario)}
-          >
-            <Text style={styles.modalButtonConfirmText}>Resolver</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
-};
-
-const ModalTransferirConversacion = ({ visible, funcionarios, onClose, onConfirmar }) => {
-  const [funcionarioSeleccionado, setFuncionarioSeleccionado] = useState(null);
-  const [motivo, setMotivo] = useState('');
-
-  return (
-    <View style={styles.modalOverlay}>
-      <View style={[styles.modalContent, { maxHeight: '70%' }]}>
-        <Text style={styles.modalTitle}>Transferir Conversación</Text>
-
-        <Text style={styles.modalLabel}>Seleccionar funcionario</Text>
-        <ScrollView style={styles.funcionariosList}>
-          {funcionarios.map((func) => (
-            <TouchableOpacity
-              key={func.id_usuario}
-              style={[
-                styles.funcionarioItem,
-                funcionarioSeleccionado === func.id_usuario && styles.funcionarioItemSelected
-              ]}
-              onPress={() => setFuncionarioSeleccionado(func.id_usuario)}
-            >
-              <View style={styles.funcionarioAvatar}>
-                <Ionicons name="person" size={20} color="#4A90E2" />
-              </View>
-              <View style={styles.funcionarioInfo}>
-                <Text style={styles.funcionarioNombre}>{func.nombre_completo}</Text>
-                <Text style={styles.funcionarioEmail}>{func.email}</Text>
-              </View>
-              {funcionarioSeleccionado === func.id_usuario && (
-                <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        <Text style={styles.modalLabel}>Motivo (opcional)</Text>
-        <TextInput
-          style={styles.modalTextArea}
-          placeholder="Motivo de la transferencia..."
-          value={motivo}
-          onChangeText={setMotivo}
-          multiline
-          numberOfLines={2}
-        />
-
-        <View style={styles.modalButtons}>
-          <TouchableOpacity style={styles.modalButtonCancel} onPress={onClose}>
-            <Text style={styles.modalButtonCancelText}>Cancelar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.modalButtonConfirm,
-              !funcionarioSeleccionado && styles.modalButtonDisabled
-            ]}
-            onPress={() => onConfirmar(funcionarioSeleccionado, motivo)}
-            disabled={!funcionarioSeleccionado}
-          >
-            <Text style={styles.modalButtonConfirmText}>Transferir</Text>
-          </TouchableOpacity>
-        </View>
       </View>
     </View>
   );
@@ -1563,44 +1145,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlignVertical: 'top',
     minHeight: 80
-  },
-  funcionariosList: {
-    maxHeight: 250,
-    marginBottom: 12,
-  },
-  funcionarioItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#F9FAFB',
-    marginBottom: 8,
-  },
-  funcionarioItemSelected: {
-    backgroundColor: '#EBF5FF',
-    borderWidth: 2,
-    borderColor: '#4A90E2',
-  },
-  funcionarioAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#EBF5FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  funcionarioInfo: {
-    flex: 1,
-  },
-  funcionarioNombre: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  funcionarioEmail: {
-    fontSize: 12,
-    color: '#6B7280',
   },
   modalButtons: {
     flexDirection: 'row',
