@@ -575,6 +575,27 @@ export const conversationMongoService = {
         'Error al exportar a Excel'
       );
     }
+  },
+  async getDailyStats(idAgente = null, dias = 7) {
+      try {
+          console.log('📊 [conversationMongoService] Obteniendo estadísticas diarias', { idAgente, dias });
+          
+          // ✅ Usar ENDPOINTS en lugar de API_ROUTES
+          let endpoint = `${ENDPOINTS.CONVERSACIONES_MONGO.STATS_DAILY}?dias=${dias}`;
+          
+          if (idAgente) {
+              endpoint += `&id_agente=${idAgente}`;
+          }
+          
+          const response = await apiClient.get(endpoint);
+          
+          console.log('✅ [conversationMongoService] Estadísticas diarias obtenidas:', response);
+          
+          return response;
+      } catch (error) {
+          console.error('❌ [conversationMongoService] Error obteniendo estadísticas diarias:', error);
+          return null; // Retornar null para no romper la app
+      }
   }
 };
 

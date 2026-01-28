@@ -7,7 +7,7 @@ const getBaseURL = () => {
   const API_PATH = '/api/v1';
   
   // 🔧 CONFIGURACIÓN DE IPs Y URLs
-  const LOCAL_IP = '192.168.5.3'; 
+  const LOCAL_IP = '192.168.18.193'; 
   const LOCAL_PORT = '8000';
   const NGROK_URL = 'https://untranscribable-nonhedonistically-stetson.ngrok-free.dev';
   
@@ -89,6 +89,7 @@ export const ENDPOINTS = {
     // Estadísticas
     STATS_OVERVIEW: '/conversations/stats/overview',
     STATS_AGENT: (idAgente) => `/conversations/stats/agent/${idAgente}`,
+    STATS_DAILY: '/conversations/stats/daily',
     
     // Gestión de estados
     FINALIZE: (sessionId) => `/conversations/${sessionId}/finalize`,

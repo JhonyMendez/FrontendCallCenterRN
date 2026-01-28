@@ -134,6 +134,7 @@ export default function GestionMetricas() {
             
             // Obtener rango de fechas según filtro
             const rangoFechas = obtenerRangoFechas(filtro);
+            console.log('📅 Rango de fechas calculado:', rangoFechas); // 🔥 AGREGAR
             
             // Solo cargar estadísticas de MongoDB con filtro
             const estadisticasConvMongo = await conversationMongoService.getStats(
@@ -147,24 +148,34 @@ export default function GestionMetricas() {
                 return null;
             });
 
+            console.log('📊 Datos recibidos de MongoDB:', estadisticasConvMongo); // 🔥 AGREGAR
+
             // Actualizar SOLO la parte del resumen
-            setMetricas(prev => ({
-                ...prev,
-                resumenFiltrado: {
+            setMetricas(prev => {
+                console.log('🔄 Estado ANTES de actualizar:', prev.resumenFiltrado); // 🔥 AGREGAR
+                
+                const nuevoResumen = {
                     totalConversaciones: estadisticasConvMongo?.total_conversaciones || 0,
                     totalMensajes: estadisticasConvMongo?.promedio_mensajes_por_conversacion || 0,
                     conversacionesFinalizadas: estadisticasConvMongo?.conversaciones_finalizadas || 0,
                     conversacionesEscaladas: estadisticasConvMongo?.conversaciones_escaladas || 0,
                     satisfaccionPromedio: estadisticasConvMongo?.calificacion_promedio || 0,
                     duracionConversacionPromedioSeg: estadisticasConvMongo?.promedio_mensajes_por_conversacion || 0
-                },
-                filtroInfo: {
-                    filtroActivo: filtro,
-                    descripcion: obtenerDescripcionFiltro(filtro),
-                    fechaInicio: rangoFechas.fecha_inicio,
-                    fechaFin: rangoFechas.fecha_fin
-                }
-            }));
+                };
+                
+                console.log('🔄 Estado DESPUÉS de actualizar:', nuevoResumen); // 🔥 AGREGAR
+                
+                return {
+                    ...prev,
+                    resumenFiltrado: nuevoResumen,
+                    filtroInfo: {
+                        filtroActivo: filtro,
+                        descripcion: obtenerDescripcionFiltro(filtro),
+                        fechaInicio: rangoFechas.fecha_inicio,
+                        fechaFin: rangoFechas.fecha_fin
+                    }
+                };
+            });
 
         } catch (error) {
             console.error('❌ Error cargando resumen filtrado:', error);
@@ -334,40 +345,30 @@ export default function GestionMetricas() {
             // ✅ CARGAR DATOS SIN FILTROS DE FECHA
             const [
                 estadisticasConv,
-                estadisticasConvMongo, // Sin filtros de fecha
+                estadisticasConvMongo,
                 estadisticasAgentes,
-                estadisticasVisitantes
+                estadisticasVisitantes,
+                estadisticasDiarias  // 🔥 AGREGAR ESTA LÍNEA
             ] = await Promise.all([
                 conversacionService.getEstadisticasGenerales().catch(err => {
                     console.error('❌ Error en conversaciones SQL:', err.message);
-                    if (err.message && err.message.includes('Token expirado')) {
-                        throw err;
-                    }
                     return null;
                 }),
-
-                // 🔥 MongoDB SIN filtros de fecha (datos generales)
                 conversationMongoService.getStats(agenteSeleccionado).catch(err => {
                     console.error('❌ Error en conversaciones MongoDB:', err.message);
-                    if (err.message && err.message.includes('Token expirado')) {
-                        throw err;
-                    }
                     return null;
                 }),
-
                 agenteService.getEstadisticasGenerales().catch(err => {
                     console.error('❌ Error en agentes:', err.message);
-                    if (err.message && err.message.includes('Token expirado')) {
-                        throw err;
-                    }
                     return null;
                 }),
-
                 visitanteAnonimoService.getEstadisticas().catch(err => {
                     console.error('❌ Error en visitantes:', err.message);
-                    if (err.message && err.message.includes('Token expirado')) {
-                        throw err;
-                    }
+                    return null;
+                }),
+                // 🔥 AGREGAR ESTA LLAMADA
+                conversationMongoService.getDailyStats(agenteSeleccionado, 7).catch(err => {
+                    console.error('❌ Error en estadísticas diarias:', err.message);
                     return null;
                 })
             ]);
@@ -413,7 +414,8 @@ export default function GestionMetricas() {
                     conversacionesFinalizadas: estadisticasConvMongo?.conversaciones_finalizadas || 0,
                     conversacionesEscaladas: estadisticasConvMongo?.conversaciones_escaladas || 0,
                     promedioMensajes: estadisticasConvMongo?.promedio_mensajes_por_conversacion || 0,
-                    calificacionPromedio: estadisticasConvMongo?.calificacion_promedio || 0
+                    calificacionPromedio: estadisticasConvMongo?.calificacion_promedio || 0,
+                    datosDiarios: estadisticasDiarias?.datos || []
                 },
 
                 filtroInfo: {
@@ -702,6 +704,32 @@ export default function GestionMetricas() {
         </LinearGradient>
     );
 
+    // 🔥 NUEVA FUNCIÓN: Recargar datos diarios con diferentes rangos
+    const recargarDatosDiarios = async (dias) => {
+        try {
+            console.log('🔄 Recargando datos diarios con', dias, 'días');
+            
+            const estadisticasDiarias = await conversationMongoService.getDailyStats(
+                agenteSeleccionado, 
+                dias
+            ).catch(err => {
+                console.error('❌ Error recargando datos diarios:', err);
+                return null;
+            });
+
+            setMetricas(prev => ({
+                ...prev,
+                mongoMetrics: {
+                    ...prev.mongoMetrics,
+                    datosDiarios: estadisticasDiarias?.datos || []
+                }
+            }));
+        } catch (error) {
+            console.error('❌ Error recargando datos diarios:', error);
+        }
+    };
+
+
     // ==================== RENDERIZADO PRINCIPAL ====================
     return (
         <View style={contentStyles.wrapper}>
@@ -765,8 +793,11 @@ export default function GestionMetricas() {
                                 </View>
                             ) : (
                                 <GestionMetricasCard
-                                    metricas={metricas}
-                                    filtroActivo={filtroResumen}  // 🔥 CORREGIR: usar filtroResumen
+                                    metricas={{
+                                        ...metricas,
+                                        onRecargarDatosDiarios: recargarDatosDiarios  // 🔥 AGREGAR ESTO
+                                    }}
+                                    filtroActivo={filtroResumen}
                                     agenteSeleccionado={agenteSeleccionado}
                                     onSeleccionarAgente={setAgenteSeleccionado}
                                 />

@@ -13,6 +13,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { LineChart } from 'react-native-chart-kit';
 import { metricasStyles } from '../../styles/GestionMetricasStyles';
 
 const { width } = Dimensions.get('window');
@@ -87,7 +88,7 @@ export default function GestionMetricasCard({
     // ==================== RESUMEN GENERAL ====================
     const renderResumen = () => {
         // 🔥 Usar resumenFiltrado si existe, sino usar resumen general
-        const resumenData = metricas.resumenFiltrado?.totalConversaciones > 0 
+        const resumenData = metricas.filtroInfo?.filtroActivo 
             ? metricas.resumenFiltrado 
             : metricas.resumen;
 
@@ -156,10 +157,7 @@ export default function GestionMetricasCard({
                         <View style={{ flex: 1 }}>
                             <Text style={metricasStyles.resumenTitulo}>Resumen Ejecutivo</Text>
                             <Text style={metricasStyles.resumenSubtitulo}>
-                                {metricas.filtroInfo ? 
-                                    `Período: ${metricas.filtroInfo.descripcion}` : 
-                                    'Métricas generales del sistema'
-                                }
+                                {metricas.filtroInfo?.descripcion ? `Período: ${metricas.filtroInfo.descripcion}` : 'Métricas generales del sistema'}
                             </Text>
                         </View>
                         <Ionicons
@@ -822,354 +820,6 @@ export default function GestionMetricasCard({
     };
 
     // ==================== CONVERSACIONES DETALLADAS ====================
-    const renderConversacionesDetalle = () => {
-        if (!metricas.conversacionesDetalle) {
-            return null;
-        }
-
-        const { conversacionesDetalle } = metricas;
-
-        return (
-            <View style={metricasStyles.seccionContainer}>
-                <TouchableOpacity
-                    onPress={() => toggleSeccion('conversaciones')}
-                    activeOpacity={0.7}
-                >
-                    <View style={metricasStyles.seccionHeader}>
-                        <View style={metricasStyles.seccionIcono}>
-                            <Ionicons name="chatbubbles" size={22} color="#667eea" />
-                        </View>
-                        <Text style={metricasStyles.seccionTitulo}>Análisis de Conversaciones</Text>
-                        <Ionicons
-                            name={seccionExpandida.conversaciones ? "chevron-up" : "chevron-down"}
-                            size={26}
-                            color="#a29bfe"
-                            style={{ marginLeft: 'auto' }}
-                        />
-                    </View>
-                </TouchableOpacity>
-
-                {seccionExpandida.conversaciones && (
-                    <View>
-                        {/* 🔥 NUEVA GRÁFICA: Distribución Visual */}
-                        {conversacionesDetalle.porEstado && conversacionesDetalle.porEstado.length > 0 && (
-                            <View style={[metricasStyles.graficoContainer, { marginTop: 15 }]}>
-                                <View style={metricasStyles.graficoHeader}>
-                                    <Text style={metricasStyles.graficoTitulo}>
-                                        Distribución de Conversaciones
-                                    </Text>
-                                </View>
-
-                                {/* Gráfica de Donut/Anillo */}
-                                <View style={{ 
-                                    alignItems: 'center', 
-                                    paddingVertical: 30,
-                                    position: 'relative'
-                                }}>
-                                    {/* Total en el centro */}
-                                    <View style={{
-                                        position: 'absolute',
-                                        top: '50%',
-                                        left: '50%',
-                                        transform: [{ translateX: -50 }, { translateY: -50 }],
-                                        alignItems: 'center',
-                                        zIndex: 10
-                                    }}>
-                                        <Text style={{
-                                            fontSize: 32,
-                                            fontWeight: '900',
-                                            color: '#fff',
-                                            textShadowColor: 'rgba(0, 0, 0, 0.3)',
-                                            textShadowOffset: { width: 0, height: 2 },
-                                            textShadowRadius: 4
-                                        }}>
-                                            {conversacionesDetalle.porEstado.reduce((sum, e) => sum + e.value, 0)}
-                                        </Text>
-                                        <Text style={{
-                                            fontSize: 14,
-                                            color: '#a29bfe',
-                                            fontWeight: '700',
-                                            marginTop: 4
-                                        }}>
-                                            Total
-                                        </Text>
-                                    </View>
-
-                                    {/* Anillo circular */}
-                                    <View style={{
-                                        width: 200,
-                                        height: 200,
-                                        borderRadius: 100,
-                                        justifyContent: 'center',
-                                        alignItems: 'center',
-                                        position: 'relative'
-                                    }}>
-                                        {conversacionesDetalle.porEstado.map((estado, index) => {
-                                            const total = conversacionesDetalle.porEstado.reduce(
-                                                (sum, e) => sum + e.value, 0
-                                            );
-                                            const porcentaje = ((estado.value / total) * 100).toFixed(1);
-                                            
-                                            // Calcular ángulo para posición
-                                            let startAngle = 0;
-                                            for (let i = 0; i < index; i++) {
-                                                const prevPct = (conversacionesDetalle.porEstado[i].value / total) * 100;
-                                                startAngle += (prevPct / 100) * 360;
-                                            }
-                                            const angle = startAngle + ((porcentaje / 100) * 360) / 2;
-                                            
-                                            // Posición en círculo
-                                            const radius = 120;
-                                            const x = Math.cos((angle - 90) * Math.PI / 180) * radius;
-                                            const y = Math.sin((angle - 90) * Math.PI / 180) * radius;
-
-                                            return (
-                                                <View
-                                                    key={index}
-                                                    style={{
-                                                        position: 'absolute',
-                                                        left: '50%',
-                                                        top: '50%',
-                                                        transform: [
-                                                            { translateX: x - 40 },
-                                                            { translateY: y - 40 }
-                                                        ],
-                                                        alignItems: 'center',
-                                                        width: 80
-                                                    }}
-                                                >
-                                                    <View style={{
-                                                        width: 50,
-                                                        height: 50,
-                                                        borderRadius: 25,
-                                                        backgroundColor: estado.color,
-                                                        justifyContent: 'center',
-                                                        alignItems: 'center',
-                                                        shadowColor: estado.color,
-                                                        shadowOpacity: 0.6,
-                                                        shadowRadius: 10,
-                                                        shadowOffset: { width: 0, height: 4 },
-                                                        elevation: 8,
-                                                        marginBottom: 6
-                                                    }}>
-                                                        <Text style={{
-                                                            fontSize: 18,
-                                                            fontWeight: '900',
-                                                            color: '#fff'
-                                                        }}>
-                                                            {estado.value}
-                                                        </Text>
-                                                    </View>
-                                                    <Text style={{
-                                                        fontSize: 11,
-                                                        fontWeight: '700',
-                                                        color: '#a29bfe',
-                                                        textAlign: 'center'
-                                                    }}>
-                                                        {estado.name}
-                                                    </Text>
-                                                    <Text style={{
-                                                        fontSize: 13,
-                                                        fontWeight: '900',
-                                                        color: estado.color,
-                                                        marginTop: 2
-                                                    }}>
-                                                        {porcentaje}%
-                                                    </Text>
-                                                </View>
-                                            );
-                                        })}
-                                    </View>
-                                </View>
-
-                                {/* Leyenda */}
-                                <View style={{
-                                    flexDirection: 'row',
-                                    justifyContent: 'center',
-                                    flexWrap: 'wrap',
-                                    marginTop: 20,
-                                    paddingHorizontal: 15
-                                }}>
-                                    {conversacionesDetalle.porEstado.map((estado, index) => (
-                                        <View key={index} style={{
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                            marginRight: 20,
-                                            marginBottom: 10
-                                        }}>
-                                            <View style={{
-                                                width: 12,
-                                                height: 12,
-                                                borderRadius: 6,
-                                                backgroundColor: estado.color,
-                                                marginRight: 8,
-                                                shadowColor: estado.color,
-                                                shadowOpacity: 0.5,
-                                                shadowRadius: 4,
-                                                shadowOffset: { width: 0, height: 2 }
-                                            }} />
-                                            <Text style={{
-                                                fontSize: 13,
-                                                color: '#a29bfe',
-                                                fontWeight: '600'
-                                            }}>
-                                                {estado.name}
-                                            </Text>
-                                        </View>
-                                    ))}
-                                </View>
-                            </View>
-                        )}
-
-                        {/* Distribución por Estado (barras) */}
-                        {conversacionesDetalle.porEstado && conversacionesDetalle.porEstado.length > 0 && (
-                            <View style={[metricasStyles.graficoContainer, { marginTop: 20 }]}>
-                                <View style={metricasStyles.graficoHeader}>
-                                    <Text style={metricasStyles.graficoTitulo}>Estado Detallado</Text>
-                                </View>
-
-                                <View style={{ paddingVertical: 15 }}>
-                                    {conversacionesDetalle.porEstado.map((estado, index) => {
-                                        const total = conversacionesDetalle.porEstado.reduce(
-                                            (sum, e) => sum + e.value, 0
-                                        );
-                                        const porcentaje = ((estado.value / total) * 100).toFixed(1);
-
-                                        return (
-                                            <View key={index} style={{
-                                                flexDirection: 'row',
-                                                alignItems: 'center',
-                                                marginBottom: 15,
-                                                paddingHorizontal: 15
-                                            }}>
-                                                <View style={{
-                                                    width: 40,
-                                                    height: 40,
-                                                    borderRadius: 12,
-                                                    backgroundColor: estado.color,
-                                                    justifyContent: 'center',
-                                                    alignItems: 'center',
-                                                    marginRight: 12
-                                                }}>
-                                                    <Ionicons
-                                                        name={
-                                                            estado.name === 'Finalizadas' ? 'checkmark-done' :
-                                                                estado.name === 'Activas' ? 'pulse' : 'arrow-up-circle'
-                                                        }
-                                                        size={20}
-                                                        color="#fff"
-                                                    />
-                                                </View>
-
-                                                <View style={{ flex: 1 }}>
-                                                    <View style={{
-                                                        flexDirection: 'row',
-                                                        justifyContent: 'space-between',
-                                                        marginBottom: 6
-                                                    }}>
-                                                        <Text style={{
-                                                            fontSize: 15,
-                                                            fontWeight: '700',
-                                                            color: '#fff'
-                                                        }}>
-                                                            {estado.name}
-                                                        </Text>
-                                                        <Text style={{
-                                                            fontSize: 15,
-                                                            fontWeight: '700',
-                                                            color: '#fff'
-                                                        }}>
-                                                            {estado.value}
-                                                        </Text>
-                                                    </View>
-
-                                                    <View style={{
-                                                        height: 8,
-                                                        backgroundColor: 'rgba(162, 155, 254, 0.15)',
-                                                        borderRadius: 4,
-                                                        overflow: 'hidden'
-                                                    }}>
-                                                        <View style={{
-                                                            height: '100%',
-                                                            width: `${porcentaje}%`,
-                                                            backgroundColor: estado.color
-                                                        }} />
-                                                    </View>
-
-                                                    <Text style={{
-                                                        fontSize: 12,
-                                                        color: '#a29bfe',
-                                                        fontWeight: '600',
-                                                        marginTop: 4
-                                                    }}>
-                                                        {porcentaje}% del total
-                                                    </Text>
-                                                </View>
-                                            </View>
-                                        );
-                                    })}
-                                </View>
-                            </View>
-                        )}
-
-                        {/* Métricas Adicionales */}
-                        <View style={[metricasStyles.estadisticasGrid, { marginTop: 20 }]}>
-                            <View style={metricasStyles.estadisticaItem}>
-                                <LinearGradient
-                                    colors={['#667eea', '#764ba2']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={metricasStyles.estadisticaCard}
-                                >
-                                    <Ionicons
-                                        name="time"
-                                        size={28}
-                                        color="rgba(255,255,255,0.25)"
-                                        style={metricasStyles.estadisticaIcono}
-                                    />
-                                    <Text style={metricasStyles.estadisticaValor}>
-                                        {formatearDuracion(conversacionesDetalle.tiempoPromedio || 0)}
-                                    </Text>
-                                    <Text style={metricasStyles.estadisticaLabel}>Duración Promedio</Text>
-                                </LinearGradient>
-                            </View>
-
-                            <View style={metricasStyles.estadisticaItem}>
-                                <LinearGradient
-                                    colors={obtenerColorSatisfaccion(conversacionesDetalle.satisfaccion || 0)}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={metricasStyles.estadisticaCard}
-                                >
-                                    <Ionicons
-                                        name="star"
-                                        size={28}
-                                        color="rgba(255,255,255,0.25)"
-                                        style={metricasStyles.estadisticaIcono}
-                                    />
-                                    <Text style={metricasStyles.estadisticaValor}>
-                                        {(conversacionesDetalle.satisfaccion || 0).toFixed(1)}
-                                    </Text>
-                                    <Text style={metricasStyles.estadisticaLabel}>Satisfacción</Text>
-                                </LinearGradient>
-                            </View>
-                        </View>
-
-                        {/* Tendencia Semanal (mantener como estaba) */}
-                        {conversacionesDetalle.tendenciaSemanal &&
-                            conversacionesDetalle.tendenciaSemanal.length > 0 && (
-                                // ... (código existente de tendencia semanal)
-                                <View style={[metricasStyles.graficoContainer, { marginTop: 20 }]}>
-                                    {/* ... mantener código existente ... */}
-                                </View>
-                            )}
-                    </View>
-                )}
-            </View>
-        );
-    };
-
-
     const renderMetricasMongo = () => {
         if (!metricas.mongoMetrics) {
             return null;
@@ -1177,10 +827,12 @@ export default function GestionMetricasCard({
 
         const { mongoMetrics } = metricas;
 
-        // Si no hay datos de MongoDB, no mostrar la sección
         if (mongoMetrics.totalConversaciones === 0) {
             return null;
         }
+
+        // 🔥 NUEVO: Estado local para días seleccionados
+        const [diasSeleccionados, setDiasSeleccionados] = React.useState(7);
 
         return (
             <View style={metricasStyles.seccionContainer}>
@@ -1211,8 +863,9 @@ export default function GestionMetricasCard({
 
                 {seccionExpandida.mongo && (
                     <View>
+
+                        {/* Tarjetas Resumen */}
                         <View style={metricasStyles.estadisticasGrid}>
-                            {/* Total Conversaciones MongoDB */}
                             <View style={metricasStyles.estadisticaItem}>
                                 <LinearGradient
                                     colors={['#667eea', '#764ba2']}
@@ -1229,13 +882,10 @@ export default function GestionMetricasCard({
                                     <Text style={metricasStyles.estadisticaValor}>
                                         {formatearNumero(mongoMetrics.totalConversaciones)}
                                     </Text>
-                                    <Text style={metricasStyles.estadisticaLabel}>
-                                        Total MongoDB
-                                    </Text>
+                                    <Text style={metricasStyles.estadisticaLabel}>Total MongoDB</Text>
                                 </LinearGradient>
                             </View>
 
-                            {/* Activas */}
                             <View style={metricasStyles.estadisticaItem}>
                                 <LinearGradient
                                     colors={['#20c997', '#17a2b8']}
@@ -1252,13 +902,10 @@ export default function GestionMetricasCard({
                                     <Text style={metricasStyles.estadisticaValor}>
                                         {formatearNumero(mongoMetrics.conversacionesActivas)}
                                     </Text>
-                                    <Text style={metricasStyles.estadisticaLabel}>
-                                        Activas
-                                    </Text>
+                                    <Text style={metricasStyles.estadisticaLabel}>Activas</Text>
                                 </LinearGradient>
                             </View>
 
-                            {/* Finalizadas */}
                             <View style={metricasStyles.estadisticaItem}>
                                 <LinearGradient
                                     colors={['#51cf66', '#37b24d']}
@@ -1275,13 +922,10 @@ export default function GestionMetricasCard({
                                     <Text style={metricasStyles.estadisticaValor}>
                                         {formatearNumero(mongoMetrics.conversacionesFinalizadas)}
                                     </Text>
-                                    <Text style={metricasStyles.estadisticaLabel}>
-                                        Finalizadas
-                                    </Text>
+                                    <Text style={metricasStyles.estadisticaLabel}>Finalizadas</Text>
                                 </LinearGradient>
                             </View>
 
-                            {/* Escaladas */}
                             <View style={metricasStyles.estadisticaItem}>
                                 <LinearGradient
                                     colors={['#ffa502', '#ff6348']}
@@ -1298,13 +942,10 @@ export default function GestionMetricasCard({
                                     <Text style={metricasStyles.estadisticaValor}>
                                         {formatearNumero(mongoMetrics.conversacionesEscaladas)}
                                     </Text>
-                                    <Text style={metricasStyles.estadisticaLabel}>
-                                        Escaladas
-                                    </Text>
+                                    <Text style={metricasStyles.estadisticaLabel}>Escaladas</Text>
                                 </LinearGradient>
                             </View>
 
-                            {/* Promedio de Mensajes */}
                             <View style={metricasStyles.estadisticaItem}>
                                 <LinearGradient
                                     colors={['#a29bfe', '#6c5ce7']}
@@ -1321,13 +962,10 @@ export default function GestionMetricasCard({
                                     <Text style={metricasStyles.estadisticaValor}>
                                         {mongoMetrics.promedioMensajes.toFixed(1)}
                                     </Text>
-                                    <Text style={metricasStyles.estadisticaLabel}>
-                                        Mensajes/Conv
-                                    </Text>
+                                    <Text style={metricasStyles.estadisticaLabel}>Mensajes/Conv</Text>
                                 </LinearGradient>
                             </View>
 
-                            {/* Calificación Promedio */}
                             <View style={metricasStyles.estadisticaItem}>
                                 <LinearGradient
                                     colors={obtenerColorSatisfaccion(mongoMetrics.calificacionPromedio || 0)}
@@ -1347,12 +985,215 @@ export default function GestionMetricasCard({
                                             'N/A'
                                         }
                                     </Text>
-                                    <Text style={metricasStyles.estadisticaLabel}>
-                                        Calificación
-                                    </Text>
+                                    <Text style={metricasStyles.estadisticaLabel}>Calificación</Text>
                                 </LinearGradient>
                             </View>
                         </View>
+
+
+
+                        {/* 🔥 GRÁFICA DE LÍNEAS */}
+                        {mongoMetrics.datosDiarios && mongoMetrics.datosDiarios.length > 0 && (
+                            <View style={[metricasStyles.graficoContainer, { marginTop: 20 }]}>
+                                <View style={metricasStyles.graficoHeader}>
+                                    <Text style={metricasStyles.graficoTitulo}>
+                                        Tendencia Últimos {diasSeleccionados} Días
+                                    </Text>
+                                </View>
+
+                                 {/* 🔥 NUEVO: Selector de días para la gráfica */}
+                                <View style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    marginTop: 15,
+                                    marginBottom: 10,
+                                    paddingHorizontal: 15
+                                }}>
+                                    <Text style={{
+                                        fontSize: 13,
+                                        color: '#a29bfe',
+                                        fontWeight: '600'
+                                    }}>
+                                        Rango de datos:
+                                    </Text>
+
+                                    <ScrollView
+                                        horizontal
+                                        showsHorizontalScrollIndicator={false}
+                                        style={{ flexGrow: 0 }}
+                                        contentContainerStyle={{ flexDirection: 'row', gap: 8 }}
+                                    >
+                                        {[3, 7, 14, 30].map((dias) => (
+                                            <TouchableOpacity
+                                                key={dias}
+                                                onPress={() => {
+                                                    setDiasSeleccionados(dias);
+                                                    // 🔥 Recargar datos con nuevos días
+                                                    if (metricas.onRecargarDatosDiarios) {
+                                                        metricas.onRecargarDatosDiarios(dias);
+                                                    }
+                                                }}
+                                                activeOpacity={0.7}
+                                            >
+                                                {diasSeleccionados === dias ? (
+                                                    <LinearGradient
+                                                        colors={['#667eea', '#764ba2']}
+                                                        start={{ x: 0, y: 0 }}
+                                                        end={{ x: 1, y: 1 }}
+                                                        style={{
+                                                            paddingHorizontal: 16,
+                                                            paddingVertical: 8,
+                                                            borderRadius: 20,
+                                                            flexDirection: 'row',
+                                                            alignItems: 'center'
+                                                        }}
+                                                    >
+                                                        <Ionicons name="calendar" size={14} color="#fff" style={{ marginRight: 6 }} />
+                                                        <Text style={{
+                                                            fontSize: 13,
+                                                            fontWeight: '700',
+                                                            color: '#fff'
+                                                        }}>
+                                                            {dias === 3 ? '3 días' : dias === 7 ? '1 semana' : dias === 14 ? '2 semanas' : '1 mes'}
+                                                        </Text>
+                                                    </LinearGradient>
+                                                ) : (
+                                                    <View style={{
+                                                        paddingHorizontal: 16,
+                                                        paddingVertical: 8,
+                                                        borderRadius: 20,
+                                                        backgroundColor: 'rgba(162, 155, 254, 0.1)',
+                                                        borderWidth: 1,
+                                                        borderColor: 'rgba(162, 155, 254, 0.2)',
+                                                        flexDirection: 'row',
+                                                        alignItems: 'center'
+                                                    }}>
+                                                        <Ionicons name="calendar-outline" size={14} color="#a29bfe" style={{ marginRight: 6 }} />
+                                                        <Text style={{
+                                                            fontSize: 13,
+                                                            fontWeight: '600',
+                                                            color: '#a29bfe'
+                                                        }}>
+                                                            {dias === 3 ? '3 días' : dias === 7 ? '1 semana' : dias === 14 ? '2 semanas' : '1 mes'}
+                                                        </Text>
+                                                    </View>
+                                                )}
+                                            </TouchableOpacity>
+                                        ))}
+                                    </ScrollView>
+                                </View>
+
+                                <LineChart
+                                    data={{
+                                        labels: mongoMetrics.datosDiarios.slice(-diasSeleccionados).map(d => {
+                                            const fecha = new Date(d.fecha);
+                                            return `${fecha.getDate()}/${fecha.getMonth() + 1}`;
+                                        }),
+                                        datasets: [
+                                            {
+                                                data: mongoMetrics.datosDiarios.slice(-diasSeleccionados).map(d => d.total),
+                                                color: (opacity = 1) => `rgba(102, 126, 234, ${opacity})`,
+                                                strokeWidth: 3
+                                            },
+                                            {
+                                                data: mongoMetrics.datosDiarios.slice(-diasSeleccionados).map(d => d.finalizadas),
+                                                color: (opacity = 1) => `rgba(81, 207, 102, ${opacity})`,
+                                                strokeWidth: 3
+                                            },
+                                            {
+                                                data: mongoMetrics.datosDiarios.slice(-diasSeleccionados).map(d => d.escaladas),
+                                                color: (opacity = 1) => `rgba(255, 165, 2, ${opacity})`,
+                                                strokeWidth: 3
+                                            }
+                                        ],
+                                        legend: ["Total", "Finalizadas", "Escaladas"]
+                                    }}
+                                    width={isTablet ? width * 0.85 : width - 60}
+                                    height={250}
+                                    chartConfig={{
+                                        backgroundColor: 'transparent',
+                                        backgroundGradientFrom: 'rgba(26, 26, 46, 0.5)',
+                                        backgroundGradientTo: 'rgba(22, 33, 62, 0.5)',
+                                        decimalPlaces: 0,
+                                        color: (opacity = 1) => `rgba(162, 155, 254, ${opacity})`,
+                                        labelColor: (opacity = 1) => `rgba(162, 155, 254, ${opacity})`,
+                                        style: {
+                                            borderRadius: 16
+                                        },
+                                        propsForDots: {
+                                            r: "6",
+                                            strokeWidth: "2",
+                                            stroke: "#1a1a2e"
+                                        },
+                                        propsForBackgroundLines: {
+                                            strokeDasharray: "",
+                                            stroke: "rgba(162, 155, 254, 0.1)",
+                                            strokeWidth: 1
+                                        }
+                                    }}
+                                    bezier
+                                    style={{
+                                        marginVertical: 15,
+                                        borderRadius: 16,
+                                        alignSelf: 'center'
+                                    }}
+                                    withVerticalLines={false}
+                                    withHorizontalLines={true}
+                                    withInnerLines={true}
+                                    withOuterLines={false}
+                                    withShadow={false}
+                                />
+
+                                {/* Leyenda personalizada */}
+                                <View style={{
+                                    flexDirection: 'row',
+                                    justifyContent: 'center',
+                                    flexWrap: 'wrap',
+                                    marginTop: 10,
+                                    paddingHorizontal: 15
+                                }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 20, marginBottom: 10 }}>
+                                        <View style={{
+                                            width: 20,
+                                            height: 4,
+                                            backgroundColor: '#667eea',
+                                            marginRight: 8,
+                                            borderRadius: 2
+                                        }} />
+                                        <Text style={{ fontSize: 13, color: '#a29bfe', fontWeight: '600' }}>
+                                            Total
+                                        </Text>
+                                    </View>
+
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 20, marginBottom: 10 }}>
+                                        <View style={{
+                                            width: 20,
+                                            height: 4,
+                                            backgroundColor: '#51cf66',
+                                            marginRight: 8,
+                                            borderRadius: 2
+                                        }} />
+                                        <Text style={{ fontSize: 13, color: '#a29bfe', fontWeight: '600' }}>
+                                            Finalizadas
+                                        </Text>
+                                    </View>
+
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                                        <View style={{
+                                            width: 20,
+                                            height: 4,
+                                            backgroundColor: '#ffa502',
+                                            marginRight: 8,
+                                            borderRadius: 2
+                                        }} />
+                                        <Text style={{ fontSize: 13, color: '#a29bfe', fontWeight: '600' }}>
+                                            Escaladas
+                                        </Text>
+                                    </View>
+                                </View>
+                            </View>
+                        )}
 
                         {/* Información adicional */}
                         <View style={{
@@ -1381,8 +1222,8 @@ export default function GestionMetricasCard({
                                 fontWeight: '500'
                             }}>
                                 Estas métricas provienen de MongoDB y representan conversaciones gestionadas 
-                                en tiempo real por el sistema. Los datos se actualizan instantáneamente y 
-                                reflejan el estado actual del servicio.
+                                en tiempo real por el sistema. La gráfica muestra la tendencia de los últimos {diasSeleccionados} días 
+                                con actualizaciones instantáneas.
                             </Text>
 
                             {/* Métricas de rendimiento */}
@@ -1457,9 +1298,6 @@ export default function GestionMetricasCard({
     };
 
 
-
-
-
     // ==================== RENDER PRINCIPAL ====================
     return (
         <View style={metricasStyles.cardContainer}>
@@ -1470,7 +1308,6 @@ export default function GestionMetricasCard({
             {renderHorasPico()}
             {renderContenidoMasUsado()}
             {renderVisitantes()}
-            {renderConversacionesDetalle()}
         </View>
     );
 }
