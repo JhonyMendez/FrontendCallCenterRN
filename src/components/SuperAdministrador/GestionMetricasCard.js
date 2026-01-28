@@ -13,7 +13,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { LineChart } from 'react-native-chart-kit';
+import { LineChart, PieChart } from 'react-native-chart-kit';
 import { metricasStyles } from '../../styles/GestionMetricasStyles';
 
 const { width } = Dimensions.get('window');
@@ -33,6 +33,8 @@ export default function GestionMetricasCard({
         tendencias: true,
         contenido: true,
         horas: true,
+        pastel: true,  // 🔥 NUEVO - Gráfico de pastel
+        barrasHorizontales: true,  // 🔥 NUEVO - Gráfico de barras horizontales
         visitantes: true,
         conversaciones: true
     });
@@ -629,6 +631,466 @@ export default function GestionMetricasCard({
                         <Ionicons name="chevron-forward" size={22} color="#a29bfe" />
                     </View>
                 ))}
+            </View>
+        );
+    };
+
+    // ==================== 🔥 NUEVO: GRÁFICO DE PASTEL - DISTRIBUCIÓN DE ESTADOS ====================
+    const renderGraficoPastel = () => {
+        if (!metricas.mongoMetrics) {
+            return null;
+        }
+
+        const estados = [
+            {
+                label: 'Activas',
+                valor: metricas.mongoMetrics.conversacionesActivas || 0,
+                color: ['#20c997', '#17a2b8'],
+                icono: 'radio-button-on'
+            },
+            {
+                label: 'Finalizadas',
+                valor: metricas.mongoMetrics.conversacionesFinalizadas || 0,
+                color: ['#667eea', '#764ba2'],
+                icono: 'checkmark-circle'
+            },
+            {
+                label: 'Escaladas',
+                valor: metricas.mongoMetrics.conversacionesEscaladas || 0,
+                color: ['#ffa502', '#ff6348'],
+                icono: 'arrow-up-circle'
+            }
+        ];
+
+        const total = estados.reduce((sum, estado) => sum + estado.valor, 0);
+        
+        if (total === 0) {
+            return null;
+        }
+
+        // Calcular porcentajes
+        const segmentos = estados.map(estado => ({
+            ...estado,
+            porcentaje: (estado.valor / total) * 100
+        }));
+
+        return (
+            <View style={metricasStyles.seccionContainer}>
+                <TouchableOpacity
+                    onPress={() => toggleSeccion('pastel')}
+                    activeOpacity={0.7}
+                >
+                    <View style={metricasStyles.seccionHeader}>
+                        <View style={metricasStyles.seccionIcono}>
+                            <Ionicons name="pie-chart" size={22} color="#667eea" />
+                        </View>
+                        <Text style={metricasStyles.seccionTitulo}>Distribución por Estado</Text>
+                        <Ionicons
+                            name={seccionExpandida.pastel ? "chevron-up" : "chevron-down"}
+                            size={26}
+                            color="#a29bfe"
+                            style={{ marginLeft: 'auto' }}
+                        />
+                    </View>
+                </TouchableOpacity>
+
+                {seccionExpandida.pastel && (
+                    <View style={metricasStyles.graficoContainer}>
+                        {/* Gráfico de pastel mejorado con react-native-chart-kit */}
+                        <View style={{
+                            alignItems: 'center',
+                            marginBottom: 30,
+                            backgroundColor: 'rgba(15, 15, 35, 0.5)',
+                            borderRadius: 20,
+                            padding: 20,
+                            borderWidth: 1,
+                            borderColor: 'rgba(102, 126, 234, 0.3)'
+                        }}>
+                            <PieChart
+                                data={segmentos.map((seg, idx) => ({
+                                    name: `${seg.label}\n${seg.porcentaje.toFixed(1)}%`,
+                                    population: seg.valor,
+                                    color: seg.color[0],
+                                    legendFontColor: '#fff',
+                                    legendFontSize: 13
+                                }))}
+                                width={width - 80}
+                                height={240}
+                                chartConfig={{
+                                    backgroundColor: 'transparent',
+                                    backgroundGradientFrom: 'transparent',
+                                    backgroundGradientTo: 'transparent',
+                                    decimalPlaces: 0,
+                                    color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                                    labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                                    propsForLabels: {
+                                        fontSize: 14,
+                                        fontWeight: '900'
+                                    }
+                                }}
+                                accessor="population"
+                                backgroundColor="transparent"
+                                paddingLeft="15"
+                                absolute
+                                hasLegend={true}
+                                style={{
+                                    marginVertical: 5,
+                                    borderRadius: 16
+                                }}
+                            />
+                        </View>
+
+                        {/* Estadísticas detalladas en tarjetas */}
+                        <View style={{ marginTop: 10, marginBottom: 15 }}>
+                            {segmentos.map((seg, idx) => (
+                                <LinearGradient
+                                    key={idx}
+                                    colors={[...seg.color].reverse()}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={{
+                                        marginBottom: 12,
+                                        padding: 18,
+                                        borderRadius: 18,
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        shadowColor: seg.color[0],
+                                        shadowOpacity: 0.5,
+                                        shadowRadius: 15,
+                                        shadowOffset: { width: 0, height: 6 },
+                                        elevation: 10
+                                    }}
+                                >
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                                        <View style={{
+                                            width: 55,
+                                            height: 55,
+                                            borderRadius: 27.5,
+                                            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                                            justifyContent: 'center',
+                                            alignItems: 'center',
+                                            marginRight: 15
+                                        }}>
+                                            <Ionicons name={seg.icono} size={28} color="#fff" />
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={{
+                                                fontSize: 18,
+                                                fontWeight: '900',
+                                                color: '#fff',
+                                                marginBottom: 4,
+                                                textShadowColor: 'rgba(0, 0, 0, 0.3)',
+                                                textShadowRadius: 3,
+                                                textShadowOffset: { width: 0, height: 1 }
+                                            }}>
+                                                {seg.label}
+                                            </Text>
+                                            <Text style={{
+                                                fontSize: 13,
+                                                color: 'rgba(255, 255, 255, 0.85)',
+                                                fontWeight: '700'
+                                            }}>
+                                                {seg.valor} conversaciones
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    
+                                    <View style={{
+                                        backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                                        paddingHorizontal: 16,
+                                        paddingVertical: 10,
+                                        borderRadius: 14,
+                                        minWidth: 70,
+                                        alignItems: 'center'
+                                    }}>
+                                        <Text style={{
+                                            fontSize: 24,
+                                            fontWeight: '900',
+                                            color: '#fff',
+                                            textShadowColor: 'rgba(0, 0, 0, 0.3)',
+                                            textShadowRadius: 3,
+                                            textShadowOffset: { width: 0, height: 1 }
+                                        }}>
+                                            {seg.porcentaje.toFixed(1)}%
+                                        </Text>
+                                    </View>
+                                </LinearGradient>
+                            ))}
+                        </View>
+
+                        {/* Total destacado */}
+                        <LinearGradient
+                            colors={['rgba(102, 126, 234, 0.25)', 'rgba(118, 75, 162, 0.25)']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={{
+                                marginHorizontal: 5,
+                                marginTop: 10,
+                                padding: 20,
+                                borderRadius: 18,
+                                borderWidth: 2,
+                                borderColor: 'rgba(102, 126, 234, 0.5)',
+                                flexDirection: 'row',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                shadowColor: '#667eea',
+                                shadowOpacity: 0.4,
+                                shadowRadius: 15,
+                                shadowOffset: { width: 0, height: 8 },
+                                elevation: 8
+                            }}
+                        >
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <LinearGradient
+                                    colors={['#667eea', '#764ba2']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={{
+                                        width: 55,
+                                        height: 55,
+                                        borderRadius: 27.5,
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                        marginRight: 15,
+                                        shadowColor: '#667eea',
+                                        shadowOpacity: 0.6,
+                                        shadowRadius: 10,
+                                        elevation: 8
+                                    }}
+                                >
+                                    <Ionicons name="analytics" size={28} color="#fff" />
+                                </LinearGradient>
+                                <View>
+                                    <Text style={{
+                                        fontSize: 14,
+                                        color: '#a29bfe',
+                                        fontWeight: '800',
+                                        marginBottom: 3
+                                    }}>
+                                        TOTAL CONVERSACIONES
+                                    </Text>
+                                    <Text style={{
+                                        fontSize: 12,
+                                        color: '#667eea',
+                                        fontWeight: '600'
+                                    }}>
+                                        Suma de todos los estados
+                                    </Text>
+                                </View>
+                            </View>
+                            <View style={{
+                                backgroundColor: 'rgba(102, 126, 234, 0.3)',
+                                paddingHorizontal: 20,
+                                paddingVertical: 12,
+                                borderRadius: 16,
+                                borderWidth: 2,
+                                borderColor: '#667eea'
+                            }}>
+                                <Text style={{
+                                    fontSize: 32,
+                                    fontWeight: '900',
+                                    color: '#667eea',
+                                    textShadowColor: 'rgba(102, 126, 234, 0.5)',
+                                    textShadowRadius: 8,
+                                    textShadowOffset: { width: 0, height: 0 }
+                                }}>
+                                    {total}
+                                </Text>
+                            </View>
+                        </LinearGradient>
+                    </View>
+                )}
+            </View>
+        );
+    };
+
+    // ==================== 🔥 NUEVO: GRÁFICO DE BARRAS HORIZONTALES - TOP AGENTES ====================
+    const renderGraficoBarrasHorizontales = () => {
+        if (!metricas.agentesMasActivos || metricas.agentesMasActivos.length === 0) {
+            return null;
+        }
+
+        const top5 = metricas.agentesMasActivos.slice(0, 5);
+        const maxConversaciones = Math.max(...top5.map(a => a.conversacionesIniciadas));
+
+        const colores = [
+            ['#667eea', '#764ba2'],
+            ['#f093fb', '#f5576c'],
+            ['#20c997', '#17a2b8'],
+            ['#ffa502', '#ff6348'],
+            ['#a29bfe', '#6c5ce7']
+        ];
+
+        return (
+            <View style={metricasStyles.seccionContainer}>
+                <TouchableOpacity
+                    onPress={() => toggleSeccion('barrasHorizontales')}
+                    activeOpacity={0.7}
+                >
+                    <View style={metricasStyles.seccionHeader}>
+                        <View style={metricasStyles.seccionIcono}>
+                            <Ionicons name="bar-chart" size={22} color="#667eea" />
+                        </View>
+                        <Text style={metricasStyles.seccionTitulo}>Top 5 Agentes - Comparativa</Text>
+                        <Ionicons
+                            name={seccionExpandida.barrasHorizontales ? "chevron-up" : "chevron-down"}
+                            size={26}
+                            color="#a29bfe"
+                            style={{ marginLeft: 'auto' }}
+                        />
+                    </View>
+                </TouchableOpacity>
+
+                {seccionExpandida.barrasHorizontales && (
+                    <View style={metricasStyles.graficoContainer}>
+                        {top5.map((agente, index) => {
+                            const porcentaje = (agente.conversacionesIniciadas / maxConversaciones) * 100;
+
+                            return (
+                                <TouchableOpacity
+                                    key={agente.id}
+                                    activeOpacity={0.7}
+                                    onPress={() => onSeleccionarAgente(agente.id)}
+                                    style={{ marginBottom: 25 }}
+                                >
+                                    {/* Header con nombre y valor */}
+                                    <View style={{
+                                        flexDirection: 'row',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        marginBottom: 12
+                                    }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                                            <Text style={{ fontSize: 28, marginRight: 12 }}>
+                                                {agente.icono}
+                                            </Text>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={{
+                                                    fontSize: 16,
+                                                    fontWeight: '800',
+                                                    color: '#fff',
+                                                    marginBottom: 3
+                                                }}>
+                                                    {agente.nombre}
+                                                </Text>
+                                                <Text style={{
+                                                    fontSize: 12,
+                                                    color: '#a29bfe',
+                                                    fontWeight: '600'
+                                                }}>
+                                                    {agente.area}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                        
+                                        <LinearGradient
+                                            colors={colores[index]}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 1 }}
+                                            style={{
+                                                paddingHorizontal: 16,
+                                                paddingVertical: 10,
+                                                borderRadius: 16,
+                                                shadowColor: colores[index][0],
+                                                shadowOpacity: 0.5,
+                                                shadowRadius: 10,
+                                                elevation: 5
+                                            }}
+                                        >
+                                            <Text style={{
+                                                fontSize: 22,
+                                                fontWeight: '900',
+                                                color: '#fff'
+                                            }}>
+                                                {agente.conversacionesIniciadas}
+                                            </Text>
+                                        </LinearGradient>
+                                    </View>
+
+                                    {/* Barra de progreso */}
+                                    <View style={{
+                                        height: 40,
+                                        backgroundColor: 'rgba(102, 126, 234, 0.12)',
+                                        borderRadius: 20,
+                                        overflow: 'hidden',
+                                        borderWidth: 2,
+                                        borderColor: 'rgba(102, 126, 234, 0.25)'
+                                    }}>
+                                        <LinearGradient
+                                            colors={colores[index]}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 0 }}
+                                            style={{
+                                                width: `${porcentaje}%`,
+                                                height: '100%',
+                                                justifyContent: 'center',
+                                                paddingLeft: 18,
+                                                shadowColor: colores[index][0],
+                                                shadowOpacity: 0.6,
+                                                shadowRadius: 10,
+                                                elevation: 5
+                                            }}
+                                        >
+                                            <Text style={{
+                                                fontSize: 14,
+                                                fontWeight: '900',
+                                                color: '#fff',
+                                                textShadowColor: 'rgba(0, 0, 0, 0.3)',
+                                                textShadowRadius: 3,
+                                                textShadowOffset: { width: 0, height: 1 }
+                                            }}>
+                                                {porcentaje.toFixed(0)}%
+                                            </Text>
+                                        </LinearGradient>
+                                    </View>
+
+                                    {/* Métricas adicionales */}
+                                    <View style={{
+                                        flexDirection: 'row',
+                                        marginTop: 12,
+                                        paddingHorizontal: 5,
+                                        justifyContent: 'space-around'
+                                    }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                            <Ionicons name="star" size={16} color="#ffa502" />
+                                            <Text style={{
+                                                fontSize: 13,
+                                                color: '#a29bfe',
+                                                marginLeft: 6,
+                                                fontWeight: '700'
+                                            }}>
+                                                {agente.satisfaccionPromedio.toFixed(1)} / 5.0
+                                            </Text>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                            <Ionicons name="checkmark-circle" size={16} color="#20c997" />
+                                            <Text style={{
+                                                fontSize: 13,
+                                                color: '#a29bfe',
+                                                marginLeft: 6,
+                                                fontWeight: '700'
+                                            }}>
+                                                {agente.tasaResolucion.toFixed(0)}% resueltas
+                                            </Text>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                            <Ionicons name="mail" size={16} color="#667eea" />
+                                            <Text style={{
+                                                fontSize: 13,
+                                                color: '#a29bfe',
+                                                marginLeft: 6,
+                                                fontWeight: '700'
+                                            }}>
+                                                {agente.mensajesEnviados} msgs
+                                            </Text>
+                                        </View>
+                                    </View>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                )}
             </View>
         );
     };
@@ -1376,6 +1838,8 @@ export default function GestionMetricasCard({
             {renderTendencias()}
             {renderHorasPico()}
             {renderContenidoMasUsado()}
+            {renderGraficoPastel()}  {/* 🔥 NUEVO - Distribución por estado */}
+            {renderGraficoBarrasHorizontales()}  {/* 🔥 NUEVO - Top 5 Agentes comparativa */}
             {renderVisitantes()}
         </View>
     );
