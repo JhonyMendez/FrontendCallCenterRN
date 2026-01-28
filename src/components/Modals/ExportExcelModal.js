@@ -2,7 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -24,7 +24,9 @@ export default function ExportExcelModal({
     agentesDisponibles = [] 
 }) {
     const [loading, setLoading] = useState(false);
-    const [filtros, setFiltros] = useState({
+    
+    // 🔥 Estado inicial de filtros
+    const filtrosIniciales = {
         id_agente: null,
         estado: null,
         origin: null,
@@ -33,24 +35,42 @@ export default function ExportExcelModal({
         fecha_fin: null,
         calificacion_min: null,
         calificacion_max: null,
-        incluir_visitante: true
-    });
+        incluir_visitante: true,
+        periodo: 'todo'
+    };
+    
+    const [filtros, setFiltros] = useState(filtrosIniciales);
 
-    // Opciones de filtros
+    // 🔥 Resetear filtros cuando se cierra el modal
+    useEffect(() => {
+        if (!visible) {
+            setFiltros(filtrosIniciales);
+        }
+    }, [visible]);
+
+    // 🔥 NUEVO: Monitorear cambios en filtros para debugging
+    useEffect(() => {
+        console.log('🎚️ Filtros actualizados:', {
+            id_agente: filtros.id_agente,
+            estado: filtros.estado,
+            origin: filtros.origin,
+            escaladas: filtros.escaladas,
+            periodo: filtros.periodo
+        });
+    }, [filtros.id_agente, filtros.estado, filtros.origin, filtros.escaladas, filtros.periodo]);
+
+    // 🔥 Opciones de filtros - SOLO ACTIVA Y FINALIZADA
     const estados = [
         { value: null, label: 'Todos los estados' },
         { value: 'activa', label: 'Activas' },
-        { value: 'finalizada', label: 'Finalizadas' },
-        { value: 'abandonada', label: 'Abandonadas' },
-        { value: 'escalada_humano', label: 'Escaladas a Humano' }
+        { value: 'finalizada', label: 'Finalizadas' }
     ];
 
+    // 🔥 Opciones de origen - SOLO WIDGET Y MOBILE
     const origenes = [
         { value: null, label: 'Todos los orígenes' },
-        { value: 'web', label: 'Web' },
-        { value: 'mobile', label: 'Mobile' },
         { value: 'widget', label: 'Widget' },
-        { value: 'api', label: 'API' }
+        { value: 'mobile', label: 'Mobile' }
     ];
 
     const periodos = [
@@ -106,27 +126,42 @@ export default function ExportExcelModal({
         try {
             setLoading(true);
 
-            // Construir parámetros de exportación (solo valores válidos)
+            // 🔥 Construir parámetros de exportación (SOLO valores EXPLÍCITOS no null)
             const params = {};
             
-            // Solo agregar si es un número válido (no null, no "Todos los agentes")
-            if (filtros.id_agente && typeof filtros.id_agente === 'number') {
-                params.id_agente = filtros.id_agente;
+            // 🔥 FIJO: ID AGENTE - Ser SÚPER explícito
+            console.log('🔍 Verificando id_agente:', {
+                valor: filtros.id_agente,
+                tipo: typeof filtros.id_agente,
+                esNull: filtros.id_agente === null,
+                esUndefined: filtros.id_agente === undefined,
+                esNaN: isNaN(filtros.id_agente)
+            });
+
+            if (filtros.id_agente !== null && filtros.id_agente !== undefined && !isNaN(filtros.id_agente)) {
+                const idAgenteNumero = Number(filtros.id_agente);
+                params.id_agente = idAgenteNumero;
+                console.log('✅ ID Agente INCLUIDO en parámetros:', idAgenteNumero);
+            } else {
+                console.log('⚠️ ID Agente NO incluido - será null o undefined');
             }
             
-            // Solo agregar si es un string válido de estado (no null, no "Todos...")
-            if (filtros.estado && !filtros.estado.includes('Todos')) {
+            // Solo agregar estado si NO es null
+            if (filtros.estado !== null && filtros.estado !== undefined) {
                 params.estado = filtros.estado;
+                console.log('📊 Estado seleccionado:', params.estado);
             }
             
-            // Solo agregar si es un string válido de origen (no null, no "Todos...")
-            if (filtros.origin && !filtros.origin.includes('Todos')) {
+            // Solo agregar origen si NO es null
+            if (filtros.origin !== null && filtros.origin !== undefined) {
                 params.origin = filtros.origin;
+                console.log('📱 Origen seleccionado:', params.origin);
             }
             
             // Solo agregar si es explícitamente true
             if (filtros.escaladas === true) {
                 params.escaladas = true;
+                console.log('🆘 Solo escaladas: true');
             }
             
             // Fechas
@@ -138,17 +173,17 @@ export default function ExportExcelModal({
             }
             
             // Calificaciones (solo si son números válidos)
-            if (filtros.calificacion_min && typeof filtros.calificacion_min === 'number') {
-                params.calificacion_min = filtros.calificacion_min;
+            if (filtros.calificacion_min !== null && filtros.calificacion_min !== undefined) {
+                params.calificacion_min = Number(filtros.calificacion_min);
             }
-            if (filtros.calificacion_max && typeof filtros.calificacion_max === 'number') {
-                params.calificacion_max = filtros.calificacion_max;
+            if (filtros.calificacion_max !== null && filtros.calificacion_max !== undefined) {
+                params.calificacion_max = Number(filtros.calificacion_max);
             }
             
             // Siempre incluir este parámetro
             params.incluir_visitante = filtros.incluir_visitante;
 
-            console.log('📤 Exportando con parámetros:', params);
+            console.log('📤 Exportando con parámetros FINALES:', JSON.stringify(params, null, 2));
 
             // 🔥 Usar el servicio de conversationMongoService
             const blob = await conversationMongoService.exportToExcel(params);
@@ -191,17 +226,7 @@ export default function ExportExcelModal({
     };
 
     const limpiarFiltros = () => {
-        setFiltros({
-            id_agente: null,
-            estado: null,
-            origin: null,
-            escaladas: null,
-            fecha_inicio: null,
-            fecha_fin: null,
-            calificacion_min: null,
-            calificacion_max: null,
-            incluir_visitante: true
-        });
+        setFiltros(filtrosIniciales);
     };
 
     return (
@@ -275,13 +300,14 @@ export default function ExportExcelModal({
                                 📅 Período
                             </Text>
                             <View style={{
-                                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                backgroundColor: '#2a2a4e',
                                 borderRadius: 12,
-                                borderWidth: 1,
-                                borderColor: 'rgba(102, 126, 234, 0.3)'
+                                borderWidth: 2,
+                                borderColor: '#667eea',
+                                overflow: 'hidden'
                             }}>
                                 <Picker
-                                    selectedValue={filtros.periodo || 'todo'}
+                                    selectedValue={filtros.periodo}
                                     onValueChange={(value) => {
                                         const fechas = calcularFechas(value);
                                         setFiltros(prev => ({
@@ -291,14 +317,16 @@ export default function ExportExcelModal({
                                             fecha_fin: fechas.fecha_fin
                                         }));
                                     }}
-                                    style={{ color: '#fff', height: 50 }}
-                                    dropdownIconColor="#a29bfe"
+                                    style={{ color: '#fff', height: 50, backgroundColor: '#2a2a4e' }}
+                                    dropdownIconColor="#667eea"
+                                    itemStyle={{ backgroundColor: '#1a1a2e', color: '#fff', fontSize: 16 }}
                                 >
                                     {periodos.map(p => (
                                         <Picker.Item 
                                             key={p.value} 
                                             label={p.label} 
                                             value={p.value}
+                                            color="#fff"
                                         />
                                     ))}
                                 </Picker>
@@ -316,25 +344,54 @@ export default function ExportExcelModal({
                                 🤖 Agente Virtual
                             </Text>
                             <View style={{
-                                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                backgroundColor: '#2a2a4e',
                                 borderRadius: 12,
-                                borderWidth: 1,
-                                borderColor: 'rgba(102, 126, 234, 0.3)'
+                                borderWidth: 2,
+                                borderColor: '#667eea',
+                                overflow: 'hidden'
                             }}>
                                 <Picker
+                                    key={`picker-agente-${filtros.id_agente}`}
                                     selectedValue={filtros.id_agente}
-                                    onValueChange={(value) => setFiltros(prev => ({ ...prev, id_agente: value }))}
-                                    style={{ color: '#fff', height: 50 }}
-                                    dropdownIconColor="#a29bfe"
+                                    onValueChange={(value) => {
+                                        console.log('🤖 Agente seleccionado:', value, 'Tipo:', typeof value);
+                                        setFiltros(prev => ({ 
+                                            ...prev, 
+                                            id_agente: value 
+                                        }));
+                                    }}
+                                    style={{ color: '#fff', height: 50, backgroundColor: '#2a2a4e' }}
+                                    dropdownIconColor="#667eea"
+                                    itemStyle={{ backgroundColor: '#1a1a2e', color: '#fff', fontSize: 16 }}
                                 >
-                                    <Picker.Item label="Todos los agentes" value={null} />
-                                    {agentesDisponibles.map(agente => (
-                                        <Picker.Item 
-                                            key={agente.id} 
-                                            label={agente.nombre} 
-                                            value={agente.id}
-                                        />
-                                    ))}
+                                    <Picker.Item label="Todos los agentes" value={null} color="#fff" />
+                                    {agentesDisponibles && agentesDisponibles.length > 0 ? (
+                                        agentesDisponibles.map(agente => {
+                                            // 🔥 DEBUG: Ver estructura completa
+                                            console.log('🔍 Agente completo recibido:', agente);
+                                            
+                                            // 🔥 FIJO: Intentar múltiples propiedades para el ID
+                                            const agenteId = agente.id || agente.id_agente;
+                                            const agenteName = agente.nombre || agente.nombre_agente || 'Agente sin nombre';
+                                            
+                                            console.log('🔍 Agente en lista:', { id: agenteId, nombre: agenteName });
+                                            
+                                            if (!agenteId) {
+                                                console.error('❌ Agente sin ID:', agente);
+                                            }
+                                            
+                                            return (
+                                                <Picker.Item 
+                                                    key={agenteId || agenteName}
+                                                    label={agenteName} 
+                                                    value={agenteId}
+                                                    color="#fff"
+                                                />
+                                            );
+                                        })
+                                    ) : (
+                                        <Picker.Item label="Cargando agentes..." value={null} color="#999" />
+                                    )}
                                 </Picker>
                             </View>
                         </View>
@@ -350,19 +407,21 @@ export default function ExportExcelModal({
                                 📊 Estado
                             </Text>
                             <View style={{
-                                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                backgroundColor: '#2a2a4e',
                                 borderRadius: 12,
-                                borderWidth: 1,
-                                borderColor: 'rgba(102, 126, 234, 0.3)'
+                                borderWidth: 2,
+                                borderColor: '#667eea',
+                                overflow: 'hidden'
                             }}>
                                 <Picker
                                     selectedValue={filtros.estado}
                                     onValueChange={(value) => setFiltros(prev => ({ ...prev, estado: value }))}
-                                    style={{ color: '#fff', height: 50 }}
-                                    dropdownIconColor="#a29bfe"
+                                    style={{ color: '#fff', height: 50, backgroundColor: '#2a2a4e' }}
+                                    dropdownIconColor="#667eea"
+                                    itemStyle={{ backgroundColor: '#1a1a2e', color: '#fff', fontSize: 16 }}
                                 >
                                     {estados.map(e => (
-                                        <Picker.Item key={e.value || 'all'} label={e.label} value={e.value} />
+                                        <Picker.Item key={e.value || 'all'} label={e.label} value={e.value} color="#fff" />
                                     ))}
                                 </Picker>
                             </View>
@@ -379,19 +438,21 @@ export default function ExportExcelModal({
                                 📱 Origen
                             </Text>
                             <View style={{
-                                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                backgroundColor: '#2a2a4e',
                                 borderRadius: 12,
-                                borderWidth: 1,
-                                borderColor: 'rgba(102, 126, 234, 0.3)'
+                                borderWidth: 2,
+                                borderColor: '#667eea',
+                                overflow: 'hidden'
                             }}>
                                 <Picker
                                     selectedValue={filtros.origin}
                                     onValueChange={(value) => setFiltros(prev => ({ ...prev, origin: value }))}
-                                    style={{ color: '#fff', height: 50 }}
-                                    dropdownIconColor="#a29bfe"
+                                    style={{ color: '#fff', height: 50, backgroundColor: '#2a2a4e' }}
+                                    dropdownIconColor="#667eea"
+                                    itemStyle={{ backgroundColor: '#1a1a2e', color: '#fff', fontSize: 16 }}
                                 >
                                     {origenes.map(o => (
-                                        <Picker.Item key={o.value || 'all'} label={o.label} value={o.value} />
+                                        <Picker.Item key={o.value || 'all'} label={o.label} value={o.value} color="#fff" />
                                     ))}
                                 </Picker>
                             </View>
@@ -411,19 +472,21 @@ export default function ExportExcelModal({
                                 <View style={{ flex: 1 }}>
                                     <Text style={{ fontSize: 12, color: '#a29bfe', marginBottom: 5 }}>Mínima</Text>
                                     <View style={{
-                                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                        backgroundColor: '#2a2a4e',
                                         borderRadius: 12,
-                                        borderWidth: 1,
-                                        borderColor: 'rgba(102, 126, 234, 0.3)'
+                                        borderWidth: 2,
+                                        borderColor: '#667eea',
+                                        overflow: 'hidden'
                                     }}>
                                         <Picker
                                             selectedValue={filtros.calificacion_min}
                                             onValueChange={(value) => setFiltros(prev => ({ ...prev, calificacion_min: value }))}
-                                            style={{ color: '#fff', height: 50 }}
-                                            dropdownIconColor="#a29bfe"
+                                            style={{ color: '#fff', height: 50, backgroundColor: '#2a2a4e' }}
+                                            dropdownIconColor="#667eea"
+                                            itemStyle={{ backgroundColor: '#1a1a2e', color: '#fff', fontSize: 16 }}
                                         >
                                             {calificaciones.map(c => (
-                                                <Picker.Item key={`min-${c.value}`} label={c.label} value={c.value} />
+                                                <Picker.Item key={`min-${c.value}`} label={c.label} value={c.value} color="#fff" />
                                             ))}
                                         </Picker>
                                     </View>
@@ -431,19 +494,21 @@ export default function ExportExcelModal({
                                 <View style={{ flex: 1 }}>
                                     <Text style={{ fontSize: 12, color: '#a29bfe', marginBottom: 5 }}>Máxima</Text>
                                     <View style={{
-                                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                        backgroundColor: '#2a2a4e',
                                         borderRadius: 12,
-                                        borderWidth: 1,
-                                        borderColor: 'rgba(102, 126, 234, 0.3)'
+                                        borderWidth: 2,
+                                        borderColor: '#667eea',
+                                        overflow: 'hidden'
                                     }}>
                                         <Picker
                                             selectedValue={filtros.calificacion_max}
                                             onValueChange={(value) => setFiltros(prev => ({ ...prev, calificacion_max: value }))}
-                                            style={{ color: '#fff', height: 50 }}
-                                            dropdownIconColor="#a29bfe"
+                                            style={{ color: '#fff', height: 50, backgroundColor: '#2a2a4e' }}
+                                            dropdownIconColor="#667eea"
+                                            itemStyle={{ backgroundColor: '#1a1a2e', color: '#fff', fontSize: 16 }}
                                         >
                                             {calificaciones.map(c => (
-                                                <Picker.Item key={`max-${c.value}`} label={c.label} value={c.value} />
+                                                <Picker.Item key={`max-${c.value}`} label={c.label} value={c.value} color="#fff" />
                                             ))}
                                         </Picker>
                                     </View>

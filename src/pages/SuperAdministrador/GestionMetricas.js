@@ -321,11 +321,18 @@ export default function GestionMetricas() {
                 return [];
             }
 
-            const resultado = agentesArray.map(a => ({
-                id: a.id,
-                nombre: a.nombre_agente || a.nombre || 'Sin nombre',
-                activo: a.activo !== undefined ? a.activo : true
-            }));
+            const resultado = agentesArray.map(a => {
+                // 🔥 DEBUG: Ver estructura completa del agente
+                console.log('🔍 Agente original del backend:', a);
+                
+                return {
+                    id: a.id_agente || a.id,  // 🔥 FIJO: Intentar id_agente primero
+                    nombre: a.nombre_agente || a.nombre || 'Sin nombre',
+                    activo: a.activo !== undefined ? a.activo : true
+                };
+            });
+            
+            console.log('✅ Agentes procesados:', resultado);
             return resultado;
 
         } catch (error) {

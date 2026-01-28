@@ -499,19 +499,25 @@ export const conversationMongoService = {
       
       const query = new URLSearchParams();
       
-      // Filtros básicos
-
+      // 🔥 FIJO: Asegurar que id_agente se pase como número
       if (params.id_agente !== undefined && params.id_agente !== null) {
-        query.append('id_agente', params.id_agente);
+        const idAgente = Number(params.id_agente);
+        if (!isNaN(idAgente)) {
+          query.append('id_agente', idAgente);
+          console.log('✅ ID Agente agregado:', idAgente);
+        }
       }
       if (params.estado !== undefined && params.estado !== null) {
         query.append('estado', params.estado);
+        console.log('✅ Estado agregado:', params.estado);
       }
       if (params.origin !== undefined && params.origin !== null) {
         query.append('origin', params.origin);
+        console.log('✅ Origen agregado:', params.origin);
       }
       if (params.escaladas !== undefined && params.escaladas !== null) {
         query.append('escaladas', params.escaladas);
+        console.log('✅ Escaladas agregado:', params.escaladas);
       }
 
       // Filtros adicionales
@@ -544,6 +550,7 @@ export const conversationMongoService = {
         ? `${ENDPOINTS.CONVERSACIONES_MONGO.EXPORT_EXCEL}?${queryString}`
         : ENDPOINTS.CONVERSACIONES_MONGO.EXPORT_EXCEL;
       
+      console.log('🌐 [conversationMongoService] QueryString:', queryString);
       console.log('🌐 [conversationMongoService] Endpoint:', endpoint);
       
       // Para descarga de archivos, no usar apiClient.get

@@ -201,6 +201,14 @@ export default function GestionMetricasCard({
             return null;
         }
 
+        // 🔥 Estado para mostrar todos o solo top 5
+        const [mostrarTodos, setMostrarTodos] = useState(false);
+
+        // Obtener top 5 y el resto
+        const top5Agentes = metricas.agentesMasActivos.slice(0, 5);
+        const restantesAgentes = metricas.agentesMasActivos.slice(5);
+        const agentesAMostrar = mostrarTodos ? metricas.agentesMasActivos : top5Agentes;
+
         return (
             <View style={metricasStyles.seccionContainer}>
                 <TouchableOpacity
@@ -211,7 +219,15 @@ export default function GestionMetricasCard({
                         <View style={metricasStyles.seccionIcono}>
                             <Ionicons name="people-circle" size={22} color="#667eea" />
                         </View>
-                        <Text style={metricasStyles.seccionTitulo}>Top Agentes Virtuales</Text>
+                        <View style={{ flex: 1 }}>
+                            <Text style={metricasStyles.seccionTitulo}>Top Agentes Virtuales</Text>
+                            <Text style={{ fontSize: 12, color: '#a29bfe', fontWeight: '500', marginTop: 2 }}>
+                                {mostrarTodos ? 
+                                    `Mostrando ${metricas.agentesMasActivos.length} agentes` : 
+                                    `Top ${Math.min(5, metricas.agentesMasActivos.length)} de ${metricas.agentesMasActivos.length} agentes`
+                                }
+                            </Text>
+                        </View>
                         <Ionicons
                             name={seccionExpandida.agentes ? "chevron-up" : "chevron-down"}
                             size={26}
@@ -221,85 +237,138 @@ export default function GestionMetricasCard({
                     </View>
                 </TouchableOpacity>
 
-                {seccionExpandida.agentes && metricas.agentesMasActivos.map((agente, index) => (
-                    <TouchableOpacity
-                        key={agente.id}
-                        style={metricasStyles.agenteItem}
-                        onPress={() => onSeleccionarAgente(agente.id)}
-                        activeOpacity={0.7}
-                    >
-                        <View
-                            style={[
-                                metricasStyles.agenteColor,
-                                { backgroundColor: agente.color }
-                            ]}
-                        />
-
-                        <View style={metricasStyles.agenteInfo}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                                <Text style={{ fontSize: 24, marginRight: 10 }}>{agente.icono}</Text>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={metricasStyles.agenteNombre}>{agente.nombre}</Text>
-                                    <Text style={{ fontSize: 12, color: '#a29bfe', fontWeight: '500' }}>
-                                        {agente.area}
-                                    </Text>
-                                </View>
-                            </View>
-
-                            <View style={metricasStyles.agenteMetricas}>
-                                <View style={metricasStyles.agenteMetrica}>
-                                    <Ionicons name="chatbubbles" size={15} color="#a29bfe" />
-                                    <Text style={metricasStyles.agenteMetricaTexto}>
-                                        {agente.conversacionesIniciadas} conv.
-                                    </Text>
-                                </View>
-
-                                <View style={metricasStyles.agenteMetrica}>
-                                    <Ionicons name="mail" size={15} color="#a29bfe" />
-                                    <Text style={metricasStyles.agenteMetricaTexto}>
-                                        {agente.mensajesEnviados} msg
-                                    </Text>
-                                </View>
-
-                                <View style={metricasStyles.agenteMetrica}>
-                                    <Ionicons name="star" size={15} color="#ffa502" />
-                                    <Text style={metricasStyles.agenteMetricaTexto}>
-                                        {agente.satisfaccionPromedio.toFixed(1)}
-                                    </Text>
-                                </View>
-
-                                <View style={metricasStyles.agenteMetrica}>
-                                    <Ionicons name="checkmark-circle" size={15} color="#20c997" />
-                                    <Text style={metricasStyles.agenteMetricaTexto}>
-                                        {agente.tasaResolucion.toFixed(1)}%
-                                    </Text>
-                                </View>
-
-                                <View style={metricasStyles.agenteMetrica}>
-                                    <Ionicons name="timer" size={15} color="#667eea" />
-                                    <Text style={metricasStyles.agenteMetricaTexto}>
-                                        {formatearTiempo(agente.tiempoRespuestaPromedioMs)}
-                                    </Text>
-                                </View>
-                            </View>
-
-                            {/* Barra de progreso de resolución */}
-                            <View style={metricasStyles.progressBar}>
-                                <LinearGradient
-                                    colors={obtenerColorTasaResolucion(agente.tasaResolucion)}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
+                {seccionExpandida.agentes && (
+                    <View>
+                        {/* Lista de agentes */}
+                        {agentesAMostrar.map((agente, index) => (
+                            <TouchableOpacity
+                                key={agente.id}
+                                style={metricasStyles.agenteItem}
+                                onPress={() => onSeleccionarAgente(agente.id)}
+                                activeOpacity={0.7}
+                            >
+                                <View
                                     style={[
-                                        metricasStyles.progressFill,
-                                        { width: `${agente.tasaResolucion}%` }
+                                        metricasStyles.agenteColor,
+                                        { backgroundColor: agente.color }
                                     ]}
                                 />
-                            </View>
-                        </View>
 
-                        <Ionicons name="chevron-forward" size={22} color="#a29bfe" />
-                    </TouchableOpacity>
-                ))}
+                                <View style={metricasStyles.agenteInfo}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                                        <Text style={{ fontSize: 24, marginRight: 10 }}>{agente.icono}</Text>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={metricasStyles.agenteNombre}>{agente.nombre}</Text>
+                                            <Text style={{ fontSize: 12, color: '#a29bfe', fontWeight: '500' }}>
+                                                {agente.area}
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    <View style={metricasStyles.agenteMetricas}>
+                                        <View style={metricasStyles.agenteMetrica}>
+                                            <Ionicons name="chatbubbles" size={15} color="#a29bfe" />
+                                            <Text style={metricasStyles.agenteMetricaTexto}>
+                                                {agente.conversacionesIniciadas} conv.
+                                            </Text>
+                                        </View>
+
+                                        <View style={metricasStyles.agenteMetrica}>
+                                            <Ionicons name="mail" size={15} color="#a29bfe" />
+                                            <Text style={metricasStyles.agenteMetricaTexto}>
+                                                {agente.mensajesEnviados} msg
+                                            </Text>
+                                        </View>
+
+                                        <View style={metricasStyles.agenteMetrica}>
+                                            <Ionicons name="star" size={15} color="#ffa502" />
+                                            <Text style={metricasStyles.agenteMetricaTexto}>
+                                                {agente.satisfaccionPromedio.toFixed(1)}
+                                            </Text>
+                                        </View>
+
+                                        <View style={metricasStyles.agenteMetrica}>
+                                            <Ionicons name="checkmark-circle" size={15} color="#20c997" />
+                                            <Text style={metricasStyles.agenteMetricaTexto}>
+                                                {agente.tasaResolucion.toFixed(1)}%
+                                            </Text>
+                                        </View>
+
+                                        <View style={metricasStyles.agenteMetrica}>
+                                            <Ionicons name="timer" size={15} color="#667eea" />
+                                            <Text style={metricasStyles.agenteMetricaTexto}>
+                                                {formatearTiempo(agente.tiempoRespuestaPromedioMs)}
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    {/* Barra de progreso de resolución */}
+                                    <View style={metricasStyles.progressBar}>
+                                        <LinearGradient
+                                            colors={obtenerColorTasaResolucion(agente.tasaResolucion)}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 0 }}
+                                            style={[
+                                                metricasStyles.progressFill,
+                                                { width: `${agente.tasaResolucion}%` }
+                                            ]}
+                                        />
+                                    </View>
+                                </View>
+
+                                <Ionicons name="chevron-forward" size={22} color="#a29bfe" />
+                            </TouchableOpacity>
+                        ))}
+
+                        {/* 🔥 BOTÓN PARA VER TODOS */}
+                        {restantesAgentes.length > 0 && (
+                            <TouchableOpacity
+                                onPress={() => setMostrarTodos(!mostrarTodos)}
+                                style={{
+                                    marginTop: 15,
+                                    marginHorizontal: 15,
+                                    marginBottom: 10
+                                }}
+                                activeOpacity={0.7}
+                            >
+                                <LinearGradient
+                                    colors={mostrarTodos ? 
+                                        ['rgba(102, 126, 234, 0.25)', 'rgba(118, 75, 162, 0.25)'] : 
+                                        ['rgba(102, 126, 234, 0.12)', 'rgba(118, 75, 162, 0.12)']
+                                    }
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={{
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        padding: 14,
+                                        borderRadius: 12,
+                                        borderWidth: 1,
+                                        borderColor: 'rgba(102, 126, 234, 0.3)'
+                                    }}
+                                >
+                                    <Ionicons 
+                                        name={mostrarTodos ? "chevron-up" : "chevron-down"} 
+                                        size={18} 
+                                        color="#667eea" 
+                                        style={{ marginRight: 8 }}
+                                    />
+                                    <Text style={{
+                                        fontSize: 13,
+                                        fontWeight: '700',
+                                        color: '#667eea'
+                                    }}>
+                                        {mostrarTodos ? 
+                                            'Mostrar solo Top 5' : 
+                                            `Ver todos los agentes (${restantesAgentes.length} más)`
+                                        }
+                                    </Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                )}
             </View>
         );
     };
