@@ -2,7 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Animated, Image, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { loginStyles } from "../../styles/loginStyles";
 
 const CAROUSEL_APPS = [
@@ -345,14 +345,12 @@ export default function LoginCard({
                     transform: [{ scale: pulseAnim }], 
                     marginBottom: 25,
                   }}>
-                    <Ionicons 
-                      name="school" 
-                      size={100} 
-                      color="#667eea"
+                    <Image
+                      source={require('../../../assets/images/TECAI.png')}
                       style={{
-                        textShadowColor: 'rgba(102, 126, 234, 0.5)',
-                        textShadowOffset: { width: 0, height: 0 },
-                        textShadowRadius: 40,
+                        width: 100,
+                        height: 100,
+                        resizeMode: 'contain'
                       }}
                     />
                   </Animated.View>
