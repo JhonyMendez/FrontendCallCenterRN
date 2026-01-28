@@ -218,7 +218,7 @@ export default function ExportExcelModal({
 
                         // Guardar archivo en el sistema de archivos
                         await FileSystem.writeAsStringAsync(filePath, base64, {
-                            encoding: FileSystem.EncodingType.Base64,
+                            encoding: 'base64',
                         });
 
                         console.log('✅ Archivo guardado en:', filePath);
