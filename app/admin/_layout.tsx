@@ -54,8 +54,8 @@ export default function AdminLayout() {
         options={{ title: 'Agentes' }}
       />
       <Stack.Screen
-        name="metricas"
-        options={{ title: 'Métricas' }}
+        name="metricasAdmin"
+        options={{ title: 'Métricas Administrador' }}
       />
       <Stack.Screen
         name="interaccion"
