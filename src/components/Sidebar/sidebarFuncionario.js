@@ -72,9 +72,8 @@ export default function SidebarFuncionario({ isOpen }) {
         {
           label: 'Dashboard de Metricas',
           icon: 'bar-chart-outline',
-          route: '/funcionario/metricasfuncionario',
+          route: '/funcionario/metricasFuncionario',
         },
-
       ],
     },
   ];

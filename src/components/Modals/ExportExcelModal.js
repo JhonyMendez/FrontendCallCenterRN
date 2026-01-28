@@ -1,8 +1,8 @@
 // src/components/Modals/ExportExcelModal.js
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as FileSystem from 'expo-file-system/legacy';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
 import {
@@ -23,7 +23,9 @@ const isWeb = Platform.OS === 'web';
 export default function ExportExcelModal({ 
     visible, 
     onClose, 
-    agentesDisponibles = [] 
+    agentesDisponibles = [],
+    agenteActual = null,
+    esFuncionario = false
 }) {
     const [loading, setLoading] = useState(false);
     
@@ -43,12 +45,24 @@ export default function ExportExcelModal({
     
     const [filtros, setFiltros] = useState(filtrosIniciales);
 
-    // 🔥 Resetear filtros cuando se cierra el modal
+    // 🔥 NUEVO: Efecto para preseleccionar agente del funcionario
     useEffect(() => {
-        if (!visible) {
-            setFiltros(filtrosIniciales);
+        if (esFuncionario && agenteActual && agentesDisponibles && agentesDisponibles.length > 0) {
+            // Buscar el agente actual en la lista disponible
+            const agenteEncontrado = agentesDisponibles.find(a => 
+                (a.nombre === agenteActual || a.nombre_agente === agenteActual)
+            );
+            
+            if (agenteEncontrado) {
+                const agenteId = agenteEncontrado.id || agenteEncontrado.id_agente;
+                setFiltros(prev => ({ 
+                    ...prev, 
+                    id_agente: agenteId 
+                }));
+                console.log('🔒 Agente preseleccionado para funcionario:', agenteActual, 'ID:', agenteId);
+            }
         }
-    }, [visible]);
+    }, [visible, esFuncionario, agenteActual, agentesDisponibles]);
 
     // 🔥 NUEVO: Monitorear cambios en filtros para debugging
     useEffect(() => {
@@ -369,33 +383,58 @@ export default function ExportExcelModal({
 
                         {/* Agente */}
                         <View style={{ marginBottom: 20 }}>
-                            <Text style={{
-                                fontSize: 14,
-                                fontWeight: '700',
-                                color: '#fff',
-                                marginBottom: 10
-                            }}>
-                                🤖 Agente Virtual
-                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                                <Text style={{
+                                    fontSize: 14,
+                                    fontWeight: '700',
+                                    color: '#fff',
+                                    flex: 1
+                                }}>
+                                    🤖 Agente Virtual
+                                </Text>
+                                {esFuncionario && (
+                                    <View style={{
+                                        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                                        paddingHorizontal: 8,
+                                        paddingVertical: 4,
+                                        borderRadius: 6,
+                                        borderWidth: 1,
+                                        borderColor: '#10b981'
+                                    }}>
+                                        <Text style={{
+                                            fontSize: 11,
+                                            color: '#10b981',
+                                            fontWeight: '600'
+                                        }}>
+                                            🔒 Bloqueado
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
                             <View style={{
                                 backgroundColor: '#2a2a4e',
                                 borderRadius: 12,
                                 borderWidth: 2,
-                                borderColor: '#667eea',
-                                overflow: 'hidden'
+                                borderColor: esFuncionario ? '#10b981' : '#667eea',
+                                overflow: 'hidden',
+                                opacity: esFuncionario ? 0.8 : 1
                             }}>
                                 <Picker
                                     key={`picker-agente-${filtros.id_agente}`}
                                     selectedValue={filtros.id_agente}
                                     onValueChange={(value) => {
-                                        console.log('🤖 Agente seleccionado:', value, 'Tipo:', typeof value);
-                                        setFiltros(prev => ({ 
-                                            ...prev, 
-                                            id_agente: value 
-                                        }));
+                                        // 🔒 Bloquear cambio si es funcionario
+                                        if (!esFuncionario) {
+                                            console.log('🤖 Agente seleccionado:', value, 'Tipo:', typeof value);
+                                            setFiltros(prev => ({ 
+                                                ...prev, 
+                                                id_agente: value 
+                                            }));
+                                        }
                                     }}
+                                    enabled={!esFuncionario}
                                     style={{ color: '#fff', height: 50, backgroundColor: '#2a2a4e' }}
-                                    dropdownIconColor="#667eea"
+                                    dropdownIconColor={esFuncionario ? '#10b981' : '#667eea'}
                                     itemStyle={{ backgroundColor: '#1a1a2e', color: '#fff', fontSize: 16 }}
                                 >
                                     <Picker.Item label="Todos los agentes" value={null} color="#fff" />

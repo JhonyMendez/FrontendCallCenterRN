@@ -67,7 +67,7 @@ export default function AdminSidebar({ isOpen }) {
       label: 'Métricas Globales',
       icon: 'bar-chart-outline',
       submenu: [
-        { label: 'Dashboard de Métricas', route: '/superadmin/metricas' },
+        { label: 'Dashboard de Métricas', route: '/admin/metricasAdmin' },
       ]
     },
   ];

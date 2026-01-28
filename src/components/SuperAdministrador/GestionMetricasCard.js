@@ -25,7 +25,9 @@ export default function GestionMetricasCard({
     metricas,
     filtroActivo,
     agenteSeleccionado,
-    onSeleccionarAgente
+    onSeleccionarAgente,
+    esFuncionario = false,
+    mostrarTop5 = true
 }) {
 
     const [seccionExpandida, setSeccionExpandida] = useState({
@@ -131,7 +133,7 @@ export default function GestionMetricasCard({
                     resumenData.satisfaccionPromedio.toFixed(1) : 'N/A',
                 label: 'Satisfacción',
                 icono: 'star',
-                color: obtenerColorSatisfaccion(resumenData.satisfaccionPromedio),
+                color: resumenData.satisfaccionPromedio ? obtenerColorSatisfaccion(resumenData.satisfaccionPromedio) : ['#ccc', '#999'],
                 descripcion: 'Calificación promedio'
             },
             {
@@ -287,14 +289,14 @@ export default function GestionMetricasCard({
                                         <View style={metricasStyles.agenteMetrica}>
                                             <Ionicons name="star" size={15} color="#ffa502" />
                                             <Text style={metricasStyles.agenteMetricaTexto}>
-                                                {agente.satisfaccionPromedio.toFixed(1)}
+                                                {agente.satisfaccionPromedio ? agente.satisfaccionPromedio.toFixed(1) : 'N/A'}
                                             </Text>
                                         </View>
 
                                         <View style={metricasStyles.agenteMetrica}>
                                             <Ionicons name="checkmark-circle" size={15} color="#20c997" />
                                             <Text style={metricasStyles.agenteMetricaTexto}>
-                                                {agente.tasaResolucion.toFixed(1)}%
+                                                {agente.tasaResolucion ? agente.tasaResolucion.toFixed(1) : 'N/A'}%
                                             </Text>
                                         </View>
 
@@ -911,6 +913,11 @@ export default function GestionMetricasCard({
 
     // ==================== 🔥 NUEVO: GRÁFICO DE BARRAS HORIZONTALES - TOP AGENTES ====================
     const renderGraficoBarrasHorizontales = () => {
+        // 🔥 Si mostrarTop5 es false, no renderizar esta sección
+        if (!mostrarTop5) {
+            return null;
+        }
+
         if (!metricas.agentesMasActivos || metricas.agentesMasActivos.length === 0) {
             return null;
         }
@@ -950,13 +957,23 @@ export default function GestionMetricasCard({
                     <View style={metricasStyles.graficoContainer}>
                         {top5.map((agente, index) => {
                             const porcentaje = (agente.conversacionesIniciadas / maxConversaciones) * 100;
+                            
+                            // 🔒 Para funcionarios, solo mostrar su agente
+                            if (esFuncionario && index > 0) {
+                                return null;
+                            }
 
                             return (
                                 <TouchableOpacity
                                     key={agente.id}
-                                    activeOpacity={0.7}
-                                    onPress={() => onSeleccionarAgente(agente.id)}
-                                    style={{ marginBottom: 25 }}
+                                    activeOpacity={esFuncionario ? 1 : 0.7}
+                                    onPress={() => {
+                                        // 🔒 Bloquear selección si es funcionario
+                                        if (!esFuncionario) {
+                                            onSeleccionarAgente(agente.id);
+                                        }
+                                    }}
+                                    style={{ marginBottom: 25, opacity: esFuncionario ? 1 : 1 }}
                                 >
                                     {/* Header con nombre y valor */}
                                     <View style={{
@@ -1064,7 +1081,7 @@ export default function GestionMetricasCard({
                                                 marginLeft: 6,
                                                 fontWeight: '700'
                                             }}>
-                                                {agente.satisfaccionPromedio.toFixed(1)} / 5.0
+                                                {agente.satisfaccionPromedio ? agente.satisfaccionPromedio.toFixed(1) : 'N/A'} / 5.0
                                             </Text>
                                         </View>
                                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -1075,7 +1092,7 @@ export default function GestionMetricasCard({
                                                 marginLeft: 6,
                                                 fontWeight: '700'
                                             }}>
-                                                {agente.tasaResolucion.toFixed(0)}% resueltas
+                                                {agente.tasaResolucion ? agente.tasaResolucion.toFixed(0) : 'N/A'}% resueltas
                                             </Text>
                                         </View>
                                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>

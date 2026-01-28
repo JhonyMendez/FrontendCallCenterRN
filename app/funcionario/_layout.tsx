@@ -59,6 +59,10 @@ export default function FuncionarioLayout() {
         options={{ title: 'Gestión de Conversaciones' }}
       />
       <Stack.Screen
+        name="metricasFuncionario"
+        options={{ title: 'Métricas' }}
+      />
+      <Stack.Screen
         name="PerfilFuncionario"
         options={{ title: 'Mi Perfil' }}
       />
