@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
 import {
     Dimensions,
+    Platform,
     ScrollView,
     Text,
     TouchableOpacity,
@@ -18,6 +19,7 @@ import { metricasStyles } from '../../styles/GestionMetricasStyles';
 
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
+const isWeb = Platform.OS === 'web';
 
 export default function GestionMetricasCard({
     metricas,
@@ -702,7 +704,7 @@ export default function GestionMetricasCard({
                             marginBottom: 30,
                             backgroundColor: 'rgba(15, 15, 35, 0.5)',
                             borderRadius: 20,
-                            padding: 20,
+                            padding: isWeb ? 20 : 15,
                             borderWidth: 1,
                             borderColor: 'rgba(102, 126, 234, 0.3)'
                         }}>
@@ -712,10 +714,10 @@ export default function GestionMetricasCard({
                                     population: seg.valor,
                                     color: seg.color[0],
                                     legendFontColor: '#fff',
-                                    legendFontSize: 13
+                                    legendFontSize: isWeb ? 13 : 11
                                 }))}
-                                width={width - 80}
-                                height={240}
+                                width={isWeb ? width - 80 : width - 40}
+                                height={isWeb ? 240 : 200}
                                 chartConfig={{
                                     backgroundColor: 'transparent',
                                     backgroundGradientFrom: 'transparent',
@@ -724,13 +726,13 @@ export default function GestionMetricasCard({
                                     color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
                                     labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
                                     propsForLabels: {
-                                        fontSize: 14,
+                                        fontSize: isWeb ? 14 : 12,
                                         fontWeight: '900'
                                     }
                                 }}
                                 accessor="population"
                                 backgroundColor="transparent"
-                                paddingLeft="15"
+                                paddingLeft={isWeb ? "15" : "10"}
                                 absolute
                                 hasLegend={true}
                                 style={{
@@ -741,7 +743,7 @@ export default function GestionMetricasCard({
                         </View>
 
                         {/* Estadísticas detalladas en tarjetas */}
-                        <View style={{ marginTop: 10, marginBottom: 15 }}>
+                        <View style={{ marginTop: 10, marginBottom: 15, flexDirection: isWeb ? 'row' : 'column', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: isWeb ? 10 : 0 }}>
                             {segmentos.map((seg, idx) => (
                                 <LinearGradient
                                     key={idx}
@@ -750,11 +752,12 @@ export default function GestionMetricasCard({
                                     end={{ x: 1, y: 0 }}
                                     style={{
                                         marginBottom: 12,
-                                        padding: 18,
+                                        padding: isWeb ? 18 : 14,
                                         borderRadius: 18,
                                         flexDirection: 'row',
                                         alignItems: 'center',
                                         justifyContent: 'space-between',
+                                        width: isWeb ? 'calc(33.333% - 10px)' : '100%',
                                         shadowColor: seg.color[0],
                                         shadowOpacity: 0.5,
                                         shadowRadius: 15,
@@ -764,19 +767,19 @@ export default function GestionMetricasCard({
                                 >
                                     <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                                         <View style={{
-                                            width: 55,
-                                            height: 55,
-                                            borderRadius: 27.5,
+                                            width: isWeb ? 55 : 48,
+                                            height: isWeb ? 55 : 48,
+                                            borderRadius: isWeb ? 27.5 : 24,
                                             backgroundColor: 'rgba(255, 255, 255, 0.2)',
                                             justifyContent: 'center',
                                             alignItems: 'center',
-                                            marginRight: 15
+                                            marginRight: isWeb ? 15 : 12
                                         }}>
-                                            <Ionicons name={seg.icono} size={28} color="#fff" />
+                                            <Ionicons name={seg.icono} size={isWeb ? 28 : 24} color="#fff" />
                                         </View>
                                         <View style={{ flex: 1 }}>
                                             <Text style={{
-                                                fontSize: 18,
+                                                fontSize: isWeb ? 18 : 15,
                                                 fontWeight: '900',
                                                 color: '#fff',
                                                 marginBottom: 4,
@@ -787,25 +790,26 @@ export default function GestionMetricasCard({
                                                 {seg.label}
                                             </Text>
                                             <Text style={{
-                                                fontSize: 13,
+                                                fontSize: isWeb ? 13 : 11,
                                                 color: 'rgba(255, 255, 255, 0.85)',
                                                 fontWeight: '700'
                                             }}>
-                                                {seg.valor} conversaciones
+                                                {seg.valor} conv.
                                             </Text>
                                         </View>
                                     </View>
                                     
                                     <View style={{
                                         backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                                        paddingHorizontal: 16,
-                                        paddingVertical: 10,
+                                        paddingHorizontal: isWeb ? 16 : 12,
+                                        paddingVertical: isWeb ? 10 : 8,
                                         borderRadius: 14,
-                                        minWidth: 70,
-                                        alignItems: 'center'
+                                        minWidth: isWeb ? 70 : 60,
+                                        alignItems: 'center',
+                                        marginLeft: isWeb ? 10 : 8
                                     }}>
                                         <Text style={{
-                                            fontSize: 24,
+                                            fontSize: isWeb ? 24 : 20,
                                             fontWeight: '900',
                                             color: '#fff',
                                             textShadowColor: 'rgba(0, 0, 0, 0.3)',
@@ -825,15 +829,15 @@ export default function GestionMetricasCard({
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}
                             style={{
-                                marginHorizontal: 5,
+                                marginHorizontal: isWeb ? 5 : 0,
                                 marginTop: 10,
-                                padding: 20,
+                                padding: isWeb ? 20 : 15,
                                 borderRadius: 18,
                                 borderWidth: 2,
                                 borderColor: 'rgba(102, 126, 234, 0.5)',
-                                flexDirection: 'row',
+                                flexDirection: isWeb ? 'row' : 'column',
                                 justifyContent: 'space-between',
-                                alignItems: 'center',
+                                alignItems: isWeb ? 'center' : 'flex-start',
                                 shadowColor: '#667eea',
                                 shadowOpacity: 0.4,
                                 shadowRadius: 15,
@@ -841,29 +845,29 @@ export default function GestionMetricasCard({
                                 elevation: 8
                             }}
                         >
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: isWeb ? 0 : 12 }}>
                                 <LinearGradient
                                     colors={['#667eea', '#764ba2']}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
                                     style={{
-                                        width: 55,
-                                        height: 55,
-                                        borderRadius: 27.5,
+                                        width: isWeb ? 55 : 50,
+                                        height: isWeb ? 55 : 50,
+                                        borderRadius: isWeb ? 27.5 : 25,
                                         justifyContent: 'center',
                                         alignItems: 'center',
-                                        marginRight: 15,
+                                        marginRight: isWeb ? 15 : 12,
                                         shadowColor: '#667eea',
                                         shadowOpacity: 0.6,
                                         shadowRadius: 10,
                                         elevation: 8
                                     }}
                                 >
-                                    <Ionicons name="analytics" size={28} color="#fff" />
+                                    <Ionicons name="analytics" size={isWeb ? 28 : 24} color="#fff" />
                                 </LinearGradient>
                                 <View>
                                     <Text style={{
-                                        fontSize: 14,
+                                        fontSize: isWeb ? 14 : 12,
                                         color: '#a29bfe',
                                         fontWeight: '800',
                                         marginBottom: 3
@@ -871,7 +875,7 @@ export default function GestionMetricasCard({
                                         TOTAL CONVERSACIONES
                                     </Text>
                                     <Text style={{
-                                        fontSize: 12,
+                                        fontSize: isWeb ? 12 : 11,
                                         color: '#667eea',
                                         fontWeight: '600'
                                     }}>
@@ -881,14 +885,14 @@ export default function GestionMetricasCard({
                             </View>
                             <View style={{
                                 backgroundColor: 'rgba(102, 126, 234, 0.3)',
-                                paddingHorizontal: 20,
-                                paddingVertical: 12,
+                                paddingHorizontal: isWeb ? 20 : 16,
+                                paddingVertical: isWeb ? 12 : 10,
                                 borderRadius: 16,
                                 borderWidth: 2,
                                 borderColor: '#667eea'
                             }}>
                                 <Text style={{
-                                    fontSize: 32,
+                                    fontSize: isWeb ? 32 : 28,
                                     fontWeight: '900',
                                     color: '#667eea',
                                     textShadowColor: 'rgba(102, 126, 234, 0.5)',

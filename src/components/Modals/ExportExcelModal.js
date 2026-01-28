@@ -2,6 +2,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -205,12 +207,44 @@ export default function ExportExcelModal({
                     [{ text: 'OK', onPress: onClose }]
                 );
             } else {
-                // Para mobile, necesitarías usar FileSystem de expo
-                Alert.alert(
-                    'Éxito',
-                    'Archivo exportado. Descarga iniciada.',
-                    [{ text: 'OK', onPress: onClose }]
-                );
+                // Para mobile, usar FileSystem y Sharing de Expo
+                try {
+                    // Convertir blob a base64
+                    const reader = new FileReader();
+                    reader.onload = async () => {
+                        const base64 = reader.result.split(',')[1];
+                        const fileName = `conversaciones_${new Date().toISOString().split('T')[0]}.xlsx`;
+                        const filePath = `${FileSystem.documentDirectory}${fileName}`;
+
+                        // Guardar archivo en el sistema de archivos
+                        await FileSystem.writeAsStringAsync(filePath, base64, {
+                            encoding: FileSystem.EncodingType.Base64,
+                        });
+
+                        console.log('✅ Archivo guardado en:', filePath);
+
+                        // Compartir/descargar el archivo
+                        await Sharing.shareAsync(filePath, {
+                            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            dialogTitle: 'Descargar conversaciones',
+                            UTI: 'com.microsoft.excel.xlsx'
+                        });
+
+                        Alert.alert(
+                            'Éxito',
+                            'El archivo se ha generado y preparado para descargar',
+                            [{ text: 'OK', onPress: onClose }]
+                        );
+                    };
+                    reader.readAsDataURL(blob);
+                } catch (error) {
+                    console.error('❌ Error descargando en móvil:', error);
+                    Alert.alert(
+                        'Error',
+                        'No se pudo descargar el archivo en móvil',
+                        [{ text: 'OK' }]
+                    );
+                }
             }
 
         } catch (error) {
