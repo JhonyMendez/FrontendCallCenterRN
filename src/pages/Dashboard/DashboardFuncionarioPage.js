@@ -13,9 +13,9 @@ import authService from '../../api/services/authService';
 import { departamentoService } from '../../api/services/departamentoService';
 import { usuarioService } from '../../api/services/usuarioService';
 import {
-    HeaderCard,
-    SectionHeader,
-    StatCard
+  HeaderCard,
+  SectionHeader,
+  StatCard
 } from '../../components/Dashboard/DashboardSuperAdminCard';
 import FuncionarioSidebar from '../../components/Sidebar/sidebarFuncionario';
 import { dashboardStyles } from '../../styles/dashboardSuperAdminStyles';
@@ -465,6 +465,52 @@ export default function DashboardPageFuncionario() {
             subtitle="Pasos para configurar el sistema"
             icon="rocket"
           />
+
+          {/* Nota sobre permisos - Diseño Premium */}
+          <View style={{ 
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            backgroundColor: '#667eea',
+            padding: 16,
+            marginBottom: 16,
+            borderRadius: 12,
+            shadowColor: '#667eea',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 5
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+              <View style={{
+                width: 40,
+                height: 40,
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                borderRadius: 10,
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginTop: 2
+              }}>
+                <Ionicons name="key" size={20} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ 
+                  color: '#ffffff', 
+                  fontSize: 14,
+                  fontWeight: '600',
+                  marginBottom: 6
+                }}>
+                  Acceso según permisos
+                </Text>
+                <Text style={{ 
+                  color: 'rgba(255, 255, 255, 0.85)', 
+                  fontSize: 12,
+                  lineHeight: 18,
+                  fontWeight: '400'
+                }}>
+                  Tu capacidad para configurar cada paso depende de los permisos asignados por tu administrador.
+                </Text>
+              </View>
+            </View>
+          </View>
 
           <Animated.ScrollView
             ref={carouselRef}
