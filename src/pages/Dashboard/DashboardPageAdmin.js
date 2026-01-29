@@ -12,6 +12,7 @@ import { agenteService } from '../../api/services/agenteService';
 import authService from '../../api/services/authService';
 import { departamentoService } from '../../api/services/departamentoService';
 import { usuarioService } from '../../api/services/usuarioService';
+import { conversationMongoService } from '../../api/services/conversationMongoService';
 import {
     HeaderCard,
     SectionHeader,
@@ -273,12 +274,36 @@ export default function DashboardPageAdmin() {
       });
       console.log('📦 [Dashboard Admin] Departamentos recibidos:', departamentos);
 
+      // 📊 Cargar conversaciones de la semana
+      console.log('📤 [Dashboard Admin] Cargando conversaciones de la semana...');
+      const hoy = new Date();
+      const diaSemana = hoy.getDay();
+      const diferenciaDiasAlLunes = (diaSemana === 0 ? 6 : diaSemana - 1);
+      const inicioSemana = new Date(hoy);
+      inicioSemana.setDate(hoy.getDate() - diferenciaDiasAlLunes);
+      inicioSemana.setHours(0, 0, 0, 0);
+      
+      const finSemana = new Date(inicioSemana);
+      finSemana.setDate(inicioSemana.getDate() + 6);
+      finSemana.setHours(23, 59, 59, 999);
+      
+      const conversacionesSemanasDataAdmin = await conversationMongoService.getStats(
+        undefined,
+        {
+          fecha_inicio: inicioSemana.toISOString(),
+          fecha_fin: finSemana.toISOString()
+        }
+      ).catch((err) => {
+        console.error('❌ [Dashboard Admin] Error al cargar conversaciones:', err);
+        return { total_conversaciones: 0 };
+      });
+
       // Actualizar estadísticas con datos reales
       const newStats = {
         totalUsuarios: usuarios.total || 0,
         totalAgentes: Array.isArray(agentes) ? agentes.length : (agentes.total || 0),
         totalDepartamentos: Array.isArray(departamentos) ? departamentos.length : 0,
-        conversacionesHoy: 0,
+        conversacionesHoy: conversacionesSemanasDataAdmin?.total_conversaciones || 0,
         interaccionesHoy: 0,
         ticketsAbiertos: 0,
         satisfaccion: 0
@@ -357,7 +382,7 @@ export default function DashboardPageAdmin() {
     {
       title: 'Conversaciones',
       value: stats.conversacionesHoy,
-      subtitle: 'Hoy',
+      subtitle: 'Esta semana',
       icon: 'chatbubbles',
       color: '#f59e0b',
       trend: 0

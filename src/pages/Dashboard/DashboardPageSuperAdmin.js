@@ -10,6 +10,7 @@ import { ActivityIndicator, Animated, Platform, ScrollView, Text, TouchableOpaci
 import { apiClient } from '../../api/client';
 import { agenteService } from '../../api/services/agenteService';
 import authService from '../../api/services/authService';
+import { conversationMongoService } from '../../api/services/conversationMongoService';
 import { departamentoService } from '../../api/services/departamentoService';
 import { usuarioService } from '../../api/services/usuarioService';
 import {
@@ -273,12 +274,47 @@ export default function DashboardPageSuperAdmin() {
       });
       console.log('📦 [Dashboard] Departamentos recibidos:', departamentos);
 
+      // 📊 Cargar conversaciones de la semana
+      console.log('📤 [Dashboard] Llamando a conversationMongoService para conversaciones de la semana...');
+      const hoy = new Date();
+      // Calcular inicio de la semana (lunes)
+      const diaSemana = hoy.getDay();
+      const diferenciaDiasAlLunes = (diaSemana === 0 ? 6 : diaSemana - 1); // 0 es domingo
+      const inicioSemana = new Date(hoy);
+      inicioSemana.setDate(hoy.getDate() - diferenciaDiasAlLunes);
+      inicioSemana.setHours(0, 0, 0, 0);
+      
+      // Calcular fin de la semana (domingo)
+      const finSemana = new Date(inicioSemana);
+      finSemana.setDate(inicioSemana.getDate() + 6);
+      finSemana.setHours(23, 59, 59, 999);
+      
+      console.log('📅 Rango de semana - Inicio:', inicioSemana.toISOString(), 'Fin:', finSemana.toISOString());
+      
+      const conversacionesSemanasData = await conversationMongoService.getStats(
+        undefined, // Sin filtro de agente para obtener todas las conversaciones
+        {
+          fecha_inicio: inicioSemana.toISOString(),
+          fecha_fin: finSemana.toISOString()
+        }
+      ).catch((err) => {
+        if (err?.isTokenExpired) {
+          SecurityUtils.logSecurityEvent('TOKEN_EXPIRED_CONVERSACIONES', {});
+          throw err;
+        }
+        console.error('❌ [Dashboard] Error al cargar conversaciones:', err);
+        console.error('❌ [Dashboard] Error completo:', err.response?.data || err.message);
+        return { totalConversaciones: 0 };
+      });
+      console.log('📦 [Dashboard] Respuesta conversaciones semana:', conversacionesSemanasData);
+      console.log('📊 [Dashboard] Total conversaciones extraído:', conversacionesSemanasData?.total_conversaciones);
+
       // Actualizar estadísticas con datos reales
       const newStats = {
         totalUsuarios: usuarios.total || 0,
         totalAgentes: Array.isArray(agentes) ? agentes.length : (agentes.total || 0),
         totalDepartamentos: Array.isArray(departamentos) ? departamentos.length : 0,
-        conversacionesHoy: 0,
+        conversacionesHoy: conversacionesSemanasData?.total_conversaciones || 0,
         interaccionesHoy: 0,
         ticketsAbiertos: 0,
         satisfaccion: 0
@@ -356,7 +392,7 @@ export default function DashboardPageSuperAdmin() {
     {
       title: 'Conversaciones',
       value: stats.conversacionesHoy,
-      subtitle: 'Hoy',
+      subtitle: 'Esta semana',
       icon: 'chatbubbles',
       color: '#f59e0b',
       trend: 0
