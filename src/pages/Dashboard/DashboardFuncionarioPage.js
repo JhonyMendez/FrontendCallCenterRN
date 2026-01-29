@@ -6,17 +6,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { apiClient } from '../../api/client';
 import { agenteService } from '../../api/services/agenteService';
 import authService from '../../api/services/authService';
 import { departamentoService } from '../../api/services/departamentoService';
 import { usuarioService } from '../../api/services/usuarioService';
 import {
-  HeaderCard,
-  InfoCard,
-  SectionHeader,
-  StatCard
+    HeaderCard,
+    SectionHeader,
+    StatCard
 } from '../../components/Dashboard/DashboardSuperAdminCard';
 import FuncionarioSidebar from '../../components/Sidebar/sidebarFuncionario';
 import { dashboardStyles } from '../../styles/dashboardSuperAdminStyles';
@@ -89,6 +88,9 @@ export default function DashboardPageFuncionario() {
   const [loading, setLoading] = useState(true);
   // 🔐 Rate limiters
   const rateLimiter = useRef(SecurityUtils.createRateLimiter(5, 60000)).current;
+  const carouselRef = useRef(null);
+  const scrollPosition = useRef(new Animated.Value(0)).current;
+  const currentScroll = useRef(0);
   const [usuario, setUsuario] = useState({
     nombre_completo: '',
     username: '',
@@ -108,6 +110,19 @@ export default function DashboardPageFuncionario() {
 
   useEffect(() => {
     cargarDatos();
+    
+    // Iniciar animación del carrusel
+    const carouselInterval = setInterval(() => {
+      if (carouselRef.current) {
+        currentScroll.current += 172; // 160 (ancho) + 12 (gap)
+        if (currentScroll.current > 172 * 8) { // Si pasamos el último item
+          currentScroll.current = 0;
+        }
+        carouselRef.current.scrollTo({ x: currentScroll.current, animated: true });
+      }
+    }, 3000); // Cambiar cada 3 segundos
+
+    return () => clearInterval(carouselInterval);
   }, []);
 
   const cargarDatos = async () => {
@@ -444,44 +459,137 @@ export default function DashboardPageFuncionario() {
             ))}
           </View>
 
-          {/* Info Cards Section */}
+          {/* ============ GUÍA DE CONFIGURACIÓN - CARRUSEL ANIMADO ============ */}
           <SectionHeader
-            title="Actividad del Sistema"
-            subtitle="Métricas en tiempo real"
-            icon="pulse"
-            onActionPress={handleRefresh}
-            actionText="Actualizar"
+            title="Guía de Configuración"
+            subtitle="Pasos para configurar el sistema"
+            icon="rocket"
           />
 
-          <View style={dashboardStyles.infoGrid}>
-            <View style={dashboardStyles.infoCardWrapper}>
-              <InfoCard
-                title="Interacciones"
-                value={stats.interaccionesHoy}
-                icon="chatbox-ellipses"
-                color="#06b6d4"
-                subtitle="En las últimas 24h"
+          <Animated.ScrollView
+            ref={carouselRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ marginBottom: 16 }}
+            contentContainerStyle={{ paddingHorizontal: 0, gap: 12 }}
+          >
+            {/* Paso 1 */}
+            <View style={{ width: 160, marginRight: 8 }}>
+              <StatCard
+                title="Crear Usuarios"
+                value="1"
+                subtitle="Registra administradores"
+                icon="people"
+                color="#3b82f6"
+                trend={0}
+                onClick={() => console.log('Paso 1')}
               />
             </View>
-            <View style={dashboardStyles.infoCardWrapper}>
-              <InfoCard
-                title="Tickets"
-                value={stats.ticketsAbiertos}
-                icon="ticket"
-                color="#f97316"
-                subtitle="Abiertos actualmente"
+
+            {/* Paso 2 */}
+            <View style={{ width: 160, marginRight: 8 }}>
+              <StatCard
+                title="Crear Departamentos"
+                value="2"
+                subtitle="Organiza áreas de trabajo"
+                icon="business"
+                color="#8b5cf6"
+                trend={0}
+                onClick={() => console.log('Paso 2')}
               />
             </View>
-            <View style={dashboardStyles.infoCardWrapper}>
-              <InfoCard
-                title="Satisfacción"
-                value={`${stats.satisfaccion}%`}
-                icon="happy"
+
+            {/* Paso 3 */}
+            <View style={{ width: 160, marginRight: 8 }}>
+              <StatCard
+                title="Asignar al Departamento"
+                value="3"
+                subtitle="Vincula funcionarios"
+                icon="link"
+                color="#f59e0b"
+                trend={0}
+                onClick={() => console.log('Paso 3')}
+              />
+            </View>
+
+            {/* Paso 4 */}
+            <View style={{ width: 160, marginRight: 8 }}>
+              <StatCard
+                title="Crear Agentes"
+                value="4"
+                subtitle="Configura agentes IA"
+                icon="hardware-chip"
                 color="#10b981"
-                subtitle="Promedio mensual"
+                trend={0}
+                onClick={() => console.log('Paso 4')}
               />
             </View>
-          </View>
+
+            {/* Paso 5 */}
+            <View style={{ width: 160, marginRight: 8 }}>
+              <StatCard
+                title="Crear Categorías"
+                value="5"
+                subtitle="Organiza contenido"
+                icon="list"
+                color="#06b6d4"
+                trend={0}
+                onClick={() => console.log('Paso 5')}
+              />
+            </View>
+
+            {/* Paso 6 */}
+            <View style={{ width: 160, marginRight: 8 }}>
+              <StatCard
+                title="Cargar Contenido"
+                value="6"
+                subtitle="Sube información"
+                icon="document-text"
+                color="#ec4899"
+                trend={0}
+                onClick={() => console.log('Paso 6')}
+              />
+            </View>
+
+            {/* Paso 7 */}
+            <View style={{ width: 160, marginRight: 8 }}>
+              <StatCard
+                title="Ver Métricas"
+                value="7"
+                subtitle="Consulta reportes"
+                icon="bar-chart"
+                color="#f97316"
+                trend={0}
+                onClick={() => console.log('Paso 7')}
+              />
+            </View>
+
+            {/* Paso 8 */}
+            <View style={{ width: 160, marginRight: 8 }}>
+              <StatCard
+                title="Exportar a Excel"
+                value="8"
+                subtitle="Descarga datos"
+                icon="download"
+                color="#22c55e"
+                trend={0}
+                onClick={() => console.log('Paso 8')}
+              />
+            </View>
+
+            {/* Paso 9 */}
+            <View style={{ width: 160, marginRight: 8 }}>
+              <StatCard
+                title="Conversaciones con Visitantes"
+                value="9"
+                subtitle="Brinda ayuda a clientes"
+                icon="chatbubbles"
+                color="#8b5cf6"
+                trend={0}
+                onClick={() => console.log('Paso 9')}
+              />
+            </View>
+          </Animated.ScrollView>
 
         </ScrollView>
 
