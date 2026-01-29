@@ -7,7 +7,7 @@ const getBaseURL = () => {
   const API_PATH = '/api/v1';
   
   // 🔧 CONFIGURACIÓN DE IPs Y URLs
-  const LOCAL_IP = '192.168.5.11';
+  const LOCAL_IP = '64.23.152.92';
   const LOCAL_PORT = '8000';
   const NGROK_URL = 'https://untranscribable-nonhedonistically-stetson.ngrok-free.dev';
   
@@ -26,7 +26,7 @@ const getBaseURL = () => {
   // 💻 WEB - Desde el navegador del host, conecta a la IP del host
   if (Platform.OS === 'web') {
     const url = MODE === 'development'
-      ? `http://192.168.5.11:${LOCAL_PORT}${API_PATH}`
+      ? `http://64.23.152.92:${LOCAL_PORT}${API_PATH}`
       : `${NGROK_URL}${API_PATH}`;
     console.log(`🌐 WEB [${MODE.toUpperCase()}] - URL:`, url);
     return url;
@@ -42,7 +42,7 @@ const getBaseURL = () => {
   }
 
   // Default - Fallback para cualquier otra plataforma
-  return `http://192.168.5.11:${LOCAL_PORT}${API_PATH}`;
+  return `http://64.23.152.92:${LOCAL_PORT}${API_PATH}`;
 };
 
 export const API_CONFIG = {
