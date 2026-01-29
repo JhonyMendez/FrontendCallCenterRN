@@ -84,7 +84,7 @@ const SecurityUtils = {
       .replace(/\*\//g, '');
   },
 
-  createRateLimiter: (maxAttempts = 5, timeWindowMs = 60000) => {
+  createRateLimiter: (maxAttempts = 30, timeWindowMs = 60000) => {
     const attempts = new Map();
     return {
       attempts,
@@ -162,7 +162,7 @@ const GestionConversacionesPage = () => {
   // 🔒 SECURITY: Initialize rate limiter on mount
   useEffect(() => {
     if (!rateLimiterRef.current) {
-      rateLimiterRef.current = SecurityUtils.createRateLimiter(5, 60000);
+      rateLimiterRef.current = SecurityUtils.createRateLimiter(100, 60000); // 100 intentos por minuto
     }
   }, []);
 
