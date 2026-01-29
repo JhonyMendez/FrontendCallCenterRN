@@ -308,6 +308,80 @@ const GestionConversacionesPage = () => {
     }
   };
 
+  // ✅ Función para formatear hora en zona horaria Ecuador (UTC-5) - Método Directo
+  const formatearHoraEcuador = (timestamp) => {
+    try {
+      if (!timestamp) {
+        const ahora = new Date();
+        return formatearHoraDirecta(ahora);
+      }
+      
+      let fecha;
+      
+      // Manejar diferentes formatos de timestamp
+      if (typeof timestamp === 'number') {
+        fecha = new Date(timestamp);
+        if (timestamp < 10000000000) {
+          fecha = new Date(timestamp * 1000);
+        }
+      } else if (typeof timestamp === 'string') {
+        // Limpiar formato con microsegundos
+        let timestampLimpio = timestamp.trim();
+        
+        if (timestampLimpio.includes('.')) {
+          const [parteBase, parteDecimal] = timestampLimpio.split('.');
+          const milisegundos = parteDecimal.substring(0, 3);
+          timestampLimpio = `${parteBase}.${milisegundos}`;
+          
+          if (!timestampLimpio.includes('Z') && !timestampLimpio.includes('+') && !timestampLimpio.includes('-', 10)) {
+            timestampLimpio += 'Z';
+          }
+        }
+        
+        fecha = new Date(timestampLimpio);
+        
+        if (isNaN(fecha.getTime())) {
+          fecha = new Date(timestamp.replace(/\.\d+/, '') + 'Z');
+        }
+        
+        if (isNaN(fecha.getTime())) {
+          console.warn('No se pudo parsear timestamp:', timestamp);
+          fecha = new Date();
+        }
+      } else {
+        fecha = new Date(timestamp);
+      }
+      
+      // Validar
+      if (isNaN(fecha.getTime())) {
+        fecha = new Date();
+      }
+      
+      // Crear fecha de Ecuador restando 5 horas (UTC-5)
+      const fechaEcuador = new Date(fecha.getTime() - (5 * 60 * 60 * 1000));
+      
+      console.log('✅ Hora Ecuador CORRECTA:', {
+        utc: fecha.toISOString(),
+        ecuadorDirect: fechaEcuador.toISOString(),
+        formatted: formatearHoraDirecta(fechaEcuador)
+      });
+      
+      return formatearHoraDirecta(fechaEcuador);
+      
+    } catch (error) {
+      console.error('❌ Error formateando hora:', error);
+      return formatearHoraDirecta(new Date());
+    }
+  };
+
+  // Helper para formatear directamente sin toLocaleString
+  const formatearHoraDirecta = (fecha) => {
+    const horas = String(fecha.getUTCHours()).padStart(2, '0');
+    const minutos = String(fecha.getUTCMinutes()).padStart(2, '0');
+    const segundos = String(fecha.getUTCSeconds()).padStart(2, '0');
+    return `${horas}:${minutos}:${segundos}`;
+  };
+
   const cargarDetalleConversacion = async (sessionId, silencioso = false) => {
     try {
       if (!silencioso) setLoadingDetalle(true);
@@ -315,20 +389,24 @@ const GestionConversacionesPage = () => {
       const response = await escalamientoService.getDetalle(sessionId);
 
       if (response.success) {
-        const mensajesFormateados = response.conversation.messages.map((msg) => ({
-          texto: msg.content,
-          tipo: msg.role === 'user' ? 'recibido' : 'enviado',
-          hora: new Date(msg.timestamp).toLocaleTimeString('es-ES', {
-            hour: '2-digit',
-            minute: '2-digit'
-          }),
-          autor: msg.role === 'assistant'
-            ? '🤖 Bot'
-            : msg.role === 'human_agent'
-              ? `🧑‍💼 ${msg.user_name || 'Humano'}`
-              : '👤 Visitante',
-          role: msg.role
-        }));
+        const mensajesFormateados = response.conversation.messages.map((msg) => {
+          console.log('📨 Mensaje recibido:', {
+            timestamp: msg.timestamp,
+            tipo: typeof msg.timestamp,
+            content: msg.content?.substring(0, 50),
+          });
+          return {
+            texto: msg.content,
+            tipo: msg.role === 'user' ? 'recibido' : 'enviado',
+            hora: formatearHoraEcuador(msg.timestamp),
+            autor: msg.role === 'assistant'
+              ? '🤖 Bot'
+              : msg.role === 'human_agent'
+                ? `🧑‍💼 ${msg.user_name || 'Humano'}`
+                : '👤 Visitante',
+            role: msg.role
+          };
+        });
 
         setMensajesDetalle(mensajesFormateados);
 
@@ -736,8 +814,17 @@ const GestionConversacionesPage = () => {
             <TextInput
               style={styles.input}
               placeholder="Escribe tu respuesta..."
+              placeholderTextColor="#94A3B8"
               value={mensajeTexto}
               onChangeText={setMensajeTexto}
+              onKeyPress={(e) => {
+                if (e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) {
+                  e.preventDefault();
+                  if (mensajeTexto.trim() && !enviando) {
+                    handleEnviarMensaje();
+                  }
+                }
+              }}
               multiline
               maxLength={500}
             />
@@ -995,188 +1082,251 @@ const styles = StyleSheet.create({
     color: '#6B7280'
   },
 
-  // Detalle
+  // Detalle - WhatsApp Style Premium ULTRA
   detalleContainer: {
     flex: 1,
-    backgroundColor: '#F3F4F6'
+    backgroundColor: '#FFFFFF'
   },
   detalleHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
+    backgroundColor: '#0EA5E9',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB'
+    paddingVertical: 18,
+    borderBottomWidth: 0,
+    shadowColor: '#0EA5E9',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
   },
   backButton: {
-    marginRight: 12
+    marginRight: 14,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
   detalleHeaderInfo: {
     flex: 1
   },
   detalleHeaderTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937'
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
   },
   detalleHeaderSubtitle: {
-    fontSize: 12,
-    color: '#6B7280'
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.95)',
+    marginTop: 5,
+    fontWeight: '700',
+    letterSpacing: 0.1,
   },
   detalleHeaderActions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 14,
   },
   actionButtonSmall: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#FEF3C7',
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
   resolverButtonVisible: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#10B981',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 14,
+    gap: 10,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 5,
   },
   resolverButtonText: {
-    color: '#FFF',
-    fontWeight: '600',
-    fontSize: 14
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 15,
+    letterSpacing: 0.4,
   },
   prioridadBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    gap: 14,
+    backgroundColor: '#FEF3C7',
+    borderBottomWidth: 2,
+    borderBottomColor: '#FCD34D',
   },
   prioridadText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#92400E',
+    letterSpacing: 0.3,
   },
   loadingDetalle: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
   },
   mensajesList: {
-    paddingVertical: 16
+    paddingVertical: 18,
+    paddingHorizontal: 4,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: '#FFF',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB'
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderTopWidth: 1.5,
+    borderTopColor: '#E2E8F0',
+    gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 4,
   },
   input: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    maxHeight: 100,
-    marginRight: 8,
-    fontSize: 14
+    backgroundColor: '#F8FAFC',
+    borderRadius: 28,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    maxHeight: 120,
+    fontSize: 16,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    fontWeight: '600',
+    color: '#0F172A',
   },
   sendButton: {
-    backgroundColor: '#4A90E2',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    backgroundColor: '#0EA5E9',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    shadowColor: '#0EA5E9',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    elevation: 8,
   },
   sendButtonDisabled: {
-    backgroundColor: '#D1D5DB'
+    backgroundColor: '#CBD5E1',
+    shadowOpacity: 0,
+    elevation: 0,
   },
 
-  // Modal
+  // Modal Premium
   modalOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999
   },
   modalContent: {
-    backgroundColor: '#FFF',
-    borderRadius: 16,
-    padding: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 32,
     width: '90%',
-    maxWidth: 400
+    maxWidth: 450,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.2,
+    shadowRadius: 25,
+    elevation: 12,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 20,
-    textAlign: 'center'
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 24,
+    textAlign: 'center',
+    letterSpacing: -0.5,
   },
   modalLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4B5563',
-    marginBottom: 8,
-    marginTop: 12
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 12,
+    marginTop: 18,
+    letterSpacing: 0.2,
   },
   estrellasContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 12
+    marginBottom: 20,
+    gap: 12,
   },
   estrellaButton: {
-    padding: 4
+    padding: 8,
   },
   modalTextArea: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 16,
+    fontSize: 15,
     textAlignVertical: 'top',
-    minHeight: 80
+    minHeight: 100,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    fontWeight: '500',
+    color: '#0F172A',
   },
   modalButtons: {
     flexDirection: 'row',
-    marginTop: 20,
-    gap: 8
+    marginTop: 26,
+    gap: 12
   },
   modalButtonCancel: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center'
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
   },
   modalButtonCancelText: {
-    color: '#6B7280',
-    fontWeight: '600',
-    fontSize: 14
+    color: '#64748B',
+    fontWeight: '700',
+    fontSize: 15,
+    letterSpacing: 0.2,
   },
   modalButtonConfirm: {
     flex: 1,
     backgroundColor: '#10B981',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center'
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   modalButtonConfirmText: {
-    color: '#FFF',
-    fontWeight: '600',
-    fontSize: 14
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 15,
+    letterSpacing: 0.3,
   },
   modalButtonDisabled: {
-    backgroundColor: '#D1D5DB',
+    backgroundColor: '#CBD5E1',
+    shadowOpacity: 0,
+    elevation: 0,
   },
 });
 
