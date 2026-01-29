@@ -52,7 +52,11 @@ const NotificacionesBadge = ({ userId, onNotificacionPress }) => {
       
       const notif = notificaciones.find(n => n.id === idNotificacion);
       if (notif?.url_accion && onNotificacionPress) {
-        onNotificacionPress(notif.url_accion);
+        // 🔥 Cerrar el modal y llamar la función con la URL
+        setModalVisible(false);
+        setTimeout(() => {
+          onNotificacionPress(notif.url_accion);
+        }, 300);
       }
     } catch (error) {
       console.error('Error marcando notificación:', error);
@@ -77,6 +81,8 @@ const NotificacionesBadge = ({ userId, onNotificacionPress }) => {
     <TouchableOpacity
       style={styles.notificacionItem}
       onPress={() => {
+        console.log('🖱️ Notificación presionada - Objeto completo:', JSON.stringify(item, null, 2));
+        console.log('📌 url_accion:', item.url_accion);
         marcarLeida(item.id);
         setModalVisible(false);
       }}
@@ -153,11 +159,15 @@ const NotificacionesBadge = ({ userId, onNotificacionPress }) => {
 
       <Modal
         visible={modalVisible}
-        animationType="slide"
+        animationType="fade"
         transparent={true}
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setModalVisible(false)}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Notificaciones</Text>
@@ -194,7 +204,7 @@ const NotificacionesBadge = ({ userId, onNotificacionPress }) => {
               />
             )}
           </View>
-        </View>
+        </TouchableOpacity>
       </Modal>
     </>
   );
@@ -224,26 +234,35 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end'
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 80,
+    paddingRight: 12,
   },
   modalContent: {
     backgroundColor: '#FFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-    paddingBottom: 20
+    borderRadius: 14,
+    maxHeight: '70%',
+    maxWidth: 360,
+    width: '90%',
+    paddingBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 10,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB'
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
     color: '#1F2937'
   },
@@ -277,14 +296,15 @@ const styles = StyleSheet.create({
     color: '#6B7280'
   },
   notificacionesList: {
-    padding: 12
+    padding: 8
   },
   notificacionItem: {
     flexDirection: 'row',
     backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
+    borderRadius: 10,
+    padding: 10,
+    marginHorizontal: 8,
+    marginVertical: 4,
     alignItems: 'center'
   },
   notificacionIconContainer: {

@@ -574,17 +574,58 @@ const GestionConversacionesPage = () => {
   };
 
   const handleNotificacionPress = (url) => {
-    if (url) {
-      const match = url.match(/\/conversacion\/(.+)/);
-      if (match) {
-        const sessionId = decodeURIComponent(match[1]);
-        const conv = conversaciones.find(c => c.sessionId === sessionId);
-        if (conv) {
-          handleVerConversacion(conv);
-        } else {
-          cargarDetalleConversacion(sessionId);
+    console.log('🔔 Notificación presionada, URL recibida:', url);
+    
+    if (!url) {
+      console.log('❌ URL vacía');
+      return;
+    }
+
+    try {
+      // Intentar extraer sessionId de diferentes formatos de URL
+      let sessionId = null;
+
+      // Formato 1: /conversacion/xxx
+      const match1 = url.match(/\/conversacion\/([^/?]+)/);
+      if (match1) {
+        sessionId = decodeURIComponent(match1[1]);
+        console.log('📍 Formato 1 - SessionId extraído:', sessionId);
+      }
+
+      // Formato 2: conversacion=xxx
+      if (!sessionId) {
+        const match2 = url.match(/conversacion[=:]([^&/?]+)/);
+        if (match2) {
+          sessionId = decodeURIComponent(match2[1]);
+          console.log('📍 Formato 2 - SessionId extraído:', sessionId);
         }
       }
+
+      // Formato 3: sessionId=xxx
+      if (!sessionId) {
+        const match3 = url.match(/sessionId[=:]([^&/?]+)/);
+        if (match3) {
+          sessionId = decodeURIComponent(match3[1]);
+          console.log('📍 Formato 3 - SessionId extraído:', sessionId);
+        }
+      }
+
+      if (sessionId) {
+        console.log('✅ SessionId final:', sessionId);
+        const conv = conversaciones.find(c => c.sessionId === sessionId);
+        
+        if (conv) {
+          console.log('✅ Conversación encontrada en lista:', conv);
+          handleVerConversacion(conv);
+        } else {
+          console.log('⚠️ Conversación no encontrada en lista, cargando desde servidor...');
+          cargarDetalleConversacion(sessionId);
+        }
+      } else {
+        console.log('❌ No se pudo extraer sessionId de la URL:', url);
+      }
+    } catch (error) {
+      console.error('❌ Error procesando notificación:', error);
     }
   };
 
