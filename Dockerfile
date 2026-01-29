@@ -1,4 +1,4 @@
-# Imagen base
+﻿# Imagen base
 FROM node:20-alpine
 
 # Variables de entorno para Expo
@@ -18,11 +18,7 @@ RUN npm install
 COPY . .
 
 # Exponer puertos
-# 19000 -> JS bundle (móvil)
-# 19001 -> WebSocket (Expo DevTools)
-# 19002 -> DevTools web
-# 3000 -> web
-EXPOSE 19000 19001 19002 3000
+EXPOSE 19000 19001 19002 3000 8081
 
-# Comando para iniciar Expo con web y móvil
-CMD ["npx", "expo", "start", "--tunnel"]
+# Comando para iniciar Expo con web en modo no-interactivo
+CMD ["npx", "expo", "start", "--web", "--port", "8081", "--localhost", "--non-interactive"]
