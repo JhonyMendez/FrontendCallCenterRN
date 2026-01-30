@@ -9,16 +9,16 @@ const getBaseURL = () => {
   // 🔧 CONFIGURACIÓN DE IPs Y URLs
   const LOCAL_IP = '64.23.152.92';
   const LOCAL_PORT = '8000';
-  const NGROK_URL = 'https://untranscribable-nonhedonistically-stetson.ngrok-free.dev';
+  const PRODUCTION_URL = 'https://api.engine-tecai.me';
   
   // 🚀 MODO: Cambia entre 'development' o 'production'
-  const MODE = 'development'; // Cambia a 'production' para usar ngrok
+  const MODE = 'production'; // Cambia a 'production' para usar ngrok
 
   // 🤖 ANDROID
   if (Platform.OS === 'android') {
     const url = MODE === 'development' 
       ? `http://${LOCAL_IP}:${LOCAL_PORT}${API_PATH}`
-      : `${NGROK_URL}${API_PATH}`;
+      : `${PRODUCTION_URL}${API_PATH}`;
     console.log(`🤖 ANDROID [${MODE.toUpperCase()}] - URL:`, url);
     return url;
   }
@@ -27,7 +27,7 @@ const getBaseURL = () => {
   if (Platform.OS === 'web') {
     const url = MODE === 'development'
       ? `http://64.23.152.92:${LOCAL_PORT}${API_PATH}`
-      : `${NGROK_URL}${API_PATH}`;
+      : `${PRODUCTION_URL}${API_PATH}`;
     console.log(`🌐 WEB [${MODE.toUpperCase()}] - URL:`, url);
     return url;
   }
