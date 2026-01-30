@@ -7,12 +7,12 @@ const getBaseURL = () => {
   const API_PATH = '/api/v1';
   
   // 🔧 CONFIGURACIÓN DE IPs Y URLs
-  const LOCAL_IP = '64.23.152.92';
+  const LOCAL_IP = '192.168.5.11';
   const LOCAL_PORT = '8000';
   const PRODUCTION_URL = 'https://api.engine-tecai.me';
   
   // 🚀 MODO: Cambia entre 'development' o 'production'
-  const MODE = 'production'; // Cambia a 'production' para usar ngrok
+  const MODE = 'production'; // ✅ PRODUCCIÓN: Usa HTTPS a api.engine-tecai.me
 
   // 🤖 ANDROID
   if (Platform.OS === 'android') {
