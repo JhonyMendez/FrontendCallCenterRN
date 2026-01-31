@@ -269,50 +269,24 @@ export default function GestionMetricas() {
 
             agentesArray = agenteDelDepartamento.length > 0 ? agenteDelDepartamento : [];
 
-            // 🔥 OBTENER ESTADÍSTICAS DE MONGODB PARA CADA AGENTE
-            const agentesConEstadisticas = await Promise.all(
-                agentesArray.map(async (agente) => {
-                    try {
-                        // Llamar al endpoint de MongoDB con el id del agente
-                        const stats = await conversationMongoService.getStats(agente.id_agente);
+            // 🔥 RETORNAR AGENTES INMEDIATAMENTE SIN ESPERAR ESTADÍSTICAS
+            // Esto evita que el componente se quede bloqueado si MongoDB es lento
+            const agentesBasicos = agentesArray.map(agente => ({
+                id: agente.id_agente || agente.id,
+                nombre: agente.nombre_agente || agente.nombre || 'Agente Desconocido',
+                icono: agente.icono || '🤖',
+                color: agente.color_tema || agente.color || '#667eea',
+                area: agente.area_especialidad || agente.area || 'General',
+                // Estadísticas por defecto (se cargarán después)
+                conversacionesIniciadas: 0,
+                mensajesEnviados: 0,
+                satisfaccionPromedio: 0,
+                tasaResolucion: 0,
+                tiempoRespuestaPromedioMs: 0
+            }));
 
-                        return {
-                            id: agente.id_agente,
-                            nombre: agente.nombre_agente || agente.nombre || 'Agente Desconocido',
-                            icono: agente.icono || '🤖',
-                            color: agente.color_tema || agente.color || '#667eea',
-                            area: agente.area_especialidad || agente.area || 'General',
-                            // Estadísticas de MongoDB
-                            conversacionesIniciadas: stats?.total_conversaciones || 0,
-                            mensajesEnviados: stats?.promedio_mensajes_por_conversacion * stats?.total_conversaciones || 0,
-                            satisfaccionPromedio: stats?.calificacion_promedio || 0,
-                            tasaResolucion: stats?.total_conversaciones > 0 ?
-                                ((stats?.conversaciones_finalizadas || 0) / stats.total_conversaciones * 100) : 0,
-                            tiempoRespuestaPromedioMs: 0 // MongoDB no tiene este dato
-                        };
-                    } catch (error) {
-                        console.error(`❌ Error obteniendo stats del agente ${agente.id_agente}:`, error);
-                        // Retornar agente sin estadísticas si falla
-                        return {
-                            id: agente.id_agente,
-                            nombre: agente.nombre_agente || agente.nombre || 'Agente Desconocido',
-                            icono: agente.icono || '🤖',
-                            color: agente.color_tema || agente.color || '#667eea',
-                            area: agente.area_especialidad || agente.area || 'General',
-                            conversacionesIniciadas: 0,
-                            mensajesEnviados: 0,
-                            satisfaccionPromedio: 0,
-                            tasaResolucion: 0,
-                            tiempoRespuestaPromedioMs: 0
-                        };
-                    }
-                })
-            );
-
-            // 🔥 ORDENAR POR CONVERSACIONES (de mayor a menor)
-            return agentesConEstadisticas.sort((a, b) =>
-                b.conversacionesIniciadas - a.conversacionesIniciadas
-            );
+            console.log('🔥 Agentes retornados:', agentesBasicos);
+            return agentesBasicos;
 
         } catch (error) {
             console.error('❌ Error en cargarAgentesReales:', error);
@@ -397,11 +371,22 @@ export default function GestionMetricas() {
         }
     };
 
-    // ==================== FUNCIÓN: CARGAR PERMISOS DEL USUARIO ====================
+    // ==================== CARGAR PERMISOS DEL USUARIO ====================
     const cargarPermisosUsuario = async () => {
         try {
             console.log('🔐 [DEBUG] Iniciando cargarPermisosUsuario...');
             console.log('🔐 [DEBUG] agenteSeleccionado:', agenteSeleccionado);
+
+            // Si no hay agente seleccionado, dar tiempo a que se cargue
+            if (!agenteSeleccionado) {
+                console.log('🔐 [DEBUG] Esperando a que se seleccione un agente...');
+                // Esperar un poco y volver a intentar
+                setTimeout(() => {
+                    console.log('🔐 [DEBUG] Reintentando cargarPermisosUsuario...');
+                    cargarPermisosUsuario();
+                }, 500);
+                return;
+            }
 
             // Obtener datos del usuario actual
             const usuarioData = await authService.getUsuarioActual();
@@ -420,13 +405,13 @@ export default function GestionMetricas() {
                 return;
             }
 
-            // Si agenteSeleccionado existe, verificar permisos para ese agente
-            if (agenteSeleccionado) {
-                console.log('🔐 [DEBUG] Llamando a usuarioAgenteService con:', {
-                    idUsuario,
-                    agenteSeleccionado
-                });
+            // Verificar permisos para ese agente
+            console.log('🔐 [DEBUG] Llamando a usuarioAgenteService con:', {
+                idUsuario,
+                agenteSeleccionado
+            });
 
+            try {
                 const permisosAgente = await usuarioAgenteService.obtenerPorUsuarioYAgente(
                     idUsuario,
                     agenteSeleccionado
@@ -436,20 +421,22 @@ export default function GestionMetricas() {
                 console.log('🔐 [DEBUG] puede_ver_metricas:', permisosAgente?.puede_ver_metricas);
                 console.log('🔐 [DEBUG] puede_exportar_datos:', permisosAgente?.puede_exportar_datos);
 
+                // Si hay permisos específicos, usarlos. Si no, asumir que tiene acceso (funcionario de su departamento)
                 const permisosFinales = {
-                    puede_ver_metricas: permisosAgente?.puede_ver_metricas || false,
-                    puede_exportar_datos: permisosAgente?.puede_exportar_datos || false,
+                    puede_ver_metricas: permisosAgente?.puede_ver_metricas !== false,  // ✅ Por defecto TRUE si no dice false
+                    puede_exportar_datos: permisosAgente?.puede_exportar_datos === true,  // ❌ Por defecto FALSE
                     cargando: false
                 };
 
                 console.log('🔐 [DEBUG] Permisos que se van a setear:', permisosFinales);
                 setPermisos(permisosFinales);
 
-            } else {
-                console.warn('⚠️ [DEBUG] No hay agente seleccionado, denegando acceso por defecto');
+            } catch (permisosError) {
+                console.warn('⚠️ [DEBUG] Error obteniendo permisos específicos:', permisosError);
+                // Si hay error al obtener permisos, asumir acceso básico (puede ver pero no exportar)
                 setPermisos({
-                    puede_ver_metricas: false,
-                    puede_exportar_datos: false,
+                    puede_ver_metricas: true,  // ✅ Permitir ver
+                    puede_exportar_datos: false,  // ❌ No permitir exportar sin confirmación
                     cargando: false
                 });
             }
@@ -462,8 +449,9 @@ export default function GestionMetricas() {
                 stack: error.stack
             });
 
+            // Fallback: permitir acceso básico
             setPermisos({
-                puede_ver_metricas: false,
+                puede_ver_metricas: true,
                 puede_exportar_datos: false,
                 cargando: false
             });

@@ -327,8 +327,12 @@ export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos, onRevo
 
       // Obtener agentes del departamento del usuario
       const idDepartamento = usuario.departamento?.id_departamento || usuario.id_departamento;
+      const idUsuario = usuario.id_usuario;
+
+      console.log(`📋 Cargando permisos para usuario ${idUsuario}, departamento ${idDepartamento}`);
 
       if (!idDepartamento) {
+        console.warn('⚠️ No hay id_departamento disponible');
         setPermisos(null);
         setLoadingPermisos(false);
         return;
@@ -351,6 +355,7 @@ export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos, onRevo
       );
 
       if (agentesFiltrados.length === 0) {
+        console.warn('⚠️ No hay agentes para este departamento');
         setPermisos(null);
         setLoadingPermisos(false);
         return;
@@ -358,13 +363,15 @@ export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos, onRevo
 
       // Tomar el primer agente para obtener permisos
       const agente = agentesFiltrados[0];
+      console.log(`🔍 Intentando obtener permisos para usuario ${idUsuario} - agente ${agente.id_agente}`);
 
       const permisosResponse = await usuarioAgenteService.obtenerPorUsuarioYAgente(
-        usuario.id_usuario,
+        idUsuario,
         agente.id_agente
       );
 
       if (permisosResponse) {
+        console.log('✅ Permisos obtenidos exitosamente');
         setPermisos({
           puede_ver_contenido: permisosResponse.puede_ver_contenido || false,
           puede_crear_contenido: permisosResponse.puede_crear_contenido || false,
@@ -379,13 +386,20 @@ export const UsuarioDetalleModal = ({ usuario, onClose, onEditarPermisos, onRevo
           puede_gestionar_widgets: permisosResponse.puede_gestionar_widgets || false,
         });
       } else {
+        console.log('ℹ️ No hay permisos asignados');
         setPermisos(null);
       }
 
       setLoadingPermisos(false);
     } catch (error) {
-      console.error('❌ Error cargando permisos reales:', error);
-      setPermisos(null);
+      // Verificar si es un error 404 (asignación no existe)
+      if (error?.response?.status === 404) {
+        console.log('ℹ️ No hay asignación usuario-agente:', error?.response?.data?.detail);
+        setPermisos(null);
+      } else {
+        console.error('❌ Error cargando permisos reales:', error);
+        setPermisos(null);
+      }
       setLoadingPermisos(false);
     }
   };
