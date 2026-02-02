@@ -28,17 +28,16 @@ export default function ExportExcelModal({
     esFuncionario = false
 }) {
     const [loading, setLoading] = useState(false);
+    const [formatoExportacion, setFormatoExportacion] = useState('excel'); // 🔥 NUEVO
     
-    // 🔥 Estado inicial de filtros
+    // 🔥 Estado inicial de filtros (usar strings especiales para "todos" en lugar de null)
     const filtrosIniciales = {
         id_agente: null,
-        estado: null,
-        origin: null,
+        estado: 'ALL',  // 🔥 String especial en lugar de null
+        origin: 'ALL',  // 🔥 String especial en lugar de null
         escaladas: null,
         fecha_inicio: null,
         fecha_fin: null,
-        calificacion_min: null,
-        calificacion_max: null,
         incluir_visitante: true,
         periodo: 'todo'
     };
@@ -75,16 +74,16 @@ export default function ExportExcelModal({
         });
     }, [filtros.id_agente, filtros.estado, filtros.origin, filtros.escaladas, filtros.periodo]);
 
-    // 🔥 Opciones de filtros - SOLO ACTIVA Y FINALIZADA
+    // 🔥 Opciones de filtros
     const estados = [
-        { value: null, label: 'Todos los estados' },
+        { value: 'ALL', label: 'Todos los estados' },
         { value: 'activa', label: 'Activas' },
         { value: 'finalizada', label: 'Finalizadas' }
     ];
 
-    // 🔥 Opciones de origen - SOLO WIDGET Y MOBILE
+    // 🔥 Opciones de origen
     const origenes = [
-        { value: null, label: 'Todos los orígenes' },
+        { value: 'ALL', label: 'Todos los orígenes' },
         { value: 'widget', label: 'Widget' },
         { value: 'mobile', label: 'Mobile' }
     ];
@@ -95,15 +94,6 @@ export default function ExportExcelModal({
         { value: 'semana', label: 'Última semana' },
         { value: 'mes', label: 'Último mes' },
         { value: 'año', label: 'Último año' }
-    ];
-
-    const calificaciones = [
-        { value: null, label: 'Todas' },
-        { value: 1, label: '1 estrella' },
-        { value: 2, label: '2 estrellas' },
-        { value: 3, label: '3 estrellas' },
-        { value: 4, label: '4 estrellas' },
-        { value: 5, label: '5 estrellas' }
     ];
 
     // Calcular fechas según período
@@ -162,14 +152,14 @@ export default function ExportExcelModal({
                 console.log('⚠️ ID Agente NO incluido - será null o undefined');
             }
             
-            // Solo agregar estado si NO es null
-            if (filtros.estado !== null && filtros.estado !== undefined) {
+            // Solo agregar estado si NO es null y NO es 'ALL'
+            if (filtros.estado !== null && filtros.estado !== undefined && filtros.estado !== 'ALL' && filtros.estado !== 'Todos los estados') {
                 params.estado = filtros.estado;
                 console.log('📊 Estado seleccionado:', params.estado);
             }
             
-            // Solo agregar origen si NO es null
-            if (filtros.origin !== null && filtros.origin !== undefined) {
+            // Solo agregar origen si NO es null y NO es 'ALL'
+            if (filtros.origin !== null && filtros.origin !== undefined && filtros.origin !== 'ALL' && filtros.origin !== 'Todos los orígenes') {
                 params.origin = filtros.origin;
                 console.log('📱 Origen seleccionado:', params.origin);
             }
@@ -188,22 +178,36 @@ export default function ExportExcelModal({
                 params.fecha_fin = filtros.fecha_fin;
             }
             
-            // Calificaciones (solo si son números válidos)
-            if (filtros.calificacion_min !== null && filtros.calificacion_min !== undefined) {
-                params.calificacion_min = Number(filtros.calificacion_min);
-            }
-            if (filtros.calificacion_max !== null && filtros.calificacion_max !== undefined) {
-                params.calificacion_max = Number(filtros.calificacion_max);
-            }
-            
             // Siempre incluir este parámetro
             params.incluir_visitante = filtros.incluir_visitante;
 
             console.log('📤 Exportando con parámetros FINALES:', JSON.stringify(params, null, 2));
 
-            // 🔥 Usar el servicio de conversationMongoService
-            const blob = await conversationMongoService.exportToExcel(params);
+            // 🔥 NUEVO: Ramificar según formato seleccionado
+            if (formatoExportacion === 'excel') {
+                await exportarExcel(params);
+            } else if (formatoExportacion === 'word') {
+                await exportarWord(params);
+            }
 
+        } catch (error) {
+            console.error('❌ Error exportando:', error);
+            Alert.alert(
+                'Error',
+                error.message || 'No se pudo exportar el archivo. Intenta nuevamente.',
+                [{ text: 'OK' }]
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 🔥 NUEVA FUNCIÓN: Exportar a Excel
+    const exportarExcel = async (params) => {
+        try {
+            // 🔥 Obtener el archivo del backend
+            const blob = await conversationMongoService.exportToExcel(params);
+            
             // Descargar archivo
             if (Platform.OS === 'web') {
                 const url = window.URL.createObjectURL(blob);
@@ -260,16 +264,75 @@ export default function ExportExcelModal({
                     );
                 }
             }
-
         } catch (error) {
-            console.error('❌ Error exportando:', error);
-            Alert.alert(
-                'Error',
-                error.message || 'No se pudo exportar el archivo. Intenta nuevamente.',
-                [{ text: 'OK' }]
-            );
-        } finally {
-            setLoading(false);
+            console.error('❌ Error exportando a Excel:', error);
+            throw error;
+        }
+    };
+
+    // 🔥 NUEVA FUNCIÓN: Exportar a Word
+    const exportarWord = async (params) => {
+        try {
+            // 🔥 Llamar al endpoint /export/word del backend
+            const response = await conversationMongoService.exportToWord(params);
+            const blob = response;
+            
+            // Descargar con extensión .docx (Word)
+            if (Platform.OS === 'web') {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `conversaciones_${new Date().toISOString().split('T')[0]}.docx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                Alert.alert(
+                    'Éxito',
+                    'El documento Word se ha descargado correctamente',
+                    [{ text: 'OK', onPress: onClose }]
+                );
+            } else {
+                // Para mobile
+                try {
+                    const reader = new FileReader();
+                    reader.onload = async () => {
+                        const base64 = reader.result.split(',')[1];
+                        const fileName = `conversaciones_${new Date().toISOString().split('T')[0]}.docx`;
+                        const filePath = `${FileSystem.documentDirectory}${fileName}`;
+
+                        await FileSystem.writeAsStringAsync(filePath, base64, {
+                            encoding: 'base64',
+                        });
+
+                        console.log('✅ Documento Word guardado en:', filePath);
+
+                        await Sharing.shareAsync(filePath, {
+                            mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                            dialogTitle: 'Descargar conversaciones',
+                            UTI: 'com.microsoft.word.docx'
+                        });
+
+                        Alert.alert(
+                            'Éxito',
+                            'El documento Word se ha generado y preparado para descargar',
+                            [{ text: 'OK', onPress: onClose }]
+                        );
+                    };
+                    reader.readAsDataURL(blob);
+                } catch (error) {
+                    console.error('❌ Error descargando Word en móvil:', error);
+                    Alert.alert(
+                        'Error',
+                        'No se pudo descargar el documento Word',
+                        [{ text: 'OK' }]
+                    );
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error exportando a Word:', error);
+            throw error;
         }
     };
 
@@ -327,7 +390,7 @@ export default function ExportExcelModal({
                                 color: '#fff',
                                 marginLeft: 12
                             }}>
-                                Exportar a Excel
+                                Exportar Datos
                             </Text>
                         </View>
                         <TouchableOpacity onPress={onClose}>
@@ -337,6 +400,75 @@ export default function ExportExcelModal({
 
                     {/* Content */}
                     <ScrollView style={{ maxHeight: 500, padding: 25 }}>
+                        {/* 🔥 NUEVO: Selector de Formato */}
+                        <View style={{ marginBottom: 25 }}>
+                            <Text style={{
+                                fontSize: 14,
+                                fontWeight: '700',
+                                color: '#fff',
+                                marginBottom: 10
+                            }}>
+                                📄 Formato de Exportación
+                            </Text>
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                                {/* Botón Excel */}
+                                <TouchableOpacity
+                                    onPress={() => setFormatoExportacion('excel')}
+                                    style={{
+                                        flex: 1,
+                                        padding: 15,
+                                        borderRadius: 12,
+                                        backgroundColor: formatoExportacion === 'excel' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(102, 126, 234, 0.1)',
+                                        borderWidth: 2,
+                                        borderColor: formatoExportacion === 'excel' ? '#22c55e' : '#667eea',
+                                        alignItems: 'center'
+                                    }}
+                                >
+                                    <Ionicons 
+                                        name="grid-outline" 
+                                        size={24} 
+                                        color={formatoExportacion === 'excel' ? '#22c55e' : '#667eea'} 
+                                    />
+                                    <Text style={{
+                                        marginTop: 8,
+                                        fontWeight: '700',
+                                        fontSize: 13,
+                                        color: formatoExportacion === 'excel' ? '#22c55e' : '#a29bfe'
+                                    }}>
+                                        Excel
+                                    </Text>
+                                </TouchableOpacity>
+
+                                {/* Botón Word */}
+                                <TouchableOpacity
+                                    onPress={() => setFormatoExportacion('word')}
+                                    style={{
+                                        flex: 1,
+                                        padding: 15,
+                                        borderRadius: 12,
+                                        backgroundColor: formatoExportacion === 'word' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(102, 126, 234, 0.1)',
+                                        borderWidth: 2,
+                                        borderColor: formatoExportacion === 'word' ? '#3b82f6' : '#667eea',
+                                        alignItems: 'center'
+                                    }}
+                                >
+                                    <Ionicons 
+                                        name="document-text-outline" 
+                                        size={24} 
+                                        color={formatoExportacion === 'word' ? '#3b82f6' : '#667eea'} 
+                                    />
+                                    <Text style={{
+                                        marginTop: 8,
+                                        fontWeight: '700',
+                                        fontSize: 13,
+                                        color: formatoExportacion === 'word' ? '#3b82f6' : '#a29bfe'
+                                    }}>
+                                        Word
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
                         {/* Período */}
                         <View style={{ marginBottom: 20 }}>
                             <Text style={{
@@ -531,64 +663,6 @@ export default function ExportExcelModal({
                             </View>
                         </View>
 
-                        {/* Calificación */}
-                        <View style={{ marginBottom: 20 }}>
-                            <Text style={{
-                                fontSize: 14,
-                                fontWeight: '700',
-                                color: '#fff',
-                                marginBottom: 10
-                            }}>
-                                ⭐ Calificación
-                            </Text>
-                            <View style={{ flexDirection: 'row', gap: 10 }}>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ fontSize: 12, color: '#a29bfe', marginBottom: 5 }}>Mínima</Text>
-                                    <View style={{
-                                        backgroundColor: '#2a2a4e',
-                                        borderRadius: 12,
-                                        borderWidth: 2,
-                                        borderColor: '#667eea',
-                                        overflow: 'hidden'
-                                    }}>
-                                        <Picker
-                                            selectedValue={filtros.calificacion_min}
-                                            onValueChange={(value) => setFiltros(prev => ({ ...prev, calificacion_min: value }))}
-                                            style={{ color: '#fff', height: 50, backgroundColor: '#2a2a4e' }}
-                                            dropdownIconColor="#667eea"
-                                            itemStyle={{ backgroundColor: '#1a1a2e', color: '#fff', fontSize: 16 }}
-                                        >
-                                            {calificaciones.map(c => (
-                                                <Picker.Item key={`min-${c.value}`} label={c.label} value={c.value} color="#fff" />
-                                            ))}
-                                        </Picker>
-                                    </View>
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ fontSize: 12, color: '#a29bfe', marginBottom: 5 }}>Máxima</Text>
-                                    <View style={{
-                                        backgroundColor: '#2a2a4e',
-                                        borderRadius: 12,
-                                        borderWidth: 2,
-                                        borderColor: '#667eea',
-                                        overflow: 'hidden'
-                                    }}>
-                                        <Picker
-                                            selectedValue={filtros.calificacion_max}
-                                            onValueChange={(value) => setFiltros(prev => ({ ...prev, calificacion_max: value }))}
-                                            style={{ color: '#fff', height: 50, backgroundColor: '#2a2a4e' }}
-                                            dropdownIconColor="#667eea"
-                                            itemStyle={{ backgroundColor: '#1a1a2e', color: '#fff', fontSize: 16 }}
-                                        >
-                                            {calificaciones.map(c => (
-                                                <Picker.Item key={`max-${c.value}`} label={c.label} value={c.value} color="#fff" />
-                                            ))}
-                                        </Picker>
-                                    </View>
-                                </View>
-                            </View>
-                        </View>
-
                         {/* Solo Escaladas */}
                         <View style={{
                             flexDirection: 'row',
@@ -700,7 +774,7 @@ export default function ExportExcelModal({
                                     <>
                                         <Ionicons name="download" size={20} color="#fff" />
                                         <Text style={{ color: '#fff', fontWeight: '900', fontSize: 14 }}>
-                                            Descargar Excel
+                                            {formatoExportacion === 'excel' ? 'Descargar Excel' : 'Descargar Word'}
                                         </Text>
                                     </>
                                 )}

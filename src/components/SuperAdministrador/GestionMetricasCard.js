@@ -66,12 +66,6 @@ export default function GestionMetricasCard({
         return `${minutos}m ${segs}s`;
     };
 
-    const obtenerColorSatisfaccion = (valor) => {
-        if (valor >= 4.5) return ['#20c997', '#17a2b8'];
-        if (valor >= 3.5) return ['#ffa502', '#ff6348'];
-        return ['#ff4757', '#ff6348'];
-    };
-
     const obtenerColorTasaResolucion = (valor) => {
         if (valor >= 85) return ['#20c997', '#17a2b8'];
         if (valor >= 70) return ['#ffa502', '#ff6348'];
@@ -127,14 +121,6 @@ export default function GestionMetricasCard({
                 icono: 'arrow-up-circle',
                 color: ['#ffa502', '#ff6348'],
                 descripcion: 'Requirieron humano'
-            },
-            {
-                valor: resumenData.satisfaccionPromedio ? 
-                    resumenData.satisfaccionPromedio.toFixed(1) : 'N/A',
-                label: 'Satisfacción',
-                icono: 'star',
-                color: resumenData.satisfaccionPromedio ? obtenerColorSatisfaccion(resumenData.satisfaccionPromedio) : ['#ccc', '#999'],
-                descripcion: 'Calificación promedio'
             },
             {
                 valor: formatearDuracion(resumenData.duracionConversacionPromedioSeg),
@@ -283,13 +269,6 @@ export default function GestionMetricasCard({
                                             <Ionicons name="mail" size={15} color="#a29bfe" />
                                             <Text style={metricasStyles.agenteMetricaTexto}>
                                                 {agente.mensajesEnviados} msg
-                                            </Text>
-                                        </View>
-
-                                        <View style={metricasStyles.agenteMetrica}>
-                                            <Ionicons name="star" size={15} color="#ffa502" />
-                                            <Text style={metricasStyles.agenteMetricaTexto}>
-                                                {agente.satisfaccionPromedio ? agente.satisfaccionPromedio.toFixed(1) : 'N/A'}
                                             </Text>
                                         </View>
 
@@ -1074,17 +1053,6 @@ export default function GestionMetricasCard({
                                         justifyContent: 'space-around'
                                     }}>
                                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                            <Ionicons name="star" size={16} color="#ffa502" />
-                                            <Text style={{
-                                                fontSize: 13,
-                                                color: '#a29bfe',
-                                                marginLeft: 6,
-                                                fontWeight: '700'
-                                            }}>
-                                                {agente.satisfaccionPromedio ? agente.satisfaccionPromedio.toFixed(1) : 'N/A'} / 5.0
-                                            </Text>
-                                        </View>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                             <Ionicons name="checkmark-circle" size={16} color="#20c997" />
                                             <Text style={{
                                                 fontSize: 13,
@@ -1517,32 +1485,7 @@ export default function GestionMetricasCard({
                                     <Text style={metricasStyles.estadisticaLabel}>Mensajes/Conv</Text>
                                 </LinearGradient>
                             </View>
-
-                            <View style={metricasStyles.estadisticaItem}>
-                                <LinearGradient
-                                    colors={obtenerColorSatisfaccion(mongoMetrics.calificacionPromedio || 0)}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={metricasStyles.estadisticaCard}
-                                >
-                                    <Ionicons
-                                        name="star"
-                                        size={28}
-                                        color="rgba(255,255,255,0.25)"
-                                        style={metricasStyles.estadisticaIcono}
-                                    />
-                                    <Text style={metricasStyles.estadisticaValor}>
-                                        {mongoMetrics.calificacionPromedio ? 
-                                            mongoMetrics.calificacionPromedio.toFixed(1) : 
-                                            'N/A'
-                                        }
-                                    </Text>
-                                    <Text style={metricasStyles.estadisticaLabel}>Calificación</Text>
-                                </LinearGradient>
-                            </View>
                         </View>
-
-
 
                         {/* 🔥 GRÁFICA DE LÍNEAS */}
                         {mongoMetrics.datosDiarios && mongoMetrics.datosDiarios.length > 0 && (
@@ -1821,26 +1764,6 @@ export default function GestionMetricasCard({
                                         }% escaladas
                                     </Text>
                                 </View>
-
-                                {mongoMetrics.calificacionPromedio && (
-                                    <View style={{ 
-                                        flexDirection: 'row', 
-                                        alignItems: 'center',
-                                        marginBottom: 8
-                                    }}>
-                                        <Ionicons name="happy" size={16} color="#f093fb" />
-                                        <Text style={{ 
-                                            fontSize: 12, 
-                                            color: '#a29bfe', 
-                                            marginLeft: 6,
-                                            fontWeight: '600'
-                                        }}>
-                                            {mongoMetrics.calificacionPromedio >= 4 ? 'Alta' : 
-                                            mongoMetrics.calificacionPromedio >= 3 ? 'Media' : 'Baja'
-                                            } satisfacción
-                                        </Text>
-                                    </View>
-                                )}
                             </View>
                         </View>
                     </View>

@@ -507,11 +507,11 @@ export const conversationMongoService = {
           console.log('✅ ID Agente agregado:', idAgente);
         }
       }
-      if (params.estado !== undefined && params.estado !== null) {
+      if (params.estado !== undefined && params.estado !== null && params.estado !== 'ALL') {
         query.append('estado', params.estado);
         console.log('✅ Estado agregado:', params.estado);
       }
-      if (params.origin !== undefined && params.origin !== null) {
+      if (params.origin !== undefined && params.origin !== null && params.origin !== 'ALL') {
         query.append('origin', params.origin);
         console.log('✅ Origen agregado:', params.origin);
       }
@@ -583,6 +583,76 @@ export const conversationMongoService = {
       );
     }
   },
+
+  // 🔥 NUEVA FUNCIÓN: Exportar a Word
+  exportToWord: async (params = {}) => {
+    try {
+      console.log('📤 [conversationMongoService] Exportando a Word con params:', params);
+      
+      const query = new URLSearchParams();
+      
+      // 🔥 Mismo procesamiento que Excel
+      if (params.id_agente !== undefined && params.id_agente !== null) {
+        const idAgente = Number(params.id_agente);
+        if (!isNaN(idAgente)) {
+          query.append('id_agente', idAgente);
+          console.log('✅ ID Agente agregado:', idAgente);
+        }
+      }
+      if (params.estado !== undefined && params.estado !== null && params.estado !== 'ALL') {
+        query.append('estado', params.estado);
+      }
+      if (params.origin !== undefined && params.origin !== null && params.origin !== 'ALL') {
+        query.append('origin', params.origin);
+      }
+      if (params.escaladas !== undefined && params.escaladas !== null) {
+        query.append('escaladas', params.escaladas);
+      }
+      if (params.fecha_inicio !== undefined && params.fecha_inicio !== null) {
+        query.append('fecha_inicio', params.fecha_inicio);
+      }
+      if (params.fecha_fin !== undefined && params.fecha_fin !== null) {
+        query.append('fecha_fin', params.fecha_fin);
+      }
+      if (params.incluir_visitante !== undefined && params.incluir_visitante !== null) {
+        query.append('incluir_visitante', params.incluir_visitante);
+      }
+      
+      const queryString = query.toString();
+      const endpoint = queryString
+        ? `${ENDPOINTS.CONVERSACIONES_MONGO.EXPORT_WORD}?${queryString}`
+        : ENDPOINTS.CONVERSACIONES_MONGO.EXPORT_WORD;
+      
+      console.log('🌐 [conversationMongoService] Endpoint Word:', endpoint);
+      
+      const token = await apiClient.getToken();
+      const fullUrl = `${apiClient.baseURL}${endpoint}`;
+      console.log('🌐 [conversationMongoService] URL completa:', fullUrl);
+
+      const response = await fetch(fullUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : ''
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      console.log('✅ [conversationMongoService] Word descargado:', blob.size, 'bytes');
+      return blob;
+    } catch (error) {
+      console.error('❌ [conversationMongoService] Error exportando a Word:', error);
+      throw new Error(
+        error.data?.detail || 
+        error.message || 
+        'Error al exportar a Word'
+      );
+    }
+  },
+
   async getDailyStats(idAgente = null, dias = 7) {
       try {
           console.log('📊 [conversationMongoService] Obteniendo estadísticas diarias', { idAgente, dias });

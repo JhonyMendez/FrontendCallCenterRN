@@ -21,7 +21,8 @@ const CAROUSEL_APPS = [
     subtitulo: '📊 Administración',
     descripcion: 'Administra tu organización desde cualquier lugar',
     color: '#764ba2',
-    appName: 'GestionMovil'
+    appName: 'GestionMovil',
+    image: require('../../../assets/images/TecAiGestionQR.png')
   },
   {
     id: 2,
@@ -30,7 +31,8 @@ const CAROUSEL_APPS = [
     subtitulo: '🤖 ChatBot IA',
     descripcion: 'Chatea con el chatbot inteligente - Solo Android',
     color: '#667eea',
-    appName: 'TecAIMobile'
+    appName: 'TecAIMobile',
+    image: require('../../../assets/images/AsistenteTecAI-1024 (2).png')
   }
 ];
 
@@ -377,7 +379,7 @@ export default function LoginCard({
               ) : (
                 // SLIDES DE APPS - CON QR
                 <View style={{ alignItems: 'center', width: '100%' }}>
-                  {/* Espacio para código QR */}
+                  {/* Espacio para código QR o Imagen */}
                   <View style={{
                     width: 200,
                     height: 200,
@@ -391,13 +393,26 @@ export default function LoginCard({
                     shadowRadius: 25,
                     shadowOffset: { width: 0, height: 0 },
                     borderWidth: 3,
-                    borderColor: 'rgba(255, 255, 255, 0.2)'
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                    overflow: 'hidden'
                   }}>
-                    <Ionicons 
-                      name="qr-code" 
-                      size={130} 
-                      color="rgba(255, 255, 255, 0.7)" 
-                    />
+                    {CAROUSEL_APPS[currentSlide].image ? (
+                      <Image
+                        source={CAROUSEL_APPS[currentSlide].image}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          resizeMode: 'cover'
+                        }}
+                      />
+                    ) : (
+                      <Ionicons 
+                        name="qr-code" 
+                        size={130} 
+                        color="rgba(255, 255, 255, 0.7)" 
+                      />
+                    )}
+
                     <Text style={{
                       position: 'absolute',
                       bottom: 10,
