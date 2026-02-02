@@ -544,6 +544,12 @@ export const conversationMongoService = {
       if (params.incluir_visitante !== undefined && params.incluir_visitante !== null) {
         query.append('incluir_visitante', params.incluir_visitante);
       }
+      
+      // 🔥 NUEVO: Solo datos del visitante
+      if (params.solo_visitante !== undefined && params.solo_visitante !== null && params.solo_visitante === true) {
+        query.append('solo_visitante', true);
+        console.log('👤 Solo visitante agregado: true');
+      }
             
       const queryString = query.toString();
       const endpoint = queryString
@@ -616,6 +622,12 @@ export const conversationMongoService = {
       }
       if (params.incluir_visitante !== undefined && params.incluir_visitante !== null) {
         query.append('incluir_visitante', params.incluir_visitante);
+      }
+      
+      // 🔥 NUEVO: Solo datos del visitante
+      if (params.solo_visitante !== undefined && params.solo_visitante !== null && params.solo_visitante === true) {
+        query.append('solo_visitante', true);
+        console.log('👤 Solo visitante agregado: true');
       }
       
       const queryString = query.toString();

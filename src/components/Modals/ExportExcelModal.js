@@ -39,6 +39,7 @@ export default function ExportExcelModal({
         fecha_inicio: null,
         fecha_fin: null,
         incluir_visitante: true,
+        soloVisitante: false,  // 🔥 NUEVO: Solo datos del visitante (Nombre, Apellido, Email, Ocupación)
         periodo: 'todo'
     };
     
@@ -180,6 +181,12 @@ export default function ExportExcelModal({
             
             // Siempre incluir este parámetro
             params.incluir_visitante = filtros.incluir_visitante;
+
+            // 🔥 NUEVO: Solo datos del visitante
+            if (filtros.soloVisitante === true) {
+                params.solo_visitante = true;
+                console.log('👤 Solo datos del visitante: true');
+            }
 
             console.log('📤 Exportando con parámetros FINALES:', JSON.stringify(params, null, 2));
 
@@ -718,6 +725,37 @@ export default function ExportExcelModal({
                                 }))}
                                 trackColor={{ false: '#3e3e3e', true: '#667eea' }}
                                 thumbColor={filtros.incluir_visitante ? '#fff' : '#f4f3f4'}
+                            />
+                        </View>
+
+                        {/* 🔥 NUEVO: Solo datos del visitante */}
+                        <View style={{
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                            padding: 15,
+                            borderRadius: 12,
+                            marginBottom: 10,
+                            borderWidth: 1,
+                            borderColor: 'rgba(16, 185, 129, 0.3)'
+                        }}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 14, fontWeight: '700', color: '#10b981' }}>
+                                    👤 Solo datos del visitante
+                                </Text>
+                                <Text style={{ fontSize: 12, color: '#6ee7b7', marginTop: 4 }}>
+                                    Nombre, Apellido, Email, Ocupación
+                                </Text>
+                            </View>
+                            <Switch
+                                value={filtros.soloVisitante === true}
+                                onValueChange={(value) => setFiltros(prev => ({ 
+                                    ...prev, 
+                                    soloVisitante: value 
+                                }))}
+                                trackColor={{ false: '#3e3e3e', true: '#10b981' }}
+                                thumbColor={filtros.soloVisitante ? '#fff' : '#f4f3f4'}
                             />
                         </View>
                     </ScrollView>

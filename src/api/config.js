@@ -100,6 +100,7 @@ export const ENDPOINTS = {
     INACTIVE: 'conversations/inactive/list',
     OBTAIN_OR_CREATE: 'conversations/obtain-or-create',
     EXPORT_EXCEL: 'conversations/export/excel',
+    EXPORT_WORD: 'conversations/export/word',
   },
 
   // Departamentos
