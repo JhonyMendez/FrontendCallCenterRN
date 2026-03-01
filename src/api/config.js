@@ -7,12 +7,12 @@ const getBaseURL = () => {
   const API_PATH = '/api/v1/';  // ✅ AGREGADO: Barra final para evitar problemas con FastAPI
   
   // 🔧 CONFIGURACIÓN DE IPs Y URLs
-  const LOCAL_IP = '192.168.5.11';
+  const LOCAL_IP = '192.168.18.193';
   const LOCAL_PORT = '8000';
   const PRODUCTION_URL = 'https://api.engine-tecai.me';
   
   // 🚀 MODO: Cambia entre 'development' o 'production'
-  const MODE = 'production'; // ✅ PRODUCCIÓN: Usa HTTPS a api.engine-tecai.me
+  const MODE = 'development'; // ✅ PRODUCCIÓN: Usa HTTPS a api.engine-tecai.me
 
   // 🤖 ANDROID
   if (Platform.OS === 'android') {
@@ -26,7 +26,7 @@ const getBaseURL = () => {
   // 💻 WEB - Desde el navegador del host, conecta a la IP del host
   if (Platform.OS === 'web') {
     const url = MODE === 'development'
-      ? `http://64.23.152.92:${LOCAL_PORT}${API_PATH}`
+      ? `http://${LOCAL_IP}:${LOCAL_PORT}${API_PATH}`
       : `${PRODUCTION_URL}${API_PATH}`;
     console.log(`🌐 WEB [${MODE.toUpperCase()}] - URL:`, url);
     return url;

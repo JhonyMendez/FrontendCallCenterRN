@@ -252,7 +252,7 @@ export default function GestionAgentePage() {
     area_especialidad: '',
     descripcion: '',
     modelo_ia: 'llama3:8b',
-    temperatura: '0.7',
+    temperatura: '0.3',
     max_tokens: '4000',
     prompt_mision: '',
     prompt_reglas: ['', ''],
@@ -469,7 +469,7 @@ export default function GestionAgentePage() {
       area_especialidad: '',
       descripcion: '',
       modelo_ia: 'llama3:8b',
-      temperatura: '0.7',
+      temperatura: '0.3',
       max_tokens: '4000',
       prompt_mision: '',
       prompt_reglas: ['', ''],
@@ -625,9 +625,9 @@ export default function GestionAgentePage() {
       descripcion: agente.descripcion || '',
       modelo_ia: 'llama3:8b',
       temperatura: (() => {
-        const temp = agente.temperatura?.toString() || '0.6';
+        const temp = agente.temperatura?.toString() || '0.3';
         // ✅ Validar que sea uno de los valores permitidos, sino usar el más cercano
-        const valoresPermitidos = ['0.6', '0.9', '1.2'];
+        const valoresPermitidos = ['0.2', '0.3', '0.5'];
 
         if (valoresPermitidos.includes(temp)) {
           return temp;
@@ -635,9 +635,9 @@ export default function GestionAgentePage() {
 
         // Si el valor no está en los permitidos, buscar el más cercano
         const tempNum = parseFloat(temp);
-        if (tempNum < 0.75) return '0.6';      // Más cercano a 0.6
-        if (tempNum < 1.05) return '0.9';      // Más cercano a 0.9
-        return '1.2';                           // Más cercano a 1.2
+        if (tempNum < 0.25) return '0.2';      // Más cercano a 0.2
+        if (tempNum < 0.4) return '0.3';       // Más cercano a 0.3
+        return '0.5';                          // Más cercano a 0.5
       })(),
       max_tokens: agente.max_tokens?.toString() || '4000',
 
@@ -2434,19 +2434,19 @@ export default function GestionAgentePage() {
                 {/* Temperatura (Creatividad) */}
                 <View style={modalStyles.formGroup}>
                   <Text style={modalStyles.label}>Temperatura (Creatividad) *</Text>
-                  <TooltipIcon text="Controla creatividad: 0.6=Preciso, 0.9=Creativo, 1.2=Muy creativo pero impredecible." />
+                  <TooltipIcon text="Controla creatividad: 0.2=Preciso, 0.3=Balanceado, 0.5=Más creativo." />
 
                   {/* Opciones de Temperatura */}
                   <View style={{ gap: 12 }}>
-                    {/* OPCIÓN 1: Balanceado (0.6) - RECOMENDADO */}
+                    {/* OPCIÓN 1: Balanceado (0.2) - RECOMENDADO */}
                     <TouchableOpacity
                       style={[
                         {
-                          backgroundColor: formData.temperatura === '0.6'
+                          backgroundColor: formData.temperatura === '0.2'
                             ? 'rgba(102, 126, 234, 0.2)'
                             : 'rgba(71, 85, 105, 0.3)',
                           borderWidth: 2,
-                          borderColor: formData.temperatura === '0.6'
+                          borderColor: formData.temperatura === '0.2'
                             ? '#667eea'
                             : 'rgba(148, 163, 184, 0.3)',
                           borderRadius: 12,
@@ -2454,7 +2454,7 @@ export default function GestionAgentePage() {
                         },
                         formErrors.temperatura && { borderColor: '#ef4444' }
                       ]}
-                      onPress={() => setFormData({ ...formData, temperatura: '0.6' })}
+                      onPress={() => setFormData({ ...formData, temperatura: '0.2' })}
                       activeOpacity={0.7}
                     >
                       <View style={isMobile ? { marginBottom: 8 } : { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -2464,22 +2464,22 @@ export default function GestionAgentePage() {
                             height: 24,
                             borderRadius: 12,
                             borderWidth: 2,
-                            borderColor: formData.temperatura === '0.6' ? '#667eea' : '#94a3b8',
-                            backgroundColor: formData.temperatura === '0.6' ? '#667eea' : 'transparent',
+                            borderColor: formData.temperatura === '0.2' ? '#667eea' : '#94a3b8',
+                            backgroundColor: formData.temperatura === '0.2' ? '#667eea' : 'transparent',
                             justifyContent: 'center',
                             alignItems: 'center',
                           }}>
-                            {formData.temperatura === '0.6' && (
+                            {formData.temperatura === '0.2' && (
                               <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
                             )}
                           </View>
                           <Text style={{
-                            color: formData.temperatura === '0.6' ? '#ffffff' : '#94a3b8',
+                            color: formData.temperatura === '0.2' ? '#ffffff' : '#94a3b8',
                             fontSize: 16,
                             fontWeight: '600',
                             ...(isMobile && { flex: 1 }),
                           }}>
-                            ⚖️ Balanceado (0.6)
+                            ⚖️ Balanceado (0.2)
                           </Text>
                         </View>
                         <View style={{
@@ -2501,13 +2501,13 @@ export default function GestionAgentePage() {
                         </View>
                       </View>
                       <Text style={{
-                        color: formData.temperatura === '0.6' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
+                        color: formData.temperatura === '0.2' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
                         fontSize: 13,
                         marginBottom: 8,
                       }}>
                         Uso general - Ideal para la mayoría de casos
                       </Text>
-                      {formData.temperatura === '0.6' && (
+                      {formData.temperatura === '0.2' && (
                         <View style={{
                           backgroundColor: 'rgba(102, 126, 234, 0.1)',
                           borderRadius: 8,
@@ -2536,20 +2536,20 @@ export default function GestionAgentePage() {
                       )}
                     </TouchableOpacity>
 
-                    {/* OPCIÓN 2: Creativo (0.9) */}
+                    {/* OPCIÓN 2: Creativo (0.3) */}
                     <TouchableOpacity
                       style={{
-                        backgroundColor: formData.temperatura === '0.9'
+                        backgroundColor: formData.temperatura === '0.3'
                           ? 'rgba(168, 85, 247, 0.2)'
                           : 'rgba(71, 85, 105, 0.3)',
                         borderWidth: 2,
-                        borderColor: formData.temperatura === '0.9'
+                        borderColor: formData.temperatura === '0.3'
                           ? '#a855f7'
                           : 'rgba(148, 163, 184, 0.3)',
                         borderRadius: 12,
                         padding: 16,
                       }}
-                      onPress={() => setFormData({ ...formData, temperatura: '0.9' })}
+                      onPress={() => setFormData({ ...formData, temperatura: '0.3' })}
                       activeOpacity={0.7}
                     >
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
@@ -2558,31 +2558,31 @@ export default function GestionAgentePage() {
                           height: 24,
                           borderRadius: 12,
                           borderWidth: 2,
-                          borderColor: formData.temperatura === '0.9' ? '#a855f7' : '#94a3b8',
-                          backgroundColor: formData.temperatura === '0.9' ? '#a855f7' : 'transparent',
+                          borderColor: formData.temperatura === '0.3' ? '#a855f7' : '#94a3b8',
+                          backgroundColor: formData.temperatura === '0.3' ? '#a855f7' : 'transparent',
                           justifyContent: 'center',
                           alignItems: 'center',
                         }}>
-                          {formData.temperatura === '0.9' && (
+                          {formData.temperatura === '0.3' && (
                             <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
                           )}
                         </View>
                         <Text style={{
-                          color: formData.temperatura === '0.9' ? '#ffffff' : '#94a3b8',
+                          color: formData.temperatura === '0.3' ? '#ffffff' : '#94a3b8',
                           fontSize: 16,
                           fontWeight: '600',
                         }}>
-                          🎨 Creativo (0.9)
+                          🎨 Creativo (0.3)
                         </Text>
                       </View>
                       <Text style={{
-                        color: formData.temperatura === '0.9' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
+                        color: formData.temperatura === '0.3' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
                         fontSize: 13,
                         marginBottom: 8,
                       }}>
                         Para redacción, ideas y contenido variado
                       </Text>
-                      {formData.temperatura === '0.9' && (
+                      {formData.temperatura === '0.3' && (
                         <View style={{
                           backgroundColor: 'rgba(168, 85, 247, 0.1)',
                           borderRadius: 8,
@@ -2617,20 +2617,20 @@ export default function GestionAgentePage() {
                       )}
                     </TouchableOpacity>
 
-                    {/* OPCIÓN 3: Muy Creativo (1.2) */}
+                    {/* OPCIÓN 3: Muy Creativo (0.5) */}
                     <TouchableOpacity
                       style={{
-                        backgroundColor: formData.temperatura === '1.2'
+                        backgroundColor: formData.temperatura === '0.5'
                           ? 'rgba(251, 146, 60, 0.2)'
                           : 'rgba(71, 85, 105, 0.3)',
                         borderWidth: 2,
-                        borderColor: formData.temperatura === '1.2'
+                        borderColor: formData.temperatura === '0.5'
                           ? '#fb923c'
                           : 'rgba(148, 163, 184, 0.3)',
                         borderRadius: 12,
                         padding: 16,
                       }}
-                      onPress={() => setFormData({ ...formData, temperatura: '1.2' })}
+                      onPress={() => setFormData({ ...formData, temperatura: '0.5' })}
                       activeOpacity={0.7}
                     >
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
@@ -2639,31 +2639,31 @@ export default function GestionAgentePage() {
                           height: 24,
                           borderRadius: 12,
                           borderWidth: 2,
-                          borderColor: formData.temperatura === '1.2' ? '#fb923c' : '#94a3b8',
-                          backgroundColor: formData.temperatura === '1.2' ? '#fb923c' : 'transparent',
+                          borderColor: formData.temperatura === '0.5' ? '#fb923c' : '#94a3b8',
+                          backgroundColor: formData.temperatura === '0.5' ? '#fb923c' : 'transparent',
                           justifyContent: 'center',
                           alignItems: 'center',
                         }}>
-                          {formData.temperatura === '1.2' && (
+                          {formData.temperatura === '0.5' && (
                             <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ffffff' }} />
                           )}
                         </View>
                         <Text style={{
-                          color: formData.temperatura === '1.2' ? '#ffffff' : '#94a3b8',
+                          color: formData.temperatura === '0.5' ? '#ffffff' : '#94a3b8',
                           fontSize: 16,
                           fontWeight: '600',
                         }}>
-                          🚀 Muy Creativo (1.2)
+                          🚀 Muy Creativo (0.5)
                         </Text>
                       </View>
                       <Text style={{
-                        color: formData.temperatura === '1.2' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
+                        color: formData.temperatura === '0.5' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.6)',
                         fontSize: 13,
                         marginBottom: 8,
                       }}>
                         Experimental - Solo para casos especiales
                       </Text>
-                      {formData.temperatura === '1.2' && (
+                      {formData.temperatura === '0.5' && (
                         <View style={{
                           backgroundColor: 'rgba(251, 146, 60, 0.1)',
                           borderRadius: 8,
