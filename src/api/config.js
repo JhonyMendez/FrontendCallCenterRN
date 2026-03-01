@@ -191,7 +191,7 @@ export const ENDPOINTS = {
 
   // Usuario-Agente
   USUARIO_AGENTE: {
-    BASE: 'usuario-agente',  // ✅ CON barra final
+    BASE: 'usuario-agente/',  // ✅ CON barra final (para consistencia con otros endpoints)
     BY_ID: (id) => `usuario-agente/${id}`,
     BY_USUARIO: (idUsuario) => `usuario-agente/usuario/${idUsuario}`,
     BY_AGENTE: (idAgente) => `usuario-agente/agente/${idAgente}`,
